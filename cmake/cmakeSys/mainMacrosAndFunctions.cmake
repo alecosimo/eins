@@ -1,12 +1,12 @@
 # Add a test
 # filePath: file name with extension and complete path
 # command: command to run the test: it must be a STRING
-macro(M_ADD_TEST filePath command)
+macro(M_ADD_TEST filePath command libraries)
   get_filename_component(target ${filePath} NAME_WE)
   add_executable("test_${target}" EXCLUDE_FROM_ALL ${filePath})
   set_property(TARGET "test_${target}" PROPERTY OUTPUT_NAME ${target})
   set_property(TARGET "test_${target}" PROPERTY RUNTIME_OUTPUT_DIRECTORY ${CMAKE_TEST_OUTPUT_DIRECTORY})
-  target_link_libraries("test_${target}" ${EinsTests_libraries})
+  target_link_libraries("test_${target}" ${libraries})
   string(REPLACE " " ";" command_list ${command})
   add_test(NAME "test_${target}" COMMAND ${command_list} WORKING_DIRECTORY ${CMAKE_TEST_OUTPUT_DIRECTORY})
   add_dependencies(check "test_${target}")  
