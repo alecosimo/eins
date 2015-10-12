@@ -1,8 +1,45 @@
-#include <petscsys.h>
+#include <eins.h>
+#if PETSC_VERSION_LT(3,6,0)
+#include <petsc-private/kspimpl.h>
+#else
+#include <petsc/private/kspimpl.h>
+#endif
 
-/* ------------------------ Global variables -------------------------------*/
-PetscBool   EinsInitializeCalled = PETSC_FALSE;
-PetscBool   EinsFinalizeCalled = PETSC_FALSE;
+
+PETSC_EXTERN PetscBool EinsInitializeCalled;
+PETSC_EXTERN PetscBool EinsFinalizeCalled;
+PETSC_EXTERN PetscBool EinsRegisterAllCalled;
+
+PETSC_EXTERN PetscFunctionList KSPList;
+
+EXTERN_C_BEGIN
+PetscErrorCode KSPCreate_PJGMRES(KSP);
+EXTERN_C_END
+
+PetscBool EinsInitializeCalled   = PETSC_FALSE;
+PetscBool EinsFinalizeCalled     = PETSC_FALSE;
+PetscBool EinsRegisterAllCalled  = PETSC_FALSE;
+
+
+#undef  __FUNCT__
+#define __FUNCT__ "EinsRegisterAll"
+/*
+  Register all methods to KSP, TS, PC and SNES packages  
+ */
+PetscErrorCode EinsRegisterAll(void)
+{
+  PetscErrorCode ierr;
+  PetscFunctionBegin;
+  EinsRegisterAllCalled = PETSC_TRUE;
+  /*Register KSP*/
+  ierr = KSPRegisterAll();CHKERRQ(ierr);
+  ierr = KSPRegister(KSPPJGMRES,KSPCreate_PJGMRES);CHKERRQ(ierr);
+  /*Register PC*/
+  /*Register TS*/
+  /*Register SNES*/
+  PetscFunctionReturn(0);
+}
+
 
 #undef __FUNCT__
 #define __FUNCT__ "EinsInitialize"
@@ -36,7 +73,12 @@ PetscErrorCode  EinsInitialize(int *argc,char ***args,const char file[],const ch
   if (EinsInitializeCalled) PetscFunctionReturn(0);
   ierr = PetscInitialized(&petscCalled);CHKERRQ(ierr);
   if(!petscCalled)  {ierr = PetscInitialize(argc,args,file,help);CHKERRQ(ierr);}
-    
+  /* Register Classes */
+  /*-- */
+  /* Register Constructors */
+  ierr = EinsRegisterAll();CHKERRQ(ierr);
+  /* Register Events */
+  /*-- */
   EinsInitializeCalled = PETSC_TRUE;
   EinsFinalizeCalled   = PETSC_FALSE;
   PetscFunctionReturn(0);
@@ -57,19 +99,21 @@ PetscErrorCode  EinsInitialize(int *argc,char ***args,const char file[],const ch
 PetscErrorCode  EinsFinalize(void)
 {
   PetscBool petscFinalized;
-  
+
   PetscFunctionBegin;
   if (!EinsInitializeCalled) {
     printf("EinsInitialize() must be called before EinsFinalize()\n");
     PetscFunctionReturn(PETSC_ERR_ARG_WRONGSTATE);
   }
+  if (KSPList) {ierr = PetscFunctionListDestroy(&KSPList);CHKERRQ(ierr);}
   ierr = PetscFinalized(petscFinalized);CHKERRQ(ierr);
-  if(!petscFinalized)  {ierr = PetscFinalize();CHKERRQ(ierr);}
-   
-  EinsInitializeCalled = PETSC_FALSE;
-  EinsFinalizeCalled   = PETSC_TRUE;
+  if(!petscFinalized)  {ierr = PetscFinalize();CHKERRQ(ierr);}   
+  EinsInitializeCalled  = PETSC_FALSE;
+  EinsFinalizeCalled    = PETSC_TRUE;
+  EinsRegisterAllCalled = PETSC_FALSE;
   PetscFunctionReturn(0);
 }
+
 
 #undef __FUNCT__
 #define __FUNCT__ "EinsInitialized"
@@ -85,6 +129,7 @@ PetscErrorCode EinsInitialized(PetscBool  *isInitialized)
   *isInitialized = EinsInitializeCalled;
   return 0;
 }
+
 
 #undef __FUNCT__
 #define __FUNCT__ "EinsFinalized"
