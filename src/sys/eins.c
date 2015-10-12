@@ -29,6 +29,7 @@ PetscBool EinsRegisterAllCalled  = PETSC_FALSE;
 PetscErrorCode EinsRegisterAll(void)
 {
   PetscErrorCode ierr;
+
   PetscFunctionBegin;
   EinsRegisterAllCalled = PETSC_TRUE;
   /*Register KSP*/
@@ -68,6 +69,7 @@ PetscErrorCode EinsRegisterAll(void)
 PetscErrorCode  EinsInitialize(int *argc,char ***args,const char file[],const char help[])
 {
   PetscBool petscCalled;
+  PetscErrorCode ierr;
   
   PetscFunctionBegin;
   if (EinsInitializeCalled) PetscFunctionReturn(0);
@@ -99,14 +101,15 @@ PetscErrorCode  EinsInitialize(int *argc,char ***args,const char file[],const ch
 PetscErrorCode  EinsFinalize(void)
 {
   PetscBool petscFinalized;
-
+  PetscErrorCode ierr;
+  
   PetscFunctionBegin;
   if (!EinsInitializeCalled) {
     printf("EinsInitialize() must be called before EinsFinalize()\n");
     PetscFunctionReturn(PETSC_ERR_ARG_WRONGSTATE);
   }
   if (KSPList) {ierr = PetscFunctionListDestroy(&KSPList);CHKERRQ(ierr);}
-  ierr = PetscFinalized(petscFinalized);CHKERRQ(ierr);
+  ierr = PetscFinalized(&petscFinalized);CHKERRQ(ierr);
   if(!petscFinalized)  {ierr = PetscFinalize();CHKERRQ(ierr);}   
   EinsInitializeCalled  = PETSC_FALSE;
   EinsFinalizeCalled    = PETSC_TRUE;

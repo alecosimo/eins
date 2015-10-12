@@ -19,4 +19,7 @@ PETSC_EXTERN PetscErrorCode EinsFinalized(PetscBool *);
 
 /* ---------------------------------------------------------------- */
 
+#define KSPPJGMRES "pjgmres"
+
+
 #endif/*EINS_H*/

@@ -490,13 +490,13 @@ PetscErrorCode KSPView_PJGMRES(KSP ksp,PetscViewer viewer)
   ierr = PetscObjectTypeCompare((PetscObject)viewer,PETSCVIEWERSTRING,&isstring);CHKERRQ(ierr);
   if (gmres->orthog == KSPGMRESClassicalGramSchmidtOrthogonalization) {
     switch (gmres->cgstype) {
-    case (KSP_PJGMRES_CGS_REFINE_NEVER):
+    case (KSP_GMRES_CGS_REFINE_NEVER):
       cstr = "Classical (unmodified) Gram-Schmidt Orthogonalization with no iterative refinement";
       break;
-    case (KSP_PJGMRES_CGS_REFINE_ALWAYS):
+    case (KSP_GMRES_CGS_REFINE_ALWAYS):
       cstr = "Classical (unmodified) Gram-Schmidt Orthogonalization with one step of iterative refinement";
       break;
-    case (KSP_PJGMRES_CGS_REFINE_IFNEEDED):
+    case (KSP_GMRES_CGS_REFINE_IFNEEDED):
       cstr = "Classical (unmodified) Gram-Schmidt Orthogonalization with one step of iterative refinement when needed";
       break;
     default:
@@ -596,8 +596,8 @@ PetscErrorCode KSPSetFromOptions_PJGMRES(PetscOptions *PetscOptionsObject,KSP ks
   PetscFunctionReturn(0);
 }
 
-extern PetscErrorCode KSPComputeExtremeSingularValues_PJGMRES(KSP,PetscReal*,PetscReal*);
-extern PetscErrorCode KSPComputeEigenvalues_PJGMRES(KSP,PetscInt,PetscReal*,PetscReal*,PetscInt*);
+extern PetscErrorCode KSPComputeExtremeSingularValues_GMRES(KSP,PetscReal*,PetscReal*);
+extern PetscErrorCode KSPComputeEigenvalues_GMRES(KSP,PetscInt,PetscReal*,PetscReal*,PetscInt*);
 
 #undef __FUNCT__
 #define __FUNCT__ "KSPGMRESSetHapTol_PJGMRES"
@@ -911,8 +911,8 @@ PETSC_EXTERN PetscErrorCode KSPCreate_PJGMRES(KSP ksp)
   ksp->ops->destroy                      = KSPDestroy_PJGMRES;
   ksp->ops->view                         = KSPView_PJGMRES;
   ksp->ops->setfromoptions               = KSPSetFromOptions_PJGMRES;
-  ksp->ops->computeextremesingularvalues = KSPComputeExtremeSingularValues_PJGMRES;
-  ksp->ops->computeeigenvalues           = KSPComputeEigenvalues_PJGMRES;
+  ksp->ops->computeextremesingularvalues = KSPComputeExtremeSingularValues_GMRES;
+  ksp->ops->computeeigenvalues           = KSPComputeEigenvalues_GMRES;
 
   ierr = PetscObjectComposeFunction((PetscObject)ksp,"KSPGMRESSetPreAllocateVectors_C",KSPGMRESSetPreAllocateVectors_PJGMRES);CHKERRQ(ierr);
   ierr = PetscObjectComposeFunction((PetscObject)ksp,"KSPGMRESSetOrthogonalization_C",KSPGMRESSetOrthogonalization_PJGMRES);CHKERRQ(ierr);
@@ -931,7 +931,7 @@ PETSC_EXTERN PetscErrorCode KSPCreate_PJGMRES(KSP ksp)
   gmres->sol_temp       = 0;
   gmres->max_k          = GMRES_DEFAULT_MAXK;
   gmres->Rsvd           = 0;
-  gmres->cgstype        = KSP_PJGMRES_CGS_REFINE_NEVER;
+  gmres->cgstype        = KSP_GMRES_CGS_REFINE_NEVER;
   gmres->orthogwork     = 0;
   PetscFunctionReturn(0);
 }
