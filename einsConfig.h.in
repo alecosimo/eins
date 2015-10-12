@@ -1,0 +1,3 @@
+#define EINS_VERSION @EINS_VERSION@
+
+#cmakedefine DEBUG

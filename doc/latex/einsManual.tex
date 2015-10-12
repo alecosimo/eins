@@ -1,0 +1,249 @@
+\documentclass[a4paper,11pt]{report}
+\renewcommand{\rmdefault}{phv} %Arial
+\renewcommand{\sfdefault}{phv} %Arial
+\usepackage[hmargin=2cm,vmargin=2cm, top=2cm, bottom=2cm]{geometry}
+\usepackage{hyperref}
+\hypersetup{
+  colorlinks,
+  citecolor=blue
+}
+\usepackage{color}
+\usepackage{bm}
+\usepackage{cite}
+\usepackage{graphicx}
+\usepackage{subfig, float}
+\usepackage{verbatim}
+\usepackage{minted}
+
+
+\let\oldbibliography\thebibliography
+\renewcommand{\thebibliography}[1]{%
+  \oldbibliography{#1}%
+  \setlength{\itemsep}{0pt}%
+}
+
+
+
+\begin{document}
+
+
+\title{\color{blue}The EINS project: ``Efficient Integrators and
+  Non-linear Solvers''}
+\author{Alejandro Cosimo}
+
+\maketitle
+\tableofcontents
+
+\chapter{Discussion of the FETI implementation in PETSc}
+
+We want to solve a problem of the form
+\begin{equation}
+\bm{K u = f}
+\end{equation}
+by using the FETI-1 method. Based on the fact that FETI iterates on a
+different linear system, I was planning to implement it as a
+preconditioner (which is identified in the following as PCFETI) and to specify
+as KSP type KSPPREONLY. The PCFETI preconditioner builds and solves
+iteratively the interface problem with the FETI preconditioner specified by
+the user (Dirichlet or lumped). The following code provides a basic
+sketch of how the user would interact with the FETI implementation in
+petsc.
+
+
+\begin{minted}[frame=lines,framesep=2mm,linenos,mathescape]{c}
+  KSPCreate(comm,&ksp);
+  KSPSetOperators(ksp,K,K); /*Here K is an unassembled Mat$\label{kline}$*/ 
+  KSPSetType(ksp,KSPPREONLY);
+  KSPGetPC(ksp,&pc);
+  PCSetType(pc,PCFETI);
+  ...
+  FETISetPreconditioner(pc,DIRICHLET); /*Example: setting a FETI option*/
+  ...
+  KSPSetUp(ksp);/*FETI PCSetUp() is called. Builds matrix F of the interface problem*/
+  ...
+  KSPSolve(ksp,f,u); /*$\label{solveline}$Here f and u would have to be unassembled
+  Vecs. At this step the rhs of the interface problem is computed and
+  the system solved iteratively*/
+  FETIGetLambda(pc,lambda); /*Give the user the option to ask for lambda*/
+  FETIGetGlobalSolution(pc,u,ug); /*$\label{globalline}$u is the unassembled solution,
+  give the user the option to get a global vector with the solution*/
+  ...
+\end{minted}
+
+From this simple code the following requirements are inferred:
+
+\begin{enumerate}
+\item \textbf{Unassembled matrix}: We need to provide K in a globally
+  unassembled form (line \ref{kline}). The matrix type MATIS supports
+  this feature, nonetheless it has many other features which are not
+  needed for the FETI implementation. For example, the
+  matrix-vector product provided by MATIS is not needed by FETI,
+  because FETI does not iterate
+  over every DOF but only over interface DOFs. From this point
+  the following questions arise:
+  \begin{enumerate}
+  \item Wouldn't be better to define a new matrix type which only
+    provides the feature of defining a matrix in a globally
+    unassembled form? For example, to define MATUNASSEMBLED type...
+  \item PCIS in PCISetUp relies on a pointer to a MATIS matrix for
+    setting up the preconditioner. So, if we decide not to use the
+    MATIS matrix type, we would have to implement part of the features
+    provided by PCIS as part of the FETI preconditioner. Does it makes
+    sense to re-implement part of the behaviour of PCIS? (The
+    following question is related to this issue).
+  \item I also have other concerns regarding the PCIS, mainly: is every
+    work vector defined in PCIS useful for the FETI
+    implementation? I don't really see that the design of PCIS
+    corresponds to a context common to all iterative substructuring
+    preconditioners...
+  \item Would it be a good design decision to deviate from the
+    PCIS-MATIS design? (At least for FETI which does not iterate over
+    every dof). I am trying to keep aligned to the adopted philosophy
+    in petsc for iterative substructuring preconditioners, but I do
+    not get to see the need to inherit some behavior that is not
+    required by FETI.
+  \end{enumerate}
+
+\item \textbf{Unassembled vector}: in line \ref{solveline} I am saying
+  that vectors $\bm{f}$ and $\bm{u}$ are globally unassembled
+  vectors. I think that, from the user point of view, it makes more
+  sense to define those vectors as globally unassembled and not as
+  global (distributed) assembled vectors. What do you think about
+  this? In this case, I would have to define a new vector type,
+  something like VECUNASSEMBLED. Then, the FETI preconditioner could
+  provide a function to get the solution as a global distributed
+  vector if needed (line \ref{globalline}).
+  
+\item \textbf{Code reusing}: there are some functionalities
+  that you have already implemented in the BDDC preconditioner that I
+  would need when implementing FETI. A good example is the functionality
+  provided by \verb!PCBDDCSubsetNumbering()!. In this case, how do you
+  recommend to proceed in order to follow a ``code reuse'' philosophy?
+  Shouldn't these kind of functionalities be part of a class with the
+  main ingredients which are common to every iterative substructuring
+  preconditioner?
+
+\item \textbf{Support of projections in petsc solvers}: for implementing
+  the support of the projection and reprojection phases in petsc iterative
+  solvers, I am planning to introduce the functions
+  \verb!ApplyProjection! and \verb!ApplyReProjection! to the petsc
+  implementation in the same way that, for example, \verb!ApplyPC! is
+  supported. What do you think about this? Would you proceed like
+  this?
+
+\item \textbf{Support of projections in GMRES}: after implementing the
+  support of \verb!ApplyProjection! and \verb!ApplyReProjection!, I
+  will have to incorporate the behavior to one of the petsc iterative
+  solvers. I am going to begin by the GMRES solver because it prevents
+  me from implementing the re-orthogonalization that is required when
+  CG is adopted as iterative solver for FETI. Do you recommend me to
+  define a new GMRES in petsc, or to modify the already exiting GMRES
+  implementation by introducing the option of performing the phases of
+  projection and reprojection?
+
+\end{enumerate}
+
+\chapter{Some notes for developers}
+
+\section{Style guide}
+
+The style guides proposed by the PETSc project will be adopted in this
+project. People interested in collaborating with the EINS project
+should first take a look to the PETSc Developers Manual
+\cite{petsc-dev}.
+
+The EINS project relies on the \verb!doctext! tool for producing the
+documentation of the code. Please, havea look to the User's manual for
+doctext \cite{doctext} in order to correctly document the code.
+
+
+\section{The git EINS repository}
+
+Good practices for the version control of the EINS project:
+\begin{itemize}
+\item Avoid placing ignore rules in the local \verb!.gitignore! file
+  that only apply to you. For example, if you build your cmake
+  project in a directory named \verb!${EINS_DIR}/buildEins!, you don't
+  add the ignore rule in the \verb!.gitignore! file from the EINS
+  project, but you include that rule in your global \verb!.gitignore_global!
+  file. In order to set up your global \verb!.gitignore_global! file, first
+  create that file, for example in your home directory, and then type
+  \mint{bash}!git config --global core.excludesfile ~/.gitignore_global!
+\end{itemize}
+
+
+
+\chapter{CMake project implementation}
+
+\section{Basic description of the CMake project}
+
+The scope of the entire cmake project is the one of the current main
+CMakeLists file, so some tips:
+
+\begin{itemize}
+\item Avoid using \verb!add_subdirectory! and instead use
+  \verb!include!. The include command does not change the current
+  scope. The \verb!add_directory! changes the scope to the added
+  directory.
+\item Each target will be defined by the variable \verb!targetName!
+  and in general any property will be identified by
+  \verb!targetName_property!
+\end{itemize}
+
+\noindent Some rules to follow for the implementation of the CMake project:
+
+\begin{itemize}
+\item CMake commands are lowercase, e.g. \verb!cmake_minimum_required()!.
+\item User macros are uppercase and begin with \verb!M!, e.g. \verb!M_DO_IT()!.
+\item User functions are lowercase without the character \verb!_! between
+  capitalized words, e.g. \verb!addResource()!.
+\item Use macros only where estrictly necessary.  
+\end{itemize}
+
+\section{Basic description of the CTest project}
+
+In order to make easier the process of developing stable code, you can
+incorporate tests to EINS. For that, you will have to following steps:
+
+\begin{enumerate}
+\item Code your test and place it in \verb!${EINS_DIR}/test!. You can
+  use the petsc function \verb!SETERRQ! to raice an error in case the
+  test is not passed. CTest considers that the test run
+  successfully only if it returns ``0''.  
+\item Include the test to the EINS CMake project by modifying the file
+  \verb!${EINS_DIR}/test/CMakeLists.txt!. Use the macro
+  \verb!M_ADD_TEST! whose parameter are the test file and the command
+  to run that test. For example:
+  \mint{cmake}!M_ADD_TEST("${path}/test.c" "mpiexec -n 4 ./test")!
+\item Add a brief description of the test by creating a file with the
+  same name of the source code of the test and with the extension
+  \verb!rst!, that is like \verb!<TestName>.rst!. For writing the
+  content of this file use the
+  \href{https://en.wikipedia.org/wiki/ReStructuredText}{ReStructuredText}
+  markup features.
+\end{enumerate}
+
+
+
+
+\section{Helpful resources for extending the CMake implementation}
+
+\begin{itemize}
+\item \href{http://www.cmake.org/Wiki/CMake_FAQ}{Cmake FAQ}
+\item \href{http://www.cmake.org/cmake/help/v3.0/command/set_target_properties.html}{Properties definition}
+\item \href{http://www.swig.org/Doc1.3/Introduction.html}{SWIG Introduction}
+\item
+  \href{http://www.cmake.org/Wiki/CMake\%3aCPackConfiguration}{CPack
+    Configuration}
+\item \href{http://www.vtk.org/Wiki/CMakeEmulateMakeCheck}{CTest
+  emulating make check}
+\item \href{https://cmake.org/Wiki/CMake/Testing_With_CTest}{Testing
+  with CTest}
+\end{itemize}
+
+{\small
+{\bibliographystyle{acm}
+  \bibliography{biblio}}}
+
+
+\end{document}
