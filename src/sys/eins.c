@@ -1,3 +1,5 @@
+#include <petscsys.h>
+
 /* ------------------------ Global variables -------------------------------*/
 PetscBool   EinsInitializeCalled = PETSC_FALSE;
 PetscBool   EinsFinalizeCalled = PETSC_FALSE;
@@ -28,64 +30,73 @@ PetscBool   EinsFinalizeCalled = PETSC_FALSE;
 @*/
 PetscErrorCode  EinsInitialize(int *argc,char ***args,const char file[],const char help[])
 {
-  PetscErrorCode ierr;
-  PetscMPIInt    flag, size;
-  PetscBool      flg;
-  char           hostname[256];
-
+  PetscBool petscCalled;
+  
   PetscFunctionBegin;
   if (EinsInitializeCalled) PetscFunctionReturn(0);
-
-  PetscInitialize(argc,args,file,help);
+  ierr = PetscInitialized(&petscCalled);CHKERRQ(ierr);
+  if(!petscCalled)  {ierr = PetscInitialize(argc,args,file,help);CHKERRQ(ierr);}
     
   EinsInitializeCalled = PETSC_TRUE;
+  EinsFinalizeCalled   = PETSC_FALSE;
   PetscFunctionReturn(0);
 }
 
 
 #undef __FUNCT__
-#define __FUNCT__ "PetscFinalize"
+#define __FUNCT__ "EinsFinalize"
 /*@C
-   PetscFinalize - Checks for options to be called at the conclusion
-   of the program. MPI_Finalize() is called only if the user had not
-   called MPI_Init() before calling PetscInitialize().
+   EinsFinalize - Finalizes the program. Calls to PetscFinalize().
 
    Collective on PETSC_COMM_WORLD
 
-   Options Database Keys:
-+  -options_table - Calls PetscOptionsView()
-.  -options_left - Prints unused options that remain in the database
-.  -objects_dump [all] - Prints list of objects allocated by the user that have not been freed, the option all cause all outstanding objects to be listed
-.  -mpidump - Calls PetscMPIDump()
-.  -malloc_dump - Calls PetscMallocDump()
-.  -malloc_info - Prints total memory usage
--  -malloc_log - Prints summary of memory usage
-
    Level: beginner
 
-   Note:
-   See PetscInitialize() for more general runtime options.
-
-.seealso: PetscInitialize(), PetscOptionsView(), PetscMallocDump(), PetscMPIDump(), PetscEnd()
+.seealso: EinsInitialize()
 @*/
 PetscErrorCode  EinsFinalize(void)
 {
-  PetscErrorCode ierr;
-  PetscMPIInt    rank;
-  PetscInt       nopt;
-  PetscBool      flg1 = PETSC_FALSE,flg2 = PETSC_FALSE,flg3 = PETSC_FALSE;
-  PetscBool      flg;
-#if defined(PETSC_USE_LOG)
-  char           mname[PETSC_MAX_PATH_LEN];
-#endif
-
+  PetscBool petscFinalized;
+  
   PetscFunctionBegin;
-  if (!PetscInitializeCalled) {
-    printf("PetscInitialize() must be called before PetscFinalize()\n");
+  if (!EinsInitializeCalled) {
+    printf("EinsInitialize() must be called before EinsFinalize()\n");
     PetscFunctionReturn(PETSC_ERR_ARG_WRONGSTATE);
   }
+  ierr = PetscFinalized(petscFinalized);CHKERRQ(ierr);
+  if(!petscFinalized)  {ierr = PetscFinalize();CHKERRQ(ierr);}
+   
+  EinsInitializeCalled = PETSC_FALSE;
+  EinsFinalizeCalled   = PETSC_TRUE;
+  PetscFunctionReturn(0);
+}
 
-  PetscInitializeCalled = PETSC_FALSE;
-  PetscFinalizeCalled   = PETSC_TRUE;
-  PetscFunctionReturn(ierr);
+#undef __FUNCT__
+#define __FUNCT__ "EinsInitialized"
+/*@
+   EinsInitialized - Determine whether EINS is initialized.
+
+   Level: beginner
+
+.seealso: EinsInitialize()
+@*/
+PetscErrorCode EinsInitialized(PetscBool  *isInitialized)
+{
+  *isInitialized = EinsInitializeCalled;
+  return 0;
+}
+
+#undef __FUNCT__
+#define __FUNCT__ "EinsFinalized"
+/*@
+      EinsFinalized - Determine whether EinsFinalize() has been called yet
+
+   Level: developer
+
+.seealso: EinsInitialize()
+@*/
+PetscErrorCode  EinsFinalized(PetscBool  *isFinalized)
+{
+  *isFinalized = EinsFinalizeCalled;
+  return 0;
 }
