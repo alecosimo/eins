@@ -10,7 +10,7 @@ include("${CMAKE_SOURCE_DIR}/cmake/cmakeSys/mainMacrosAndFunctions.cmake")
 
 # Options for this project. Try to specify every option here
 option(BUILD_DOCUMENTATION "Build the documentation"  ON)
-option(ENABLE_PEDANTIC     "Enable pedantic warnings" ON)
+option(ENABLE_PEDANTIC     "Enable pedantic warnings" OFF)
 
 # Declare and define every CMake variable in what follows
 # ---------------------------------------------------
