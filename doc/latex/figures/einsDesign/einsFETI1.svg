@@ -15,7 +15,7 @@
    id="svg2"
    version="1.1"
    inkscape:version="0.91 r13725"
-   sodipodi:docname="einsFETICommon.svg">
+   sodipodi:docname="einsFETI1.svg">
   <defs
      id="defs4">
     <marker
@@ -152,9 +152,9 @@
      borderopacity="1.0"
      inkscape:pageopacity="0.0"
      inkscape:pageshadow="2"
-     inkscape:zoom="4"
-     inkscape:cx="411.62489"
-     inkscape:cy="580.7678"
+     inkscape:zoom="2.8284271"
+     inkscape:cx="345.99105"
+     inkscape:cy="599.42428"
      inkscape:document-units="px"
      inkscape:current-layer="layer1"
      showgrid="true"
@@ -189,7 +189,7 @@
         <dc:format>image/svg+xml</dc:format>
         <dc:type
            rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
-        <dc:title></dc:title>
+        <dc:title />
       </cc:Work>
     </rdf:RDF>
   </metadata>
@@ -207,9 +207,9 @@
        style="opacity:1;fill:none;fill-opacity:1;stroke:#28220b;stroke-width:1;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
        id="rect10334"
        width="125"
-       height="149"
+       height="79.75"
        x="323.5"
-       y="393.36221" />
+       y="393.36218" />
     <flowRoot
        xml:space="preserve"
        id="flowRoot10344"
@@ -222,17 +222,11 @@
            x="511"
            y="393.36221"
            style="font-size:10px" /></flowRegion><flowPara
-         id="flowPara10350">Vec lambda;</flowPara><flowPara
-         id="flowPara10352">Mat F;</flowPara><flowPara
-         id="flowPara10354">Vec d;</flowPara><flowPara
-         id="flowPara10356">KSP interface_solver;</flowPara><flowPara
-         id="flowPara10358">Subdomain sbm;</flowPara><flowPara
-         id="flowPara10360">Mat A_II, A_BB, A_IB;</flowPara><flowPara
-         id="flowPara10362">Mat Wscaling;</flowPara><flowPara
-         id="flowPara10364">ScalingType sclType;</flowPara><flowPara
-         id="flowPara10366">Mat B_delta, B_Ddelta;</flowPara><flowPara
-         id="flowPara10368">MPI_Comm comm;</flowPara><flowPara
-         id="flowPara10370">PetscContainer container;</flowPara></flowRoot>    <rect
+         id="flowPara10350">PETSCHEADER;</flowPara><flowPara
+         id="flowPara10354">QType qtype;</flowPara><flowPara
+         id="flowPara10356">Mat Q;</flowPara><flowPara
+         id="flowPara10370">Mat localG;</flowPara><flowPara
+         id="flowPara10591">.....</flowPara></flowRoot>    <rect
        style="opacity:1;fill:none;fill-opacity:1;stroke:#28220b;stroke-width:1;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
        id="rect10447"
        width="124.98248"
@@ -242,64 +236,45 @@
     <text
        xml:space="preserve"
        style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:12.5px;line-height:125%;font-family:'Liberation Sans';-inkscape-font-specification:'Liberation Sans, Normal';text-align:start;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
-       x="346.95926"
-       y="390.40558"
+       x="367.20926"
+       y="389.90558"
        id="text10449"
        sodipodi:linespacing="125%"><tspan
          sodipodi:role="line"
          id="tspan10451"
-         x="346.95926"
-         y="390.40558">FETICommon</tspan></text>
+         x="367.20926"
+         y="389.90558">FETI1</tspan></text>
     <rect
-       style="opacity:1;fill:none;fill-opacity:1;stroke:#44aa00;stroke-width:1;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       style="opacity:1;fill:none;fill-opacity:1;stroke:#44aa00;stroke-width:0.99999994;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
        id="rect10453"
        width="135.25"
-       height="49.75"
-       x="318.75"
-       y="395.36221" />
-    <flowRoot
-       xml:space="preserve"
-       id="flowRoot10455"
-       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:10px;line-height:125%;font-family:'Liberation Sans';-inkscape-font-specification:'Liberation Sans, Normal';text-align:start;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;text-anchor:start;fill:#44aa00;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;"
-       transform="translate(-12.5,6.5)"><flowRegion
-         id="flowRegion10457"><rect
-           id="rect10459"
-           width="102.5"
-           height="48.25"
-           x="471.75"
-           y="398.11221"
-           style="fill:#44aa00;" /></flowRegion><flowPara
-         id="flowPara10461">Common attributes for the interface problem</flowPara></flowRoot>    <rect
-       style="opacity:1;fill-opacity:1;stroke:#00aad4;stroke-width:1;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;fill:none"
+       height="11"
+       x="318.5"
+       y="448.61221" />
+    <rect
+       style="opacity:1;fill:none;fill-opacity:1;stroke:#00aad4;stroke-width:1;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
        id="rect10463"
        width="133.75"
        height="25"
-       x="318.75"
-       y="470.61221" />
+       x="319.75"
+       y="408.11221" />
     <flowRoot
        xml:space="preserve"
        id="flowRoot10465"
-       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:10px;line-height:125%;font-family:'Liberation Sans';-inkscape-font-specification:'Liberation Sans, Normal';text-align:start;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;text-anchor:start;fill:#00aad4;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;"
-       transform="translate(-5,2)"><flowRegion
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:10px;line-height:125%;font-family:'Liberation Sans';-inkscape-font-specification:'Liberation Sans, Normal';text-align:start;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;text-anchor:start;fill:#00aad4;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       transform="translate(-8,-60.25)"><flowRegion
          id="flowRegion10467"><rect
            id="rect10469"
-           width="123.25"
-           height="28.5"
+           width="122"
+           height="25.25"
            x="465.25"
            y="468.61221"
-           style="fill:#00aad4;" /></flowRegion><flowPara
-         id="flowPara10471">Scaling. It can also be modelled by its own struct</flowPara></flowRoot>    <rect
-       style="opacity:1;fill:none;fill-opacity:1;stroke:#44aa00;stroke-width:1;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
-       id="rect10453-9"
-       width="135.25"
-       height="14.25"
-       x="318.375"
-       y="520.23724" />
-    <flowRoot
+           style="fill:#00aad4" /></flowRegion><flowPara
+         id="flowPara10471">Matrix Q for the projection of static problems</flowPara></flowRoot>    <flowRoot
        xml:space="preserve"
        id="flowRoot10455-0"
        style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:10px;line-height:125%;font-family:'Liberation Sans';-inkscape-font-specification:'Liberation Sans, Normal';text-align:start;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;text-anchor:start;fill:#44aa00;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
-       transform="translate(-11.817871,110.49556)"><flowRegion
+       transform="translate(-14.317871,39.74556)"><flowRegion
          id="flowRegion10457-5"><rect
            id="rect10459-2"
            width="114"
@@ -307,5 +282,5 @@
            x="471.75"
            y="398.11221"
            style="fill:#44aa00" /></flowRegion><flowPara
-         id="flowPara10461-8">PetscContainer for composing FETICommon to Mat F</flowPara></flowRoot>  </g>
+         id="flowPara10461-8">Maybe a simple petsc object can be used for handling the projection</flowPara></flowRoot>  </g>
 </svg>

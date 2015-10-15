@@ -14,6 +14,7 @@
 \usepackage{subfig, float}
 \usepackage{verbatim}
 \usepackage{minted}
+\usepackage{enumitem}
 
 
 \let\oldbibliography\thebibliography
@@ -34,114 +35,89 @@
 \maketitle
 \tableofcontents
 
-\chapter{Discussion of the FETI implementation in PETSc}
+\chapter{Design of the implementation of FETI formulations}
 
-We want to solve a problem of the form
-\begin{equation}
-\bm{K u = f}
-\end{equation}
-by using the FETI-1 method. Based on the fact that FETI iterates on a
-different linear system, I was planning to implement it as a
-preconditioner (which is identified in the following as PCFETI) and to specify
-as KSP type KSPPREONLY. The PCFETI preconditioner builds and solves
-iteratively the interface problem with the FETI preconditioner specified by
-the user (Dirichlet or lumped). The following code provides a basic
-sketch of how the user would interact with the FETI implementation in
-petsc.
+This section gives an overview of the design of the implementation of
+FETI formulations in EINS. The design must be general enough in order
+to consider different FETI formulations, such as the FETI-1 and
+FETI-DP methods. The user must interact with every FETI formulation
+through a common interface, from
+which the user specifies the type of FETI method to use and the
+configuration of the method. If a given option or configuration is
+very specific to the considered FETI method, then it is implemented as
+a function stating that it is specific to that FETI method, something
+like \verb!FETI1SetSometing()!. The following code provides a basic
+sketch of how the user would interact with the FETI implementation.
 
 
 \begin{minted}[frame=lines,framesep=2mm,linenos,mathescape]{c}
-  KSPCreate(comm,&ksp);
-  KSPSetOperators(ksp,K,K); /*Here K is an unassembled Mat$\label{kline}$*/ 
-  KSPSetType(ksp,KSPPREONLY);
-  KSPGetPC(ksp,&pc);
-  PCSetType(pc,PCFETI);
+  FETI feti;
+  FETICreate(comm,&feti);
+  FETISetType(feti,FETI1); /*This rutine will call FETICreate_<fetitype>$\label{fetitypeline}$*/
+  FETISetMapping(feti, mapping);
+  FETISetLocalMatrix(feti,K);
+  FETISetLocalRHS(feti,rhs);
+  FETISetInterfaceSolver(feti,PJGMRES,PCFETI_DIRICHLET);
   ...
-  FETISetPreconditioner(pc,DIRICHLET); /*Example: setting a FETI option*/
+  FETI1SetSometing(feti,...);
   ...
-  KSPSetUp(ksp);/*FETI PCSetUp() is called. Builds matrix F of the interface problem*/
-  ...
-  KSPSolve(ksp,f,u); /*$\label{solveline}$Here f and u would have to be unassembled
-  Vecs. At this step the rhs of the interface problem is computed and
-  the system solved iteratively*/
+  FETISetFromOptions(feti);
+  FETISetUp(feti);/*Here the building of FETI structures takes place*/
+  FETISolve(feti,ulocal);/*Solve for the interface problem and obtain ulocal*/
+  FETIGetAssmebledSolution(feti,ulocal,ug); /*$\label{globalline}$ulocal is the
+  globally unassembled solution, give the user the option to get a vector with
+  the assembled solution distributed*/
   FETIGetLambda(pc,lambda); /*Give the user the option to ask for lambda*/
-  FETIGetGlobalSolution(pc,u,ug); /*$\label{globalline}$u is the unassembled solution,
-  give the user the option to get a global vector with the solution*/
-  ...
 \end{minted}
 
-From this simple code the following requirements are inferred:
-
-\begin{enumerate}
-\item \textbf{Unassembled matrix}: We need to provide K in a globally
-  unassembled form (line \ref{kline}). The matrix type MATIS supports
-  this feature, nonetheless it has many other features which are not
-  needed for the FETI implementation. For example, the
-  matrix-vector product provided by MATIS is not needed by FETI,
-  because FETI does not iterate
-  over every DOF but only over interface DOFs. From this point
-  the following questions arise:
-  \begin{enumerate}
-  \item Wouldn't be better to define a new matrix type which only
-    provides the feature of defining a matrix in a globally
-    unassembled form? For example, to define MATUNASSEMBLED type...
-  \item PCIS in PCISetUp relies on a pointer to a MATIS matrix for
-    setting up the preconditioner. So, if we decide not to use the
-    MATIS matrix type, we would have to implement part of the features
-    provided by PCIS as part of the FETI preconditioner. Does it makes
-    sense to re-implement part of the behaviour of PCIS? (The
-    following question is related to this issue).
-  \item I also have other concerns regarding the PCIS, mainly: is every
-    work vector defined in PCIS useful for the FETI
-    implementation? I don't really see that the design of PCIS
-    corresponds to a context common to all iterative substructuring
-    preconditioners...
-  \item Would it be a good design decision to deviate from the
-    PCIS-MATIS design? (At least for FETI which does not iterate over
-    every dof). I am trying to keep aligned to the adopted philosophy
-    in petsc for iterative substructuring preconditioners, but I do
-    not get to see the need to inherit some behavior that is not
-    required by FETI.
-  \end{enumerate}
-
-\item \textbf{Unassembled vector}: in line \ref{solveline} I am saying
-  that vectors $\bm{f}$ and $\bm{u}$ are globally unassembled
-  vectors. I think that, from the user point of view, it makes more
-  sense to define those vectors as globally unassembled and not as
-  global (distributed) assembled vectors. What do you think about
-  this? In this case, I would have to define a new vector type,
-  something like VECUNASSEMBLED. Then, the FETI preconditioner could
-  provide a function to get the solution as a global distributed
-  vector if needed (line \ref{globalline}).
-  
-\item \textbf{Code reusing}: there are some functionalities
-  that you have already implemented in the BDDC preconditioner that I
-  would need when implementing FETI. A good example is the functionality
-  provided by \verb!PCBDDCSubsetNumbering()!. In this case, how do you
-  recommend to proceed in order to follow a ``code reuse'' philosophy?
-  Shouldn't these kind of functionalities be part of a class with the
-  main ingredients which are common to every iterative substructuring
-  preconditioner?
-
-\item \textbf{Support of projections in petsc solvers}: for implementing
-  the support of the projection and reprojection phases in petsc iterative
-  solvers, I am planning to introduce the functions
-  \verb!ApplyProjection! and \verb!ApplyReProjection! to the petsc
-  implementation in the same way that, for example, \verb!ApplyPC! is
-  supported. What do you think about this? Would you proceed like
-  this?
-
-\item \textbf{Support of projections in GMRES}: after implementing the
-  support of \verb!ApplyProjection! and \verb!ApplyReProjection!, I
-  will have to incorporate the behavior to one of the petsc iterative
-  solvers. I am going to begin by the GMRES solver because it prevents
-  me from implementing the re-orthogonalization that is required when
-  CG is adopted as iterative solver for FETI. Do you recommend me to
-  define a new GMRES in petsc, or to modify the already exiting GMRES
-  implementation by introducing the option of performing the phases of
-  projection and reprojection?
-
+\noindent Sequence of actions taking place when calling \verb!FETISetUp()!:
+\begin{enumerate}[noitemsep,topsep=2pt,parsep=2pt,partopsep=2pt]
+\item Build mapping information from local to global DOFs and from
+  internal DOFs to boundary DOFs.
+\item Build matrices B (if not provided). Also, build information for
+  handling the interface problem.
+\item Building scaling information.
+\item Build intreface problem, that is build \verb!F! and
+  \verb!d!. Here, the pseudo-inverse of $\bm{K}$ and the rigid body
+  modes are computed.
+\item Build KSP and PC for the interface problem.
+\item Build projector.
 \end{enumerate}
+
+\begin{figure*}[hb]
+ \centering
+\includegraphics[width=0.8\textwidth]{figures/einsDesign/ClassDiagram.pdf}
+\caption{Class diagram of the proposed design.}
+\label{fg:classDiagram}
+\end{figure*}
+
+\begin{figure*}[hb]
+ \centering
+\includegraphics[width=0.8\textwidth]{figures/einsDesign/einsComponents.pdf}
+\caption{Details of the implementation of the proposed design. Arrows
+  denote dependency between the different classes.}
+\label{fg:einsComponents}
+\end{figure*}
+
+
+\begin{figure}[h]
+\centering
+\subfloat[Detail of the Subdomain class]{
+\includegraphics[width=0.45\textwidth]{figures/einsDesign/einsSubdomain.pdf}
+\label{fg:einsSubdomain}}~ ~
+\subfloat[Detail of the FETI class]{
+\includegraphics[width=0.5\textwidth]{figures/einsDesign/einsFETI.pdf}
+\label{fg:einsFETI}}
+\qquad
+\subfloat[Detail of the FETI1 class]{
+\includegraphics[width=0.45\textwidth]{figures/einsDesign/einsFETI1.pdf}
+\label{fg:einsFETI1}}~ ~
+\subfloat[Detail of the FETI class]{
+\includegraphics[width=0.45\textwidth]{figures/einsDesign/einsPrecond.pdf}
+\label{fg:einsPrecond}}
+\caption{Details of the main classes.}
+\label{fg:detailsStructures}
+\end{figure}
 
 \chapter{Some notes for developers}
 
