@@ -38,7 +38,7 @@ struct _p_FETI {
   KSPType          ksp_type_interface;
   PCType           pc_type_interface;
   /* B matrices*/
-  MAT              B_delta,B_Ddelta;
+  Mat              B_delta,B_Ddelta;
   /* Internal use of the class*/
   PetscInt         setupcalled;
   PetscInt         setfromoptionscalled;

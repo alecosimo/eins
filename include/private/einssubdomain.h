@@ -1,7 +1,7 @@
 #if !defined(SUBDOMAIN_H)
 #define SUBDOMAIN_H
 
-#include <petsc/private/einsfetiimpl.h>
+#include <petscksp.h>
 
 typedef struct _n_Subdomain *Subdomain;
 
@@ -15,6 +15,8 @@ struct _n_Subdomain {
   /*       nodes, interior plus interface).                        */
   /* In some cases, I or D would apply equaly well (e.g. vec1_D).  */
 
+  PetscInt refct;            /* reference count*/
+  
   PetscInt n;                /* number of nodes (interior+interface) in this subdomain */
   PetscInt n_B;              /* number of interface nodes in this subdomain */
   IS       is_B_local,       /* local (sequential) index sets for interface (B) and interior (I) nodes */
@@ -54,6 +56,6 @@ struct _n_Subdomain {
 
 PETSC_EXTERN PetscErrorCode SubdomainDestroy(Subdomain*);
 PETSC_EXTERN PetscErrorCode SubdomainCreate(Subdomain*);
-PETSC_EXTERN PetscErrorCode SubdomainCheckState(Subdomain*);
+PETSC_EXTERN PetscErrorCode SubdomainCheckState(Subdomain);
 
 #endif/* SUBDOMAIN_H*/

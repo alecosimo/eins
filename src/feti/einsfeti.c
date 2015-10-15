@@ -6,7 +6,7 @@ PetscBool         FETIRegisterAllCalled   = PETSC_FALSE;
 PetscFunctionList FETIList                = 0;
 static PetscBool  FETIPackageInitialized  = PETSC_FALSE;
 
-PETSC_EXTERN PetscErrorCode FETICreate_Feti1(FETI);
+PETSC_EXTERN PetscErrorCode FETICreate_FETI1(FETI);
 
 
 #undef __FUNCT__
@@ -57,7 +57,7 @@ PetscErrorCode  FETIRegisterAll(void)
   if (FETIRegisterAllCalled) PetscFunctionReturn(0);
   FETIRegisterAllCalled = PETSC_TRUE;
 
-  ierr = PCRegister(FETI1,FETICreate_Feti1);CHKERRQ(ierr);
+  ierr = FETIRegister(FETI1,FETICreate_FETI1);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 
@@ -167,7 +167,7 @@ PetscErrorCode  FETISetFromOptions(FETI feti)
 {
   PetscErrorCode ierr;
   char           type[256];
-  const *char    def="FETI1";
+  const char*    def="FETI1";
   PetscBool      flg;
 
   PetscFunctionBegin;
@@ -209,18 +209,22 @@ PetscErrorCode  FETISetFromOptions(FETI feti)
 
 .seealso: FETICreate(), FETISetUp()
 @*/
-PetscErrorCode FETIDestroy(FETI *feti)
+PetscErrorCode FETIDestroy(FETI *_feti)
 {
   PetscErrorCode ierr;
+  FETI           feti;
 
   PetscFunctionBegin;
-  if (!*feti) PetscFunctionReturn(0);
-  PetscValidHeaderSpecific((*feti),FETI_CLASSID,1);
-  if (--((PetscObject)(*feti))->refct > 0) {*feti = 0; PetscFunctionReturn(0);}
+  PetscValidPointer(_feti,1);
+  feti = *_feti; *_feti = NULL;
+  if (!feti) PetscFunctionReturn(0);
+  PetscValidHeaderSpecific(feti,FETI_CLASSID,1);
+  if (--((PetscObject)feti)->refct > 0) PetscFunctionReturn(0);
   feti->setupcalled = 0;
-  
-  if ((*feti)->ops->destroy) {ierr = (*(*feti)->ops->destroy)((*feti));CHKERRQ(ierr);}
-  ierr = PetscHeaderDestroy(feti);CHKERRQ(ierr);
+
+  ierr = SubdomainDestroy(&feti->subdomain);CHKERRQ(ierr);
+  if (feti->ops->destroy) {ierr = (*feti->ops->destroy)(feti);CHKERRQ(ierr);}
+  ierr = PetscHeaderDestroy(&feti);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 
@@ -280,62 +284,6 @@ PetscErrorCode  FETIInitializePackage(void)
 
 
 #undef __FUNCT__
-#define __FUNCT__ "FETICreate"
-/*@
-   FETICreate - Creates a FETI context.
-
-   Collective on MPI_Comm
-
-   Input Parameter:
-.  comm - MPI communicator
-
-   Output Parameter:
-.  feti - location to put the FETI context
-
-   Level: developer
-
-.keywords: FETI
-
-.seealso: FETISetUp(), FETIDestroy()
-@*/
-PetscErrorCode  FETICreate(MPI_Comm comm,FETI *newfeti)
-{
-  FETI           feti;
-  PetscErrorCode ierr;
-
-  PetscFunctionBegin;
-  PetscValidPointer(newpc,1);
-  *newpc = 0;
-  ierr = FETIInitializePackage();CHKERRQ(ierr);
-
-  ierr = PetscHeaderCreate(feti,FETI_CLASSID,"FETI","FETI","FETI",comm,FETIDestroy,FETIView);CHKERRQ(ierr);
-
-  feti->setupcalled          = 0;
-  feti->setfromoptionscalled = 0;
-  feti->data                 = 0;
-  feti->subdomain            = 0;
-  feti->A_II                 = 0;
-  feti->A_BB                 = 0;
-  feti->A_IB                 = 0;
-  feti->Wscaling             = 0;
-  feti->scalingType          = 0;
-  feti->lambda               = 0;
-  feti->n_lambda             = -1;
-  feti->F                    = 0;
-  feti->d                    = 0;
-  feti->ksp_interface        = 0;
-  feti->ksp_type_interface   = 0;
-  feti->pc_type_interface    = 0;
-  feti->B_delta              = 0;
-  feti->B_Ddelta             = 0;
-  
-  *newfeti = feti;
-  PetscFunctionReturn(0);
-
-}
-
-
-#undef __FUNCT__
 #define __FUNCT__ "FETISetUp"
 /*@
    FETISetUp - Prepares the structures needed by the FETI solver.
@@ -360,7 +308,7 @@ PetscErrorCode  FETISetUp(FETI feti)
   PetscValidHeaderSpecific(feti,FETI_CLASSID,1);
 
   if (!feti->subdomain) SETERRQ(PetscObjectComm((PetscObject)feti),PETSC_ERR_ARG_WRONGSTATE,"Error Subdomain not defined");
-  feti->subdomain->SubdomainCheckState(subdomain);
+  ierr = SubdomainCheckState(feti->subdomain);CHKERRQ(ierr);
 
   if (!feti->setupcalled) { ierr = PetscInfo(feti,"Setting up FETI for first time\n");CHKERRQ(ierr);} 
   if (!((PetscObject)feti)->type_name) { ierr = FETISetType(feti,def);CHKERRQ(ierr);}
@@ -401,4 +349,60 @@ PetscErrorCode FETIView(FETI feti,PetscViewer viewer)
   /* } */
 
   PetscFunctionReturn(0);
+}
+
+
+#undef __FUNCT__
+#define __FUNCT__ "FETICreate"
+/*@
+   FETICreate - Creates a FETI context.
+
+   Collective on MPI_Comm
+
+   Input Parameter:
+.  comm - MPI communicator
+
+   Output Parameter:
+.  feti - location to put the FETI context
+
+   Level: developer
+
+.keywords: FETI
+
+.seealso: FETISetUp(), FETIDestroy()
+@*/
+PetscErrorCode  FETICreate(MPI_Comm comm,FETI *newfeti)
+{
+  FETI           feti;
+  PetscErrorCode ierr;
+
+  PetscFunctionBegin;
+  PetscValidPointer(newfeti,1);
+  *newfeti = 0;
+  ierr = FETIInitializePackage();CHKERRQ(ierr);
+
+  ierr = PetscHeaderCreate(feti,FETI_CLASSID,"FETI","FETI","FETI",comm,FETIDestroy,FETIView);CHKERRQ(ierr);
+  ierr = SubdomainCreate(&feti->subdomain);CHKERRQ(ierr);
+  
+  feti->setupcalled          = 0;
+  feti->setfromoptionscalled = 0;
+  feti->data                 = 0;
+  feti->A_II                 = 0;
+  feti->A_BB                 = 0;
+  feti->A_IB                 = 0;
+  feti->Wscaling             = 0;
+  feti->scalingType          = 0;
+  feti->lambda               = 0;
+  feti->n_lambda             = -1;
+  feti->F                    = 0;
+  feti->d                    = 0;
+  feti->ksp_interface        = 0;
+  feti->ksp_type_interface   = 0;
+  feti->pc_type_interface    = 0;
+  feti->B_delta              = 0;
+  feti->B_Ddelta             = 0;
+  
+  *newfeti = feti;
+  PetscFunctionReturn(0);
+
 }
