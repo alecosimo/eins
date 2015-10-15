@@ -1,5 +1,5 @@
-#if !defined(EINSSUBDOMAIN_H)
-#define EINSSUBDOMAIN_H
+#if !defined(SUBDOMAIN_H)
+#define SUBDOMAIN_H
 
 #include <petsc/private/pcimpl.h>
 #include <petscksp.h>
@@ -57,5 +57,6 @@ struct _n_Subdomain {
 
 PETSC_EXTERN PetscErrorCode SubdomainDestroy(Subdomain *sd);
 PETSC_EXTERN PetscErrorCode SubdomainCreate(Subdomain *sd);
+PETSC_EXTERN PetscErrorCode SubdomainCheckState(Subdomain *sd);
 
-#endif/*EINSSUBDOMAIN_H*/
+#endif/* SUBDOMAIN_H*/
