@@ -4,10 +4,12 @@ if(BUILD_DOCUMENTATION)
   ## BUILDING MAN PAGES
   file(REMOVE_RECURSE ${CMAKE_DOC_OUTPUT_DIRECTORY})
   file(MAKE_DIRECTORY ${CMAKE_DOC_OUTPUT_DIRECTORY}/man/html)
+  file(GLOB_RECURSE files "${PROJECT_SOURCE_DIR}/include/*.h")
+  list(APPEND files ${Eins_sources})
   add_custom_command(
     OUTPUT    ${CMAKE_DOC_OUTPUT_DIRECTORY}/man/index.html
     COMMAND   ${PETSC_DIR}/${PETSC_ARCH}/bin/doctext 
-    ARGS      -mpath ${CMAKE_DOC_OUTPUT_DIRECTORY}/man/html -html ${Eins_sources}
+    ARGS      -mpath ${CMAKE_DOC_OUTPUT_DIRECTORY}/man/html -html ${files}
     COMMAND   echo '<TITLE>EINS Man Pages</TITLE>' > man/index.html
     COMMAND   echo '<H1>EINS Man Pages</H1>' >> man/index.html
     COMMAND   echo '<MENU>' >> man/index.html
