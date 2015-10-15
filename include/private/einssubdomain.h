@@ -1,8 +1,7 @@
 #if !defined(SUBDOMAIN_H)
 #define SUBDOMAIN_H
 
-#include <petsc/private/pcimpl.h>
-#include <petscksp.h>
+#include <petsc/private/einsfetiimpl.h>
 
 typedef struct _n_Subdomain *Subdomain;
 
@@ -25,8 +24,6 @@ struct _n_Subdomain {
 
   Mat localA;                /* local matrix*/
   Vec localRHS;              /* local RHS */
-  Mat A_II, A_IB,            /* local (sequential) submatrices */
-      A_BI, A_BB;
 
   VecScatter  global_to_D;        /* scattering context from global to local interior nodes */
   VecScatter  N_to_B;             /* scattering context from all local nodes to local interface nodes */
@@ -55,8 +52,8 @@ struct _n_Subdomain {
   ISLocalToGlobalMapping BtoNmap;
 };
 
-PETSC_EXTERN PetscErrorCode SubdomainDestroy(Subdomain *sd);
-PETSC_EXTERN PetscErrorCode SubdomainCreate(Subdomain *sd);
-PETSC_EXTERN PetscErrorCode SubdomainCheckState(Subdomain *sd);
+PETSC_EXTERN PetscErrorCode SubdomainDestroy(Subdomain*);
+PETSC_EXTERN PetscErrorCode SubdomainCreate(Subdomain*);
+PETSC_EXTERN PetscErrorCode SubdomainCheckState(Subdomain*);
 
 #endif/* SUBDOMAIN_H*/
