@@ -57,5 +57,8 @@ struct _n_Subdomain {
 PETSC_EXTERN PetscErrorCode SubdomainDestroy(Subdomain*);
 PETSC_EXTERN PetscErrorCode SubdomainCreate(Subdomain*);
 PETSC_EXTERN PetscErrorCode SubdomainCheckState(Subdomain);
+PETSC_EXTERN PetscErrorCode SubdomainSetLocalMat(Subdomain,Mat);
+PETSC_EXTERN PetscErrorCode SubdomainSetLocalVec(Subdomain,Vec);
+PETSC_EXTERN PetscErrorCode SubdomainSetMapping(Subdomain,ISLocalToGlobalMapping);
 
 #endif/* SUBDOMAIN_H*/

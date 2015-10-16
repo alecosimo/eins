@@ -2,7 +2,7 @@
 #define FETI_H
 
 #include <petscsys.h>
-
+#include <petscmat.h>
 
 /*S
      FETI - Abstract PETSc object that manages all FETI methods
@@ -61,6 +61,9 @@ PETSC_EXTERN PetscErrorCode FETIGetType(FETI,FETIType*);
 PETSC_EXTERN PetscErrorCode FETISetFromOptions(FETI);
 PETSC_EXTERN PetscErrorCode FETIDestroy(FETI*);
 PETSC_EXTERN PetscErrorCode FETISetUp(FETI);
+PETSC_EXTERN PetscErrorCode FETISetMapping(FETI,ISLocalToGlobalMapping);
+PETSC_EXTERN PetscErrorCode FETISetLocalRHS(FETI,Vec);
+PETSC_EXTERN PetscErrorCode FETISetLocalMat(FETI,Mat);
 
 
 #endif/* FETI_H*/

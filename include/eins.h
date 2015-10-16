@@ -14,6 +14,9 @@ PETSC_EXTERN PetscErrorCode EinsFinalize(void);
 PETSC_EXTERN PetscErrorCode EinsFinalized(PetscBool *);
 
 /* ---------------------------------------------------------------- */
+/*   Some utils */
+PETSC_EXTERN PetscErrorCode VecSeqViewSynchronized(Vec);
+
 
 #define KSPPJGMRES "pjgmres"
 

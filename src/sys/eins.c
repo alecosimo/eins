@@ -1,9 +1,5 @@
 #include <eins.h>
-#if PETSC_VERSION_LT(3,6,0)
-#include <petsc-private/kspimpl.h>
-#else
 #include <petsc/private/kspimpl.h>
-#endif
 
 
 PETSC_EXTERN PetscBool EinsInitializeCalled;

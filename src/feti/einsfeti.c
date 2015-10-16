@@ -221,8 +221,9 @@ PetscErrorCode FETIDestroy(FETI *_feti)
   PetscValidHeaderSpecific(feti,FETI_CLASSID,1);
   if (--((PetscObject)feti)->refct > 0) PetscFunctionReturn(0);
   feti->setupcalled = 0;
-
+  /* destroying FETI objects */
   ierr = SubdomainDestroy(&feti->subdomain);CHKERRQ(ierr);
+  
   if (feti->ops->destroy) {ierr = (*feti->ops->destroy)(feti);CHKERRQ(ierr);}
   ierr = PetscHeaderDestroy(&feti);CHKERRQ(ierr);
   PetscFunctionReturn(0);
@@ -348,6 +349,81 @@ PetscErrorCode FETIView(FETI feti,PetscViewer viewer)
   /*   ierr = (*feti->ops->view)(feti,viewer);CHKERRQ(ierr); */
   /* } */
 
+  PetscFunctionReturn(0);
+}
+
+
+#undef  __FUNCT__
+#define __FUNCT__ "FETISetLocalMat"
+/*@
+   FETISetLocalMat - Sets the local system matrix for the current process.
+
+   Input Parameter:
+.  ft    - The FETI context
+.  local_mat - The local system matrix
+
+   Level: beginner
+
+.keywords: FETI, local system matrix
+
+.seealso: FETISetLocalRHS(), FETISetMapping()
+@*/
+PetscErrorCode FETISetLocalMat(FETI ft,Mat local_mat)
+{
+  PetscFunctionBegin;
+  PetscValidHeaderSpecific(ft,FETI_CLASSID,1);
+  PetscValidHeaderSpecific(local_mat,MAT_CLASSID,2);
+  SubdomainSetLocalMat(ft->subdomain,local_mat);
+  PetscFunctionReturn(0);
+}
+
+
+#undef  __FUNCT__
+#define __FUNCT__ "FETISetLocalRHS"
+/*@
+   FETISetLocalRHS - Sets the local system RHS for the current process.
+
+   Input Parameter:
+.  ft  - The FETI context
+.  rhs - The local system rhs
+
+   Level: beginner
+
+.keywords: FETI, local system rhs
+
+.seealso: FETISetLocalMat(), FETISetMapping()
+@*/
+PetscErrorCode FETISetLocalRHS(FETI ft,Vec rhs)
+{
+  PetscFunctionBegin;
+  PetscValidHeaderSpecific(ft,FETI_CLASSID,1);
+  PetscValidHeaderSpecific(rhs,VEC_CLASSID,2);
+  SubdomainSetLocalRHS(ft->subdomain,rhs);
+  PetscFunctionReturn(0);
+}
+
+
+#undef  __FUNCT__
+#define __FUNCT__ "FETISetMapping"
+/*@
+   FETISetMapping - Sets the mapping from local to global numbering of DOFs
+
+   Input Parameter:
+.  ft    - The FETI context
+.  isg2l - A mapping from local to global numering of DOFs
+
+   Level: beginner
+
+.keywords: FETI, local to global numbering of DOFs
+
+.seealso: FETISetLocalRHS(), FETISetLocalMat()
+@*/
+PetscErrorCode FETISetMapping(FETI ft,ISLocalToGlobalMapping isg2l)
+{
+  PetscFunctionBegin;
+  PetscValidHeaderSpecific(ft,FETI_CLASSID,1);
+  PetscValidHeaderSpecific(isg2l,IS_LTOGM_CLASSID,2);
+  SubdomainSetMapping(ft->subdomain,isg2l);
   PetscFunctionReturn(0);
 }
 
