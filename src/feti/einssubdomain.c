@@ -157,3 +157,86 @@ PetscErrorCode  SubdomainCreate(Subdomain *_sd)
 
   PetscFunctionReturn(0);  
 }
+
+
+#undef __FUNCT__
+#define __FUNCT__ "SubdomainSetUp"
+/*@
+  SubdomainSetUp - Setups subdomain infromartion by mainly it computes VecScatters information. 
+
+   Input Parameter:
+.  sd    - The Subdomain context
+.  fetisetupcalled - It takes the value of feti->setupcalled
+
+  Level: developer
+
+.keywords: FETI
+.seealso: FETISetUp()
+@*/
+PetscErrorCode SubdomainSetUp(Subdomain sd, PetscBool fetisetupcalled)
+{
+  PetscErrorCode ierr;
+
+  PetscFunctionBegin;
+
+  /* first time creation, get info on substructuring */
+  if (fetisetupcalled) {
+    PetscInt    n_I;
+    PetscInt    *idx_I_local,*idx_B_local,*idx_I_global,*idx_B_global;
+    PetscInt    *array;
+    PetscInt    i,j;
+
+    /* get info on mapping */
+    ierr = ISLocalToGlobalMappingGetSize(sd->mapping,&sd->n);CHKERRQ(ierr);
+    ierr = ISLocalToGlobalMappingGetInfo(sd->mapping,&(sd->n_neigh),&(sd->neigh),&(sd->n_shared),&(sd->shared));CHKERRQ(ierr);
+
+    /* Identifying interior and interface nodes, in local numbering */
+    ierr = PetscMalloc1(sd->n,&array);CHKERRQ(ierr);
+    ierr = PetscMemzero(array,sd->n*sizeof(PetscInt));CHKERRQ(ierr);
+    for (i=0;i<sd->n_neigh;i++)
+      for (j=0;j<sd->n_shared[i];j++)
+          array[sd->shared[i][j]] += 1;
+
+    /* Creating local and global index sets for interior and inteface nodes. */
+    ierr = PetscMalloc1(sd->n,&idx_I_local);CHKERRQ(ierr);
+    ierr = PetscMalloc1(sd->n,&idx_B_local);CHKERRQ(ierr);
+    for (i=0, sd->n_B=0, n_I=0; i<sd->n; i++) {
+      if (!array[i]) {
+        idx_I_local[n_I] = i;
+        n_I++;
+      } else {
+        idx_B_local[sd->n_B] = i;
+        sd->n_B++;
+      }
+    }
+    /* Getting the global numbering */
+    idx_B_global = idx_I_local + n_I; /* Just avoiding allocating extra memory, since we have vacant space */
+    idx_I_global = idx_B_local + sd->n_B;
+    ierr         = ISLocalToGlobalMappingApply(sd->mapping,sd->n_B,idx_B_local,idx_B_global);CHKERRQ(ierr);
+    ierr         = ISLocalToGlobalMappingApply(sd->mapping,n_I,idx_I_local,idx_I_global);CHKERRQ(ierr);
+
+    /* Creating the index sets */
+    ierr = ISCreateGeneral(PETSC_COMM_SELF,sd->n_B,idx_B_local,PETSC_COPY_VALUES, &sd->is_B_local);CHKERRQ(ierr);
+    ierr = ISCreateGeneral(PETSC_COMM_SELF,sd->n_B,idx_B_global,PETSC_COPY_VALUES,&sd->is_B_global);CHKERRQ(ierr);
+    ierr = ISCreateGeneral(PETSC_COMM_SELF,n_I,idx_I_local,PETSC_COPY_VALUES, &sd->is_I_local);CHKERRQ(ierr);
+    ierr = ISCreateGeneral(PETSC_COMM_SELF,n_I,idx_I_global,PETSC_COPY_VALUES,&sd->is_I_global);CHKERRQ(ierr);
+
+    /* Freeing memory */
+    ierr = PetscFree(idx_B_local);CHKERRQ(ierr);
+    ierr = PetscFree(idx_I_local);CHKERRQ(ierr);
+    ierr = PetscFree(array);CHKERRQ(ierr);
+
+    /* Creating work vectors and arrays */
+    ierr = VecDuplicate(localRHS,&sd->vec1_N);CHKERRQ(ierr);
+    ierr = VecCreateSeq(PETSC_COMM_SELF,sd->n-sd->n_B,&sd->vec1_D);CHKERRQ(ierr);
+    ierr = VecCreateSeq(PETSC_COMM_SELF,sd->n_B,&sd->vec1_B);CHKERRQ(ierr);
+
+    /* Creating the scatter contexts */
+    ierr = VecScatterCreate(sd->vec1_N,sd->is_B_local,sd->vec1_B,(IS)0,&sd->N_to_B);CHKERRQ(ierr);
+
+    /* map from boundary to local */
+    ierr = ISLocalToGlobalMappingCreateIS(sd->is_B_local,&sd->BtoNmap);CHKERRQ(ierr);
+  }
+
+  PetscFunctionReturn(0);
+}
