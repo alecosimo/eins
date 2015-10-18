@@ -310,11 +310,12 @@ PetscErrorCode  FETISetUp(FETI feti)
 
   if (!feti->subdomain) SETERRQ(PetscObjectComm((PetscObject)feti),PETSC_ERR_ARG_WRONGSTATE,"Error Subdomain not defined");
   ierr = SubdomainCheckState(feti->subdomain);CHKERRQ(ierr);
-
+  
   if (!feti->setupcalled) { ierr = PetscInfo(feti,"Setting up FETI for first time\n");CHKERRQ(ierr);} 
   if (!((PetscObject)feti)->type_name) { ierr = FETISetType(feti,def);CHKERRQ(ierr);}
 
   ierr = PetscLogEventBegin(FETI_SetUp,feti,0,0,0);CHKERRQ(ierr);
+  ierr = SubdomainSetUp(feti->subdomain,feti->setupcalled);CHKERRQ(ierr);
   if (feti->ops->setup) {
     ierr = (*feti->ops->setup)(feti);CHKERRQ(ierr);
   }

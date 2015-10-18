@@ -207,7 +207,7 @@ PetscErrorCode SubdomainSetUp(Subdomain sd, PetscBool fetisetupcalled)
 
   PetscFunctionBegin;
   /* first time creation, get info on substructuring */
-  if (fetisetupcalled) {
+  if (!fetisetupcalled) {
     PetscInt    n_I;
     PetscInt    *idx_I_local,*idx_B_local,*idx_I_global,*idx_B_global;
     PetscInt    *array;

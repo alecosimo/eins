@@ -14,6 +14,8 @@ Dirichlet boundaries on one side by default\n\n";
 
 #include <eins.h>
 #include <einsfeti.h>
+#include <private/einsfetiimpl.h> /* Users should never call include private includes. In this case we do it to access
+				     members of the FETI object and test it correct behaviour*/
 #include <petscblaslapack.h>
 #define DEBUG 0
 
@@ -585,7 +587,7 @@ int main(int argc,char **args)
   DomainData               dd;
   /* PetscReal                norm,maxeig,mineig;*/
   Mat                      localA   = 0;
-  Vec                      localRHS = 0;
+  Vec                      localRHS = 0, u_B = 0;
   ISLocalToGlobalMapping   mapping  = 0;
   FETI                     feti;
 
@@ -617,8 +619,23 @@ int main(int argc,char **args)
   ierr = FETISetLocalRHS(feti,localRHS);CHKERRQ(ierr);
   ierr = FETISetMapping(feti,mapping);CHKERRQ(ierr);
   ierr = FETISetUp(feti);CHKERRQ(ierr);
-  ierr = FETIDestroy(&feti);CHKERRQ(ierr);
 
+  /* Testing the VecScatters: the user will never deal explictly with these VecScatters. It is just a test. */
+  /* --->>>> accessing private members: this is illegal in this part of the code */
+  ierr  = VecDuplicate(feti->subdomain->vec1_B,&u_B);CHKERRQ(ierr);
+  ierr  = VecScatterBegin(feti->subdomain->N_to_B,localRHS,u_B,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
+  ierr  = VecScatterEnd(feti->subdomain->N_to_B,localRHS,u_B,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
+  PetscPrintf(PETSC_COMM_WORLD,"\n==================================================\n");
+  PetscPrintf(PETSC_COMM_WORLD,"Printing result of VecScatter to the boundary\n");
+  PetscPrintf(PETSC_COMM_WORLD,"==================================================\n");
+  ierr  = VecSeqViewSynchronized(u_B);CHKERRQ(ierr);
+  /* ---<<<< accessing private members: this is illegal in this part of the code */
+  
+  ierr = FETIDestroy(&feti);CHKERRQ(ierr);
+  ierr = MatDestroy(&localA);CHKERRQ(ierr);
+  ierr = VecDestroy(&localRHS);CHKERRQ(ierr);
+  ierr = VecDestroy(&u_B);CHKERRQ(ierr);
+  ierr = ISLocalToGlobalMappingDestroy(&mapping);CHKERRQ(ierr);
   ierr = EinsFinalize();CHKERRQ(ierr);
 
   return 0;
