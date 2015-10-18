@@ -119,6 +119,47 @@ sketch of how the user would interact with the FETI implementation.
 \label{fg:detailsStructures}
 \end{figure}
 
+
+\section{Design of class Subdomain regarding VecScatters}
+PETSc VecScatters are objects for managing the communication between
+vectors that in general can be sequential or parallel. This is very
+useful in DD methods when we need to map a vector to the boundary of
+the domain over which it is defined.
+
+For creating a VecScatter two vectors with corresponding indices
+for performing the scatter operation (IS objects) must be
+provided. The created VecScatter can be used on vectors different from
+the ones used for creating the VecScatter, but they must have the same
+parallelLayout. For DD method mainly three VecScatters will be useful:
+
+\begin{enumerate}[noitemsep,topsep=2pt,parsep=2pt,partopsep=2pt]
+\item \verb!N_to_B!: scattering context from all local nodes to local interface nodes. 
+\item \verb!global_to_D!: scattering context from global to local interior nodes.
+\item \verb!global_to_B!: scattering context from global to local interface nodes.
+\end{enumerate}
+
+The first scatter will be created when calling the function
+\verb!SubdomainSetUp()!. This VecScatter is created using the vectors
+\verb!vec1_N! and \verb!vec1_B!. If you need to create vectors which
+can use the VecScatter \verb!N_to_B!, you can just directly duplicate
+the vector \verb!vec1_N! or \verb!vec1_B! by calling to
+\verb!VecDuplicate()!.
+
+VecScatters \verb!global_to_D! and \verb!global_to_B! will be not
+created by \verb!SubdomainSetUp()!. If you want them to be created,
+you must call to \verb!SubdomainCreateVecScatters()! with a reference
+to the global vector to be involved by the scatters. A reference to
+the global vector provided by the user will be kept in the object
+Subdomain in the vector \verb!vec1_global!. In order to build the
+VecScatter \verb!global_to_D! the vector \verb!vec1_D! will be
+internally used, and it can be used by the user to build extra work
+vectors with the ability of performing VecScatters using
+\verb!global_to_D! with vectors different from those used for creating
+it.
+
+
+
+
 \chapter{Some notes for developers}
 
 \section{Style guide}

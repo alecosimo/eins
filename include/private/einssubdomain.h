@@ -27,7 +27,15 @@ struct _n_Subdomain {
   Mat localA;                /* local matrix*/
   Vec localRHS;              /* local RHS */
 
+  /* working vectors */
+  Vec vec1_N,
+      vec1_D,
+      vec1_B,
+      vec1_global;
+  
+  VecScatter  global_to_D;        /* scattering context from global to local interior nodes */
   VecScatter  N_to_B;             /* scattering context from all local nodes to local interface nodes */
+  VecScatter  global_to_B;        /* scattering context from global to local interface nodes */
 
   ISLocalToGlobalMapping mapping;
   PetscInt  n_neigh;     /* number of neighbours this subdomain has (by now, INCLUDING OR NOT the subdomain itself). */
@@ -56,7 +64,8 @@ PETSC_EXTERN PetscErrorCode SubdomainDestroy(Subdomain*);
 PETSC_EXTERN PetscErrorCode SubdomainCreate(Subdomain*);
 PETSC_EXTERN PetscErrorCode SubdomainCheckState(Subdomain);
 PETSC_EXTERN PetscErrorCode SubdomainSetLocalMat(Subdomain,Mat);
-PETSC_EXTERN PetscErrorCode SubdomainSetLocalVec(Subdomain,Vec);
+PETSC_EXTERN PetscErrorCode SubdomainSetLocalRHS(Subdomain,Vec);
 PETSC_EXTERN PetscErrorCode SubdomainSetMapping(Subdomain,ISLocalToGlobalMapping);
 PETSC_EXTERN PetscErrorCode SubdomainSetUp(Subdomain,PetscBool);
+PETSC_EXTERN PetscErrorCode SubdomainCreateVecScatter(Subdomain,Vec);
 #endif/* SUBDOMAIN_H*/
