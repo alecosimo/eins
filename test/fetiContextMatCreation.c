@@ -13,7 +13,6 @@ Dirichlet boundaries on one side by default\n\n";
 /*mpiexec -n 4 ./fetiContextMatCreation -p 1 -npx 2 -npy 2 -nex 4 -ney 4*/
 
 #include <eins.h>
-#include <einsfeti.h>
 #include <private/einsfetiimpl.h> /* Users should never call include private includes. In this case we do it to access
 				     members of the FETI object and test it correct behaviour*/
 #include <petscblaslapack.h>

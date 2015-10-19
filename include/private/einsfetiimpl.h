@@ -47,4 +47,4 @@ struct _p_FETI {
 
 PETSC_EXTERN PetscLogEvent FETI_SetUp;
 
-#endif/*FETIIMPL_H*/
+#endif/* FETIIMPL_H */

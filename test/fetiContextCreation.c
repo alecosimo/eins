@@ -1,7 +1,6 @@
 static char help[] = "Test the FETI context creation\n\n";
 
 #include <eins.h>
-#include <einsfeti.h>
 
 #undef __FUNCT__
 #define __FUNCT__ "main"

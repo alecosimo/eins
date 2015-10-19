@@ -1,17 +1,11 @@
 #include <eins.h>
 #include <private/einsfetiimpl.h>
-#include <petsc/private/kspimpl.h>
+#include <private/einskspimpl.h>
 
 
 PETSC_EXTERN PetscBool EinsInitializeCalled;
 PETSC_EXTERN PetscBool EinsFinalizeCalled;
 PETSC_EXTERN PetscBool EinsRegisterAllCalled;
-
-PETSC_EXTERN PetscFunctionList KSPList;
-
-EXTERN_C_BEGIN
-PetscErrorCode KSPCreate_PJGMRES(KSP);
-EXTERN_C_END
 
 PetscBool EinsInitializeCalled   = PETSC_FALSE;
 PetscBool EinsFinalizeCalled     = PETSC_FALSE;

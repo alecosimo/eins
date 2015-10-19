@@ -1,4 +1,4 @@
-#include <einsfeti1.h>
+#include <../src/feti/einsfeti1.h>
 
 
 #undef __FUNCT__
