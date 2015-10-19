@@ -14,6 +14,7 @@ PETSC_EXTERN PetscErrorCode EinsFinalized(PetscBool *);
 /* ---------------------------------------------------------------- */
 /*   Some utils */
 PETSC_EXTERN PetscErrorCode VecSeqViewSynchronized(Vec);
+PETSC_EXTERN PetscErrorCode MatSeqViewSynchronized(Mat);
 PETSC_EXTERN PetscErrorCode ISSubsetNumbering(IS,IS,PetscInt*,IS*);
 PETSC_EXTERN PetscErrorCode ISCreateMPIVec(MPI_Comm,PetscInt,ISLocalToGlobalMapping,Vec*);
 

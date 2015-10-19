@@ -264,9 +264,6 @@ PetscErrorCode  FETIFinalizePackage(void)
 @*/
 PetscErrorCode  FETIInitializePackage(void)
 {
-  char           logList[256];
-  char           *className;
-  PetscBool      opt;
   PetscErrorCode ierr;
 
   PetscFunctionBegin;

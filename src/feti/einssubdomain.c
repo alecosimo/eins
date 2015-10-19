@@ -16,7 +16,6 @@ PetscErrorCode  SubdomainDestroy(Subdomain *_sd)
 {
   Subdomain      sd;
   PetscErrorCode ierr;
-  PetscInt       i;
   
   PetscFunctionBegin;
   PetscValidPointer(_sd,1);

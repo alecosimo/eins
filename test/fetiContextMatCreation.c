@@ -114,7 +114,6 @@ static PetscErrorCode ComputeSubdomainMatrix(DomainData dd, GLLData glldata, Mat
   PetscInt       *indexg,*cols,*colsg;
   PetscScalar    *vals;
   Mat            temp_local_mat,elem_mat_DBC=0,*usedmat;
-  IS             submatIS;
 
   PetscFunctionBeginUser;
   ierr = MatGetSize(glldata.elem_mat,&i,&j);CHKERRQ(ierr);
@@ -523,7 +522,6 @@ static PetscErrorCode InitializeDomainData(DomainData *dd)
 {
   PetscErrorCode ierr;
   PetscMPIInt    sizes,rank;
-  PetscInt       factor;
 
   PetscFunctionBeginUser;
   dd->gcomm = PETSC_COMM_WORLD;

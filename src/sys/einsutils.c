@@ -3,9 +3,42 @@
 
 
 #undef __FUNCT__
+#define __FUNCT__ "MatSeqViewSynchronized"
+/*@
+   MatSeqViewSynchronized - Prints a sequential Mat to the standard output in a synchronized form, that is first for process 0, then for process 1,... Process 0 waits the last process to finish.
+
+   Input Parameter:
+.  mat    - The sequential matrix to print
+
+   Level: beginner
+
+@*/
+PetscErrorCode MatSeqViewSynchronized(Mat mat)
+{
+  PetscErrorCode ierr;
+  PetscMPIInt    size,rank,buff=1;
+  MPI_Comm       comm = MPI_COMM_WORLD;
+  MPI_Status     status;
+  
+  PetscFunctionBeginUser;
+  PetscValidHeaderSpecific(mat,MAT_CLASSID,2);
+  ierr = MPI_Comm_size(comm,&size);
+  ierr = MPI_Comm_rank(comm,&rank);
+
+  if(rank) { ierr = MPI_Recv(&buff,1,MPI_INT,rank-1,0,comm,&status);CHKERRQ(ierr); }
+  PetscPrintf(PETSC_COMM_SELF,"\nMatView process number %d\n",rank);
+  MatView(mat,PETSC_VIEWER_STDOUT_SELF);
+  ierr = MPI_Send(&buff,1,MPI_INT,(rank+1)%size,0,comm);CHKERRQ(ierr);
+  if(!rank) { ierr = MPI_Recv(&buff,1,MPI_INT,size-1,0,comm,&status);CHKERRQ(ierr); }
+  
+  PetscFunctionReturn(0);
+}
+
+
+#undef __FUNCT__
 #define __FUNCT__ "VecSeqViewSynchronized"
 /*@
-   VecSeqViewSynchronized - Prints a sequential Vec to the standard output in a synchronized form, that is first for process 0, then for process 1,...
+   VecSeqViewSynchronized - Prints a sequential Vec to the standard output in a synchronized form, that is first for process 0, then for process 1,... Process 0 waits the last process to finish.
 
    Input Parameter:
 .  vec    - The sequential vector to print
@@ -28,7 +61,8 @@ PetscErrorCode VecSeqViewSynchronized(Vec vec)
   if(rank) { ierr = MPI_Recv(&buff,1,MPI_INT,rank-1,0,comm,&status);CHKERRQ(ierr); }
   PetscPrintf(PETSC_COMM_SELF,"\nVecView process number %d\n",rank);
   VecView(vec,PETSC_VIEWER_STDOUT_SELF);
-  if(rank+1<size) { ierr = MPI_Send(&buff,1,MPI_INT,rank+1,0,comm);CHKERRQ(ierr); }
+  ierr = MPI_Send(&buff,1,MPI_INT,(rank+1)%size,0,comm);CHKERRQ(ierr);
+  if(!rank) { ierr = MPI_Recv(&buff,1,MPI_INT,size-1,0,comm,&status);CHKERRQ(ierr); }
   
   PetscFunctionReturn(0);
 }
