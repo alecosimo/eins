@@ -1,4 +1,5 @@
 #include <eins.h>
+#include <private/einsfetiimpl.h>
 #include <petsc/private/kspimpl.h>
 
 
@@ -28,6 +29,8 @@ PetscErrorCode EinsRegisterAll(void)
 
   PetscFunctionBegin;
   EinsRegisterAllCalled = PETSC_TRUE;
+  /*Register FETI*/
+  ierr = FETIRegisterAll();CHKERRQ(ierr);
   /*Register KSP*/
   ierr = KSPRegisterAll();CHKERRQ(ierr);
   ierr = KSPRegister(KSPPJGMRES,KSPCreate_PJGMRES);CHKERRQ(ierr);
