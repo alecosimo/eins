@@ -181,10 +181,53 @@ the PETSc convention for that purpose, that is:
 \item Developer - Interfaces intended primarily for library developers
 \end{itemize}
 
+
+\section{Source code organization}
+
+\noindent \textit{\bf File name convention}: every EINS source file begins with the
+word eins, that is like \verb!eins<name_file>.[hc]!.
+
+\vspace{1em}
+
+\noindent \textit{\bf Source code directory structure}: the source code tree of
+EINS is structured in the following way:
+\begin{itemize}[noitemsep,topsep=2pt,parsep=2pt,partopsep=2pt]
+\item \verb!cmake!:
+\item \verb!doc!:
+\item \verb!src!: the source code of the implementation of EINS
+  classes and methods are under the directory \verb!src!. There, the
+  code is organized into groups of classes and methods sharing common
+  features, which is reflected in the following directory structure:
+  \begin{itemize}[noitemsep,topsep=2pt,parsep=2pt,partopsep=2pt]
+  \item \verb!feti!:
+  \item \verb!ksp!:
+  \item \verb!sys!:
+  \end{itemize}
+\item \verb!include!: each group in the \verb!src!  directory has its
+  own \textbf{public} include file \verb!eins<group>.h!,
+  where the interface of EINS accessible by end-users is
+  declared. Data structures shared by the methods and classes of a
+  given group are defined in \textbf{private} include files and can be
+  found in the directory \verb!include/private! under the name
+  \verb!eins<group>impl.h!. The include file \verb!eins.h! includes
+  the public include file of each group.  
+
+  In order to hide implementation details to end-users, public include
+  files can not include private include files. Include files related
+  to the specific implementation of a given method or class must be
+  created under the directory corresponding of the group. These
+  includes can not be includeed by include files under the directory
+  \verb!include!.
+ 
+\item \verb!test!:
+\end{itemize}
+
+
+
 \section{The git EINS repository}
 
 Good practices for the version control of the EINS project:
-\begin{itemize}
+\begin{itemize}[noitemsep,topsep=2pt,parsep=2pt,partopsep=2pt]
 \item Avoid placing ignore rules in the local \verb!.gitignore! file
   that only apply to you. For example, if you build your cmake
   project in a directory named \verb!${EINS_DIR}/buildEins!, you don't
@@ -204,7 +247,7 @@ Good practices for the version control of the EINS project:
 The scope of the entire cmake project is the one of the current main
 CMakeLists file, so some tips:
 
-\begin{itemize}
+\begin{itemize}[noitemsep,topsep=2pt,parsep=2pt,partopsep=2pt]
 \item Avoid using \verb!add_subdirectory! and instead use
   \verb!include!. The include command does not change the current
   scope. The \verb!add_directory! changes the scope to the added
@@ -216,7 +259,7 @@ CMakeLists file, so some tips:
 
 \noindent Some rules to follow for the implementation of the CMake project:
 
-\begin{itemize}
+\begin{itemize}[noitemsep,topsep=2pt,parsep=2pt,partopsep=2pt]
 \item CMake commands are lowercase, e.g. \verb!cmake_minimum_required()!.
 \item User macros are uppercase and begin with \verb!M!, e.g. \verb!M_DO_IT()!.
 \item User functions are lowercase without the character \verb!_! between
@@ -229,7 +272,7 @@ CMakeLists file, so some tips:
 In order to make easier the process of developing stable code, you can
 incorporate tests to EINS. For that, you will have to following steps:
 
-\begin{enumerate}
+\begin{enumerate}[noitemsep,topsep=2pt,parsep=2pt,partopsep=2pt]
 \item Code your test and place it in \verb!${EINS_DIR}/test!. You can
   use the petsc function \verb!SETERRQ! to raice an error in case the
   test is not passed. CTest considers that the test run
@@ -252,7 +295,7 @@ incorporate tests to EINS. For that, you will have to following steps:
 
 \section{Helpful resources for extending the CMake implementation}
 
-\begin{itemize}
+\begin{itemize}[noitemsep,topsep=2pt,parsep=2pt,partopsep=2pt]
 \item \href{http://www.cmake.org/Wiki/CMake_FAQ}{Cmake FAQ}
 \item \href{http://www.cmake.org/cmake/help/v3.0/command/set_target_properties.html}{Properties definition}
 \item \href{http://www.swig.org/Doc1.3/Introduction.html}{SWIG Introduction}
