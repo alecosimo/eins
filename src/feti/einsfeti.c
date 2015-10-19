@@ -355,6 +355,31 @@ PetscErrorCode FETIView(FETI feti,PetscViewer viewer)
 
 
 #undef  __FUNCT__
+#define __FUNCT__ "FETICreateGlobalWorkingVec"
+/*@
+   FETICreateGlobalWorkingVec - Creates the global (distributed) working vector by duplicating a given vector.
+
+   Input Parameter:
+.  ft  - The FETI context
+.  vec - The global vector to use in the duplication
+
+   Level: intermediate
+
+.keywords: FETI, working global vector
+@*/
+PetscErrorCode FETICreateGlobalWorkingVec(FETI ft,Vec vec)
+{
+  PetscErrorCode ierr;
+  
+  PetscFunctionBegin;
+  PetscValidHeaderSpecific(ft,FETI_CLASSID,1);
+  PetscValidHeaderSpecific(vec,VEC_CLASSID,2);
+  ierr = SubdomainCreateGlobalWorkingVec(ft->subdomain,vec);CHKERRQ(ierr);
+  PetscFunctionReturn(0);
+}
+
+
+#undef  __FUNCT__
 #define __FUNCT__ "FETISetLocalMat"
 /*@
    FETISetLocalMat - Sets the local system matrix for the current process.
@@ -371,10 +396,12 @@ PetscErrorCode FETIView(FETI feti,PetscViewer viewer)
 @*/
 PetscErrorCode FETISetLocalMat(FETI ft,Mat local_mat)
 {
+  PetscErrorCode ierr;
+  
   PetscFunctionBegin;
   PetscValidHeaderSpecific(ft,FETI_CLASSID,1);
   PetscValidHeaderSpecific(local_mat,MAT_CLASSID,2);
-  SubdomainSetLocalMat(ft->subdomain,local_mat);
+  ierr = SubdomainSetLocalMat(ft->subdomain,local_mat);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 
@@ -396,10 +423,12 @@ PetscErrorCode FETISetLocalMat(FETI ft,Mat local_mat)
 @*/
 PetscErrorCode FETISetLocalRHS(FETI ft,Vec rhs)
 {
+  PetscErrorCode ierr;
+  
   PetscFunctionBegin;
   PetscValidHeaderSpecific(ft,FETI_CLASSID,1);
   PetscValidHeaderSpecific(rhs,VEC_CLASSID,2);
-  SubdomainSetLocalRHS(ft->subdomain,rhs);
+  ierr = SubdomainSetLocalRHS(ft->subdomain,rhs);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 
@@ -421,10 +450,12 @@ PetscErrorCode FETISetLocalRHS(FETI ft,Vec rhs)
 @*/
 PetscErrorCode FETISetMapping(FETI ft,ISLocalToGlobalMapping isg2l)
 {
+  PetscErrorCode ierr;
+  
   PetscFunctionBegin;
   PetscValidHeaderSpecific(ft,FETI_CLASSID,1);
   PetscValidHeaderSpecific(isg2l,IS_LTOGM_CLASSID,2);
-  SubdomainSetMapping(ft->subdomain,isg2l);
+  ierr = SubdomainSetMapping(ft->subdomain,isg2l);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 
@@ -469,7 +500,8 @@ PetscErrorCode  FETICreate(MPI_Comm comm,FETI *newfeti)
   feti->A_IB                 = 0;
   feti->Wscaling             = 0;
   feti->scalingType          = 0;
-  feti->lambda               = 0;
+  feti->lambda_local         = 0;
+  feti->l2g_lambda           = 0;
   feti->n_lambda             = -1;
   feti->F                    = 0;
   feti->d                    = 0;

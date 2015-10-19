@@ -35,6 +35,38 @@ PetscErrorCode VecSeqViewSynchronized(Vec vec)
 
 
 #undef __FUNCT__
+#define __FUNCT__ "ISCreateMPIVec"
+/*@
+   ISCreateGlobalVec - Creates a distributed vector with a specified global size and global to local numbering 
+
+   Input Parameter:
+.  comm        - The MPI communicator
+.  global_size - The global size of the distributed vector
+.  mapping     - The loval to global mapping
+
+   Output Parameter:
+.  _vec         - The created distributed vector
+
+   Level: intermediate
+
+@*/
+PetscErrorCode ISCreateMPIVec(MPI_Comm comm,PetscInt global_size,ISLocalToGlobalMapping mapping,Vec *_vec)
+{
+  Vec            vec;
+  PetscErrorCode ierr;
+  
+  PetscFunctionBeginUser;
+  PetscValidHeaderSpecific(mapping,IS_LTOGM_CLASSID,3);
+  ierr  = VecCreate(comm,&vec);CHKERRQ(ierr);
+  ierr  = VecSetType(vec,VECMPI);CHKERRQ(ierr);
+  ierr  = VecSetSizes(vec,PETSC_DECIDE,global_size);CHKERRQ(ierr);
+  ierr  = VecSetLocalToGlobalMapping(vec,mapping);CHKERRQ(ierr);
+  *_vec = vec;
+  PetscFunctionReturn(0);
+}
+
+
+#undef __FUNCT__
 #define __FUNCT__ "ISSubsetNumbering"
 /*@
    ISSubsetNumbering - Given an index set (IS) possibly with holes, renumbers the indexes removing the holes

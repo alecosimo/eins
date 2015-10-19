@@ -1,6 +1,7 @@
 #include <private/einssubdomain.h>
 #include <petsc/private/petscimpl.h>
 
+
 #undef __FUNCT__
 #define __FUNCT__ "SubdomainDestroy"
 /*@
@@ -39,6 +40,7 @@ PetscErrorCode  SubdomainDestroy(Subdomain *_sd)
   }
   ierr = ISLocalToGlobalMappingDestroy(&sd->mapping);CHKERRQ(ierr);
   ierr = ISLocalToGlobalMappingDestroy(&sd->BtoNmap);CHKERRQ(ierr);
+  ierr = PetscFree(sd->count);CHKERRQ(ierr);
   
   ierr = PetscFree(sd);CHKERRQ(ierr);
   PetscFunctionReturn(0);  
@@ -58,9 +60,10 @@ PetscErrorCode  SubdomainDestroy(Subdomain *_sd)
 PetscErrorCode  SubdomainCheckState(Subdomain sd)
 {
   PetscFunctionBegin;
-  if (!sd->localA)   SETERRQ(MPI_COMM_SELF,PETSC_ERR_ARG_WRONGSTATE,"Subdomain: Local system matrix must be first defined");
-  if (!sd->localRHS) SETERRQ(MPI_COMM_SELF,PETSC_ERR_ARG_WRONGSTATE,"Subdomain: Local system RHS must be first defined");
-  if (!sd->mapping)  SETERRQ(MPI_COMM_SELF,PETSC_ERR_ARG_WRONGSTATE,"Subdomain: Mapping from local to global DOF numbering must be first defined");
+  if (!sd->localA)      SETERRQ(MPI_COMM_SELF,PETSC_ERR_ARG_WRONGSTATE,"Subdomain: Local system matrix must be first defined");
+  if (!sd->localRHS)    SETERRQ(MPI_COMM_SELF,PETSC_ERR_ARG_WRONGSTATE,"Subdomain: Local system RHS must be first defined");
+  if (!sd->mapping)     SETERRQ(MPI_COMM_SELF,PETSC_ERR_ARG_WRONGSTATE,"Subdomain: Mapping from local to global DOF numbering must be first defined");
+  if (!sd->vec1_global) SETERRQ(MPI_COMM_SELF,PETSC_ERR_ARG_WRONGSTATE,"Subdomain: global working vector must be first created");
   PetscFunctionReturn(0);
 }
 
@@ -89,6 +92,32 @@ PetscErrorCode SubdomainSetLocalRHS(Subdomain sd,Vec rhs)
   ierr = VecDestroy(&sd->localRHS);CHKERRQ(ierr);
   ierr = PetscObjectReference((PetscObject)rhs);CHKERRQ(ierr);
   sd->localRHS = rhs;
+  PetscFunctionReturn(0);
+}
+
+
+#undef  __FUNCT__
+#define __FUNCT__ "SubdomainCreateGlobalWorkingVec"
+/*@
+   SubdomainCreateGlobalWorkingVec - Creates the global (distributed) working vector by duplicating a given vector.
+
+   Input Parameter:
+.  sd  - The Subdomain context
+.  vec - The global vector to use in the duplication
+
+   Level: developer
+
+.keywords: working global vector
+
+@*/
+PetscErrorCode SubdomainCreateGlobalWorkingVec(Subdomain sd,Vec vec)
+{
+  PetscErrorCode ierr;
+  PetscFunctionBegin;
+  PetscValidPointer(sd,1);
+  /* this rutine is called from outside with a valid vec*/
+  ierr = VecDestroy(&sd->vec1_global);CHKERRQ(ierr);
+  ierr = VecDuplicate(vec,&sd->vec1_global);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 
@@ -169,6 +198,7 @@ PetscErrorCode  SubdomainCreate(Subdomain *_sd)
   PetscValidPointer(_sd,1);
   ierr = PetscCalloc1(1,&sd);CHKERRQ(ierr);
   *_sd = sd; sd->refct = 1;
+  sd->count            = 0;
   sd->is_B_local       = 0;
   sd->is_I_local       = 0;
   sd->is_B_global      = 0;
@@ -234,6 +264,8 @@ PetscErrorCode SubdomainSetUp(Subdomain sd, PetscBool fetisetupcalled)
         sd->n_B++;
       }
     }
+    ierr = PetscMalloc1((size_t)sd->n_B,&sd->count);CHKERRQ(ierr);
+    for (i=0, j=0; i<sd->n; i++) if (array[i]) sd->count[j++] = array[i]-1;
     
     /* Getting the global numbering */
     idx_B_global = idx_I_local + n_I; /* Just avoiding allocating extra memory, since we have vacant space */
@@ -250,11 +282,14 @@ PetscErrorCode SubdomainSetUp(Subdomain sd, PetscBool fetisetupcalled)
     ierr = PetscFree(idx_I_local);CHKERRQ(ierr);
     ierr = PetscFree(array);CHKERRQ(ierr);
 
-    /* Creating work vectors vec1_N and vec1_B */
+    /* Creating work vectors vec1_N, vec1_B and vec1_D */
     ierr = VecDuplicate(sd->localRHS,&sd->vec1_N);CHKERRQ(ierr);
     ierr = VecCreateSeq(PETSC_COMM_SELF,sd->n_B,&sd->vec1_B);CHKERRQ(ierr);
+    ierr = VecCreateSeq(PETSC_COMM_SELF,sd->n-sd->n_B,&sd->vec1_D);CHKERRQ(ierr);
     /* Creating the scatter contexts */
     ierr = VecScatterCreate(sd->vec1_N,sd->is_B_local,sd->vec1_B,(IS)0,&sd->N_to_B);CHKERRQ(ierr);
+    ierr = VecScatterCreate(sd->vec1_global,sd->is_I_global,sd->vec1_D,(IS)0,&sd->global_to_D);CHKERRQ(ierr);
+    ierr = VecScatterCreate(sd->vec1_global,sd->is_B_global,sd->vec1_B,(IS)0,&sd->global_to_B);CHKERRQ(ierr);
     /* map from boundary to local */
     ierr = ISLocalToGlobalMappingCreateIS(sd->is_B_local,&sd->BtoNmap);CHKERRQ(ierr);
   }
@@ -262,41 +297,4 @@ PetscErrorCode SubdomainSetUp(Subdomain sd, PetscBool fetisetupcalled)
 }
 
 
-#undef __FUNCT__
-#define __FUNCT__ "SubdomainCreateVecScatter"
-/*@ SubdomainCreateVecScatters - It createss the VecScatters
-  global_to_D and global_to_B. It will also create the vector vec1_D
-  for the scatter global_to_D. 
 
-   Input Parameter:
-.  sd    - The Subdomain context.
-.  _vec1_global - A reference to the global vector (created by the user).
-
-  Level: developer
-
-  Notes: 
-     When calling this function, pre-existing instancies of
-     VecScatters global_to_D and global_to_B will be destroyed. The
-     same comment applies for the vectors vec1_D and global_to_D.
-
-.keywords: VecScatters
-.seealso: SubdomainSetUp()
-@*/
-PetscErrorCode SubdomainCreateVecScatter(Subdomain sd, Vec _vec1_global)
-{
-  PetscErrorCode ierr;
-
-  PetscFunctionBegin;
-  PetscValidPointer(sd,1);
-  PetscValidHeaderSpecific(_vec1_global,VEC_CLASSID,2);
-  ierr = VecDestroy(&sd->vec1_global);CHKERRQ(ierr);
-  ierr = VecDestroy(&sd->vec1_D);CHKERRQ(ierr);
-  ierr = PetscObjectReference((PetscObject)_vec1_global);CHKERRQ(ierr);
-  /* Creating work vectors */
-  sd->vec1_global = _vec1_global; /* reference to global vector provided by user */
-  ierr = VecCreateSeq(PETSC_COMM_SELF,sd->n-sd->n_B,&sd->vec1_D);CHKERRQ(ierr);
-  /* Creating the scatter contexts */
-  ierr = VecScatterCreate(sd->vec1_global,sd->is_I_global,sd->vec1_D,(IS)0,&sd->global_to_D);CHKERRQ(ierr);
-  ierr = VecScatterCreate(sd->vec1_global,sd->is_B_global,sd->vec1_B,(IS)0,&sd->global_to_B);CHKERRQ(ierr);
-  PetscFunctionReturn(0);
-}

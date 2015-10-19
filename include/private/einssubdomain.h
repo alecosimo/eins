@@ -36,7 +36,8 @@ struct _n_Subdomain {
   VecScatter  global_to_D;        /* scattering context from global to local interior nodes */
   VecScatter  N_to_B;             /* scattering context from all local nodes to local interface nodes */
   VecScatter  global_to_B;        /* scattering context from global to local interface nodes */
-
+  PetscInt    *count;             /* number of neighbors for DOF i at the iterface. I does not count itself. dim(count)=n_B */
+  
   ISLocalToGlobalMapping mapping;
   PetscInt  n_neigh;     /* number of neighbours this subdomain has (by now, INCLUDING OR NOT the subdomain itself). */
                          /* Once this is definitively decided, the code can be simplifies and some if's eliminated.  */
@@ -67,5 +68,6 @@ PETSC_EXTERN PetscErrorCode SubdomainSetLocalMat(Subdomain,Mat);
 PETSC_EXTERN PetscErrorCode SubdomainSetLocalRHS(Subdomain,Vec);
 PETSC_EXTERN PetscErrorCode SubdomainSetMapping(Subdomain,ISLocalToGlobalMapping);
 PETSC_EXTERN PetscErrorCode SubdomainSetUp(Subdomain,PetscBool);
-PETSC_EXTERN PetscErrorCode SubdomainCreateVecScatter(Subdomain,Vec);
+PETSC_EXTERN PetscErrorCode SubdomainCreateGlobalWorkingVec(Subdomain,Vec);
+
 #endif/* SUBDOMAIN_H*/

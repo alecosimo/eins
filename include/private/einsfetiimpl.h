@@ -30,8 +30,9 @@ struct _p_FETI {
   Mat              Wscaling;
   ScalingType      scalingType;
   /* Common attributes for the interface problem*/
-  Vec              lambda;
+  Vec              lambda_local;
   PetscInt         n_lambda;
+  VecScatter       l2g_lambda;
   Mat              F;
   Vec              d;
   KSP              ksp_interface;

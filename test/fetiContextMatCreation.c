@@ -586,7 +586,7 @@ int main(int argc,char **args)
   DomainData               dd;
   /* PetscReal                norm,maxeig,mineig;*/
   Mat                      localA   = 0;
-  Vec                      localRHS = 0, u_B = 0;
+  Vec                      localRHS = 0, u_B = 0, global_sol = 0;
   ISLocalToGlobalMapping   mapping  = 0;
   FETI                     feti;
 
@@ -617,6 +617,8 @@ int main(int argc,char **args)
   ierr = FETISetLocalMat(feti,localA);CHKERRQ(ierr);
   ierr = FETISetLocalRHS(feti,localRHS);CHKERRQ(ierr);
   ierr = FETISetMapping(feti,mapping);CHKERRQ(ierr);
+  ierr = ISCreateMPIVec(dd.gcomm,dd.xm*dd.ym*dd.zm,mapping,&global_sol);CHKERRQ(ierr);
+  ierr = FETICreateGlobalWorkingVec(feti,global_sol);CHKERRQ(ierr);
   ierr = FETISetUp(feti);CHKERRQ(ierr);
 
   /* Testing the VecScatters: the user will never deal explictly with these VecScatters. It is just a test. */
@@ -634,6 +636,7 @@ int main(int argc,char **args)
   ierr = MatDestroy(&localA);CHKERRQ(ierr);
   ierr = VecDestroy(&localRHS);CHKERRQ(ierr);
   ierr = VecDestroy(&u_B);CHKERRQ(ierr);
+  ierr = VecDestroy(&global_sol);CHKERRQ(ierr);
   ierr = ISLocalToGlobalMappingDestroy(&mapping);CHKERRQ(ierr);
   ierr = EinsFinalize();CHKERRQ(ierr);
 

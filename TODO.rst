@@ -14,3 +14,10 @@
   global distributed vector.... Regarding the simple petsc object
   Subdomain: is it really necessary? I think it could be interesting
   for in a future supporting other type of "substructuring" methods.
+
+* CHANGE DOC: at the end vec1_global is built during the setup phase
+  of the subdomain object.
+
+* SCALING: take into account that part of the scaling is set up in
+  bddcfetidp.c::PCBDDCSetupFETIDPMatContext
+  
