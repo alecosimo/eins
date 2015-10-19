@@ -490,7 +490,7 @@ PetscErrorCode  FETICreate(MPI_Comm comm,FETI *newfeti)
   ierr = FETIInitializePackage();CHKERRQ(ierr);
 
   ierr = PetscHeaderCreate(feti,FETI_CLASSID,"FETI","FETI","FETI",comm,FETIDestroy,FETIView);CHKERRQ(ierr);
-  ierr = SubdomainCreate(&feti->subdomain);CHKERRQ(ierr);
+  ierr = SubdomainCreate(((PetscObject)feti)->comm,&feti->subdomain);CHKERRQ(ierr);
   
   feti->setupcalled          = 0;
   feti->setfromoptionscalled = 0;

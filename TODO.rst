@@ -21,3 +21,4 @@
 * SCALING: take into account that part of the scaling is set up in
   bddcfetidp.c::PCBDDCSetupFETIDPMatContext
   
+* Optimize memory allocation in Subdomain class using PetscMalloc5()?

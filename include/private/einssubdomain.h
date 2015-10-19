@@ -16,6 +16,7 @@ struct _n_Subdomain {
   /* In some cases, I or D would apply equaly well (e.g. vec1_D).  */
 
   PetscInt refct;            /* reference count*/
+  MPI_Comm comm;
   
   PetscInt n;                /* number of nodes (interior+interface) in this subdomain */
   PetscInt n_B;              /* number of interface nodes in this subdomain */
@@ -36,33 +37,21 @@ struct _n_Subdomain {
   VecScatter  global_to_D;        /* scattering context from global to local interior nodes */
   VecScatter  N_to_B;             /* scattering context from all local nodes to local interface nodes */
   VecScatter  global_to_B;        /* scattering context from global to local interface nodes */
-  PetscInt    *count;             /* number of neighbors for DOF i at the iterface. I does not count itself. dim(count)=n_B */
   
-  ISLocalToGlobalMapping mapping;
-  PetscInt  n_neigh;     /* number of neighbours this subdomain has (by now, INCLUDING OR NOT the subdomain itself). */
-                         /* Once this is definitively decided, the code can be simplifies and some if's eliminated.  */
-  PetscInt *neigh;       /* list of neighbouring subdomains                                                          */
-  PetscInt *n_shared;    /* n_shared[j] is the number of nodes shared with subdomain neigh[j]                        */
-  PetscInt **shared;     /* shared[j][i] is the local index of the i-th node shared with subdomain neigh[j]          */
-  /* It is necessary some consistency in the                                                  */
-  /* numbering of the shared edges from each side.                                            */
-  /* For instance:                                                                            */
-  /*                                                                                          */
-  /* +-------+-------+                                                                        */
-  /* |   k   |   l   | subdomains k and l are neighbours                                      */
-  /* +-------+-------+                                                                        */
-  /*                                                                                          */
-  /* Let i and j be s.t. proc[k].neigh[i]==l and                                              */
-  /*                     proc[l].neigh[j]==k.                                                 */
-  /*                                                                                          */
-  /* We need:                                                                                 */
-  /* proc[k].loc_to_glob(proc[k].shared[i][m]) == proc[l].loc_to_glob(proc[l].shared[j][m])   */
-  /* for all 0 <= m < proc[k].n_shared[i], or equiv'ly, for all 0 <= m < proc[l].n_shared[j]  */
+  ISLocalToGlobalMapping mapping; /* mapping from local to global numbering of nodes */
   ISLocalToGlobalMapping BtoNmap;
+  PetscInt  n_neigh;         /* number of neighbours this subdomain has (by now, INCLUDING OR NOT the subdomain itself). */
+  PetscInt *neigh;           /* list of neighbouring subdomains                                                          */
+  PetscInt *n_shared;        /* n_shared[j] is the number of nodes shared with subdomain neigh[j]                        */
+  PetscInt **shared;         /* shared[j][i] is the local index of the i-th node shared with subdomain neigh[j]          */
+
+  PetscInt *count;           /* number of neighbors for DOF i at the iterface. I does not count itself. dim(count)=n_B   */
+  PetscInt **neighbours_set; /* neighbours_set[i][j] is the number of the j-th subdomain sharing dof i-th                */
+
 };
 
 PETSC_EXTERN PetscErrorCode SubdomainDestroy(Subdomain*);
-PETSC_EXTERN PetscErrorCode SubdomainCreate(Subdomain*);
+PETSC_EXTERN PetscErrorCode SubdomainCreate(MPI_Comm,Subdomain*);
 PETSC_EXTERN PetscErrorCode SubdomainCheckState(Subdomain);
 PETSC_EXTERN PetscErrorCode SubdomainSetLocalMat(Subdomain,Mat);
 PETSC_EXTERN PetscErrorCode SubdomainSetLocalRHS(Subdomain,Vec);

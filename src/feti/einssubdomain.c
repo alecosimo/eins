@@ -16,6 +16,8 @@ PetscErrorCode  SubdomainDestroy(Subdomain *_sd)
 {
   Subdomain      sd;
   PetscErrorCode ierr;
+  PetscInt       i;
+  
   PetscFunctionBegin;
   PetscValidPointer(_sd,1);
   sd = *_sd; *_sd = NULL;
@@ -40,8 +42,11 @@ PetscErrorCode  SubdomainDestroy(Subdomain *_sd)
   }
   ierr = ISLocalToGlobalMappingDestroy(&sd->mapping);CHKERRQ(ierr);
   ierr = ISLocalToGlobalMappingDestroy(&sd->BtoNmap);CHKERRQ(ierr);
-  ierr = PetscFree(sd->count);CHKERRQ(ierr);
-  
+  if (sd->count) {ierr = PetscFree(sd->count);CHKERRQ(ierr);}
+  if (sd->neighbours_set) {
+    ierr = PetscFree(sd->neighbours_set[0]);CHKERRQ(ierr);
+    ierr = PetscFree(sd->neighbours_set);CHKERRQ(ierr);
+  }
   ierr = PetscFree(sd);CHKERRQ(ierr);
   PetscFunctionReturn(0);  
 }
@@ -185,12 +190,18 @@ PetscErrorCode SubdomainSetMapping(Subdomain sd,ISLocalToGlobalMapping isg2l)
   as the local system matrix, the local rhs and the mapping from local to global numering of
   DOFs.
 
+   Input Parameter:
+.  comm - The MPI communicator
+
+   Output Parameter:
+.  sd    - Pointer to the Subdomain context
+
   Level: developer
 
 .keywords: FETI
 .seealso: FETICreate()
 @*/
-PetscErrorCode  SubdomainCreate(Subdomain *_sd)
+PetscErrorCode  SubdomainCreate(MPI_Comm comm, Subdomain *_sd)
 {
   Subdomain      sd;
   PetscErrorCode ierr;
@@ -198,7 +209,9 @@ PetscErrorCode  SubdomainCreate(Subdomain *_sd)
   PetscValidPointer(_sd,1);
   ierr = PetscCalloc1(1,&sd);CHKERRQ(ierr);
   *_sd = sd; sd->refct = 1;
+  sd->comm             = comm;
   sd->count            = 0;
+  sd->neighbours_set   = 0;
   sd->is_B_local       = 0;
   sd->is_I_local       = 0;
   sd->is_B_global      = 0;
@@ -241,8 +254,9 @@ PetscErrorCode SubdomainSetUp(Subdomain sd, PetscBool fetisetupcalled)
     PetscInt    n_I;
     PetscInt    *idx_I_local,*idx_B_local,*idx_I_global,*idx_B_global;
     PetscInt    *array;
-    PetscInt    i,j;
+    PetscInt    i,j,k,rank;
 
+    ierr = MPI_Comm_rank(sd->comm,&rank);CHKERRQ(ierr);
     /* get info on mapping */
     ierr = ISLocalToGlobalMappingGetSize(sd->mapping,&sd->n);CHKERRQ(ierr);
     ierr = ISLocalToGlobalMappingGetInfo(sd->mapping,&(sd->n_neigh),&(sd->neigh),&(sd->n_shared),&(sd->shared));CHKERRQ(ierr);
@@ -251,7 +265,7 @@ PetscErrorCode SubdomainSetUp(Subdomain sd, PetscBool fetisetupcalled)
     ierr = PetscMemzero(array,sd->n*sizeof(PetscInt));CHKERRQ(ierr);
     for (i=0;i<sd->n_neigh;i++)
       for (j=0;j<sd->n_shared[i];j++)
-          array[sd->shared[i][j]] += 1;
+	array[sd->shared[i][j]] += 1;
     /* Creating local and global index sets for interior and inteface nodes. */
     ierr = PetscMalloc1(sd->n,&idx_I_local);CHKERRQ(ierr);
     ierr = PetscMalloc1(sd->n,&idx_B_local);CHKERRQ(ierr);
@@ -261,11 +275,37 @@ PetscErrorCode SubdomainSetUp(Subdomain sd, PetscBool fetisetupcalled)
         n_I++;
       } else {
         idx_B_local[sd->n_B] = i;
+	array[i] = sd->n_B;
         sd->n_B++;
       }
     }
-    ierr = PetscMalloc1((size_t)sd->n_B,&sd->count);CHKERRQ(ierr);
-    for (i=0, j=0; i<sd->n; i++) if (array[i]) sd->count[j++] = array[i]-1;
+    ierr = PetscCalloc1((size_t)sd->n_B,&sd->count);CHKERRQ(ierr);
+    /* Count total number of neigh per node */
+    k=0;
+    for (i=1;i<sd->n_neigh;i++) {//not count myself
+      k += sd->n_shared[i];
+      for (j=0;j<sd->n_shared[i];j++) {
+	sd->count[array[sd->shared[i][j]]] += 1;
+      }
+    }
+    /* Allocate space for storing the set of neighbours for each node */
+    ierr = PetscMalloc1(sd->n_B,&sd->neighbours_set);CHKERRQ(ierr);
+    ierr = PetscMalloc1(k,&sd->neighbours_set[0]);CHKERRQ(ierr);
+    for (i=1;i<sd->n_B;i++) { 
+      sd->neighbours_set[i] = sd->neighbours_set[i-1]+sd->count[i-1];
+    }
+    /* Get information for sharing subdomains */
+    ierr = PetscMemzero(sd->count,sd->n_B*sizeof(PetscInt));CHKERRQ(ierr);
+    for (i=1;i<sd->n_neigh;i++) {//not count myself
+      for (j=0;j<sd->n_shared[i];j++) {
+	k = array[sd->shared[i][j]];
+	sd->neighbours_set[k][sd->count[k]++] = sd->neigh[i];
+      }
+    }
+    /* sort set of sharing subdomains */
+    for (i=0;i<sd->n_B;i++) {
+      ierr = PetscSortRemoveDupsInt(&sd->count[i],sd->neighbours_set[i]);CHKERRQ(ierr);
+    }
     
     /* Getting the global numbering */
     idx_B_global = idx_I_local + n_I; /* Just avoiding allocating extra memory, since we have vacant space */

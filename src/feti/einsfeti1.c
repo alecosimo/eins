@@ -1,4 +1,5 @@
 #include <../src/feti/einsfeti1.h>
+#include <einssys.h>
 
 
 static PetscErrorCode FETI1BuildLambdaAndB_Private(FETI);
@@ -168,6 +169,8 @@ static PetscErrorCode FETI1BuildLambdaAndB_Private(FETI ft)
     SETERRQ3(PETSC_COMM_WORLD,PETSC_ERR_PLIB,"Error in %s: global number of multipliers mismatch! (%d!=%d)\n",__FUNCT__,ft->n_lambda,i);
   }
 
+  
+  #if 0
   /* /\* init data for scaling factors exchange *\/ */
   /* partial_sum = 0; */
   /* j = 0; */
@@ -224,21 +227,23 @@ static PetscErrorCode FETI1BuildLambdaAndB_Private(FETI ft)
   ierr = PetscMalloc1(n_local_lambda,&l2g_indices);CHKERRQ(ierr);
   ierr = PetscMalloc1(n_local_lambda,&vals_B_delta);CHKERRQ(ierr);
   ierr = PetscMalloc1(n_local_lambda,&cols_B_delta);CHKERRQ(ierr);
-  ierr = PetscMalloc1(n_local_lambda,&scaling_factors);CHKERRQ(ierr);
   ierr = ISGetIndices(subset_n,&aux_global_numbering);CHKERRQ(ierr);
   n_global_lambda=0;
   partial_sum=0;
   cum = 0;
   for (i=0;i<dual_size;i++) {
     n_global_lambda = aux_global_numbering[cum];
-    j = mat_graph->count[aux_local_numbering_1[i]];
+    j = sd->count[i]; /* "sd->count[aux_local_numbering_1[i]]": aux_local_numbering_1[i] primal dof number of the boundary */
     aux_sums[0]=0;
     for (s=1;s<j;s++) {
       aux_sums[s]=aux_sums[s-1]+j-s+1;
     }
-    array = all_factors[aux_local_numbering_1[i]];
     n_neg_values = 0;
-    while(n_neg_values < j && mat_graph->neighbours_set[aux_local_numbering_1[i]][n_neg_values] < rank) {n_neg_values++;}
+    
+    while(n_neg_values < j && mat_graph->neighbours_set[aux_local_numbering_1[i]][n_neg_values] < rank){
+      n_neg_values++;
+    }
+    
     n_pos_values = j - n_neg_values;
     if (fully_redundant) {
       for (s=0;s<n_neg_values;s++) {
@@ -339,6 +344,6 @@ static PetscErrorCode FETI1BuildLambdaAndB_Private(FETI ft)
   ierr = PetscOptionsGetBool(NULL,"-fetidp_check",&test_fetidp,NULL);CHKERRQ(ierr);
 
   ierr = VecDestroy(&lambda_global);CHKERRQ(ierr);
-
+#endif
   PetscFunctionReturn(0);
 }
