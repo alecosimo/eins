@@ -64,7 +64,6 @@ PETSC_EXTERN PetscErrorCode FETISetUp(FETI);
 PETSC_EXTERN PetscErrorCode FETISetMapping(FETI,ISLocalToGlobalMapping);
 PETSC_EXTERN PetscErrorCode FETISetLocalRHS(FETI,Vec);
 PETSC_EXTERN PetscErrorCode FETISetLocalMat(FETI,Mat);
-PETSC_EXTERN PetscErrorCode FETISetLocalRHS(FETI,Vec);
 PETSC_EXTERN PetscErrorCode FETICreateGlobalWorkingVec(FETI,Vec);
 
 #endif/* FETI_H*/
