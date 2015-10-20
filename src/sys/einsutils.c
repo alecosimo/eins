@@ -1,4 +1,5 @@
-#include <petsc/private/matimpl.h>
+#include <petsc/private/petscimpl.h>
+#include <petscmat.h>
 #include <petscsf.h>
 
 

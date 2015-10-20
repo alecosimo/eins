@@ -539,7 +539,7 @@ PetscErrorCode KSPView_PJGMRES(KSP ksp,PetscViewer viewer)
 
 .seealso: KSPMonitorSet(), KSPMonitorDefault(), VecView(), KSPViewersCreate(), KSPViewersDestroy()
 @*/
-PetscErrorCode  KSPGMRESMonitorKrylov(KSP ksp,PetscInt its,PetscReal fgnorm,void *dummy)
+PetscErrorCode  KSPGMRESMonitorKrylov(KSP ksp,PETSC_UNUSED PetscInt its,PETSC_UNUSED PetscReal fgnorm,void *dummy)
 {
   PetscViewers   viewers = (PetscViewers)dummy;
   KSP_PJGMRES      *gmres  = (KSP_PJGMRES*)ksp->data;
