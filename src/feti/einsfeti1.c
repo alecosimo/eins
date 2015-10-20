@@ -3,17 +3,18 @@
 
 
 static PetscErrorCode FETI1BuildLambdaAndB_Private(FETI);
+static PetscErrorCode FETI1SetUpNeumannSolver_Private(FETI);
   
 #undef __FUNCT__
 #define __FUNCT__ "FETIDestroy_FETI1"
-/*
+/*@
    FETIDestroy_FETI1 - Destroys the FETI-1 context
 
    Input Parameters:
 .  ft - the FETI context
 
 .seealso FETICreate_FETI1
- */
+@*/
 PetscErrorCode FETIDestroy_FETI1(FETI ft);
 PetscErrorCode FETIDestroy_FETI1(FETI ft)
 {
@@ -27,13 +28,13 @@ PetscErrorCode FETIDestroy_FETI1(FETI ft)
 
 #undef __FUNCT__
 #define __FUNCT__ "FETISetUp_FETI1"
-/*
+/*@
    FETISetUp_FETI1 - Prepares the structures needed by the FETI-1 solver.
 
    Input Parameters:
 .  ft - the FETI context
 
-*/
+@*/
 PetscErrorCode FETISetUp_FETI1(FETI ft);
 PetscErrorCode FETISetUp_FETI1(FETI ft)
 {
@@ -41,6 +42,7 @@ PetscErrorCode FETISetUp_FETI1(FETI ft)
 
   PetscFunctionBegin;
   ierr = FETI1BuildLambdaAndB_Private(ft);CHKERRQ(ierr);
+  
   PetscFunctionReturn(0);
 }
 
@@ -52,7 +54,7 @@ EXTERN_C_BEGIN
    FETI1 - Implementation of the FETI-1 method. Some comments about options can be put here!
 
    Options:
-.  feti_fullyredundant: use fully redundant Lagrange multipliers.
+.  -feti_fullyredundant: use fully redundant Lagrange multipliers.
     
    Level: beginner
 
@@ -81,14 +83,14 @@ EXTERN_C_END
 
 #undef __FUNCT__
 #define __FUNCT__ "FETI1BuildLambdaAndB_Private"
-/*
+/*@
    FETI1BuildLambdaAndB_Private - Computes the B operator and the vector lambda of 
    the interface problem.
 
    Input Parameters:
 .  ft - the FETI context
 
- */
+@*/
 static PetscErrorCode FETI1BuildLambdaAndB_Private(FETI ft)
 {
   PetscErrorCode ierr;
@@ -256,5 +258,99 @@ static PetscErrorCode FETI1BuildLambdaAndB_Private(FETI ft)
 
   MatSeqViewSynchronized(ft->B_delta);
    
+  PetscFunctionReturn(0);
+}
+
+
+#undef __FUNCT__
+#define __FUNCT__ "FETI1ComputeMatrixG_Private"
+/*@
+   FETI1ComputeRBM_Private - Computes the Rigid Body Modes and the application of the operator B to them.
+
+   Input Parameters:
+.  ft - the FETI context
+
+@*/
+static PetscErrorCode FETI1ComputeMatrixG_Private(FETI ft)
+{
+  PetscErrorCode ierr;
+  MPI_Comm       comm;
+  Vec            lambda_global;
+  IS             IS_l2g_lambda;
+  IS             subset,subset_mult,subset_n;
+  PetscBool      fully_redundant;
+  PetscInt       i,j,s,n_boundary_dofs,n_global_lambda,partial_sum;
+  PetscInt       cum,n_local_lambda,n_lambda_for_dof,dual_size,n_neg_values,n_pos_values;
+  PetscMPIInt    rank;
+  PetscInt       *dual_dofs_boundary_indices,*aux_local_numbering_1;
+  const PetscInt *aux_global_numbering,*indices;
+  PetscInt       *aux_sums,*cols_B_delta,*l2g_indices;
+  PetscScalar    *array,*vals_B_delta;
+  PetscInt       *aux_local_numbering_2;
+  PetscScalar    scalar_value;
+  MatSolverPackage   stype;
+  Subdomain          sd = ft->subdomain;
+  PC                 pc_neumann;
+  
+  PetscFunctionBegin;
+  ierr = KSPGetPC(ft->ksp_neumann,&pc_neumann);CHKERRQ(ierr);
+  ierr = PCFactorGetMatSolverPackage(pc_neumann,&stype);CHKERRQ(ierr);
+  if(stype!=MATSOLVERMUMPS){
+    SETERRQ(PetscObjectComm((PetscObject)feti),PETSC_ERR_ARG_WRONGSTATE,"Error: FETI1 implementation only supports MUMPS for the factorization of the Neumann problem");
+  }
+  ierr = PetscObjectGetComm((PetscObject)ft,&comm);CHKERRQ(ierr);
+  ierr = MPI_Comm_rank(comm,&rank);CHKERRQ(ierr);
+   
+  PetscFunctionReturn(0);
+}
+
+
+#undef __FUNCT__
+#define __FUNCT__ "FETI1SetUpNeumannSolver_Private"
+/*@
+   FETI1SetUpNeumannSolver - It mainly configures the neumann direct solver and performes the factorization.
+
+   Input Parameter:
+.  feti - the FETI context
+
+   Level: developer
+
+.keywords: FETI1
+
+.seealso: FETISetUp_FETI1()
+@*/
+static PetscErrorCode FETI1SetUpNeumannSolver_Private(FETI ft)
+{
+  PetscErrorCode ierr;
+  PC             pc;
+  PetscBool      issbaij;
+  
+  PetscFunctionBegin;
+#if !defined(PETSC_HAVE_MUMPS)
+    SETERRQ(PETSC_COMM_WORLD,1,"EINS only supports MUMPS for the solution of the Neumann problem");
+#endif
+  if (!ft->ksp_neumann) {
+    ierr = KSPCreate(PETSC_COMM_SELF,&ft->ksp_neumann);CHKERRQ(ierr);
+    ierr = PetscObjectIncrementTabLevel((PetscObject)ft->ksp_neumann,(PetscObject)ft,1);CHKERRQ(ierr);
+    ierr = KSPSetType(ft->ksp_neumann,KSPPREONLY);CHKERRQ(ierr);
+    ierr = KSPGetPC(pcbddc->ksp_neumann,&pc);CHKERRQ(ierr);
+    ierr = PetscObjectTypeCompare((PetscObject)(*ft->A_neumann),MATSEQSBAIJ,&issbaij);CHKERRQ(ierr);
+    if (issbaij) {
+      ierr = PCSetType(pc,PCCHOLESKY);CHKERRQ(ierr);
+    } else {
+      ierr = PCSetType(pc,PCLU);CHKERRQ(ierr);
+    }
+    ierr = PCFactorSetMatSolverPackage(pc,MATSOLVERMUMPS);CHKERRQ(ierr);
+    ierr = KSPSetOperators(ft->ksp_neumann,*ft->A_neumann,*ft->A_neumann);CHKERRQ(ierr);
+    ierr = KSPSetFromOptions(ft->ksp_neumann);CHKERRQ(ierr);
+    /* Maybe the following two options should be given as external options and not here*/
+    ierr = PCFactorSetReuseFill(pc,PETSC_TRUE);CHKERRQ(ierr);
+    ierr = PCFactorSetReuseOrdering(pc,PETSC_TRUE);CHKERRQ(ierr);
+  } else {
+    ierr = KSPSetOperators(ft->ksp_neumann,*ft->A_neumann,*ft->A_neumann);CHKERRQ(ierr);
+  }
+  /* Set Up KSP for Neumann problem: here the factorization takes place!!! */
+  ierr = KSPSetUp(ft->ksp_neumann);CHKERRQ(ierr);
+
   PetscFunctionReturn(0);
 }

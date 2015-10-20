@@ -13,3 +13,7 @@
   bddcfetidp.c::PCBDDCSetupFETIDPMatContext
   
 * Optimize memory allocation in Subdomain class using PetscMalloc5()?
+
+* Re-think about options in FETI1SetUpNeumannSolver_Private:
+  ierr = PCFactorSetReuseFill(pc,PETSC_TRUE);CHKERRQ(ierr);
+  ierr = PCFactorSetReuseOrdering(pc,PETSC_TRUE);CHKERRQ(ierr);

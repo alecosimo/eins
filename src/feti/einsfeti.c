@@ -8,7 +8,6 @@ static PetscBool  FETIPackageInitialized  = PETSC_FALSE;
 
 PETSC_EXTERN PetscErrorCode FETICreate_FETI1(FETI);
 
-
 #undef __FUNCT__
 #define __FUNCT__ "FETIRegister"
 /*@C
@@ -74,8 +73,7 @@ PetscErrorCode  FETIRegisterAll(void)
 -  type - a FETI formulation
 
    Options Database Key:
-.  -pc_type <type> - Sets PC type
-
+.  -feti_type <type> - Sets FETI type
 
   Level: intermediate
 
@@ -223,7 +221,19 @@ PetscErrorCode FETIDestroy(FETI *_feti)
   feti->setupcalled = 0;
   /* destroying FETI objects */
   ierr = SubdomainDestroy(&feti->subdomain);CHKERRQ(ierr);
-  
+  ierr = KSPDestroy(&feti->ksp_neumann);CHKERRQ(ierr);
+  ierr = KSPDestroy(&feti->ksp_interface);CHKERRQ(ierr);
+  ierr = MatDestroy(&feti->B_delta);CHKERRQ(ierr);
+  ierr = MatDestroy(&feti->B_Ddelta);CHKERRQ(ierr);
+  ierr = MatDestroy(&feti->Wscaling);CHKERRQ(ierr);
+  ierr = MatDestroy(&feti->A_II);CHKERRQ(ierr);
+  ierr = MatDestroy(&feti->A_BB);CHKERRQ(ierr);
+  ierr = MatDestroy(&feti->A_IB);CHKERRQ(ierr);
+  ierr = MatDestroy(&feti->F);CHKERRQ(ierr);
+  ierr = VecDestroy(&feti->d);CHKERRQ(ierr);
+  ierr = VecDestroy(&feti->lambda_local);CHKERRQ(ierr);
+  ierr = VecScatterDestroy(&feti->l2g_lambda);CHKERRQ(ierr);
+    
   if (feti->ops->destroy) {ierr = (*feti->ops->destroy)(feti);CHKERRQ(ierr);}
   ierr = PetscHeaderDestroy(&feti);CHKERRQ(ierr);
   PetscFunctionReturn(0);
@@ -313,6 +323,7 @@ PetscErrorCode  FETISetUp(FETI feti)
 
   ierr = PetscLogEventBegin(FETI_SetUp,feti,0,0,0);CHKERRQ(ierr);
   ierr = SubdomainSetUp(feti->subdomain,feti->setupcalled);CHKERRQ(ierr);
+
   if (feti->ops->setup) {
     ierr = (*feti->ops->setup)(feti);CHKERRQ(ierr);
   }
@@ -441,6 +452,9 @@ PetscErrorCode FETISetMapping(FETI ft,ISLocalToGlobalMapping isg2l)
    Output Parameter:
 .  feti - location to put the FETI context
 
+   Options
+.  -feti_type <type> - Sets the FETI type
+
    Level: developer
 
 .keywords: FETI
@@ -478,6 +492,7 @@ PetscErrorCode  FETICreate(MPI_Comm comm,FETI *newfeti)
   feti->pc_type_interface    = 0;
   feti->B_delta              = 0;
   feti->B_Ddelta             = 0;
+  feti->ksp_neumann          = 0;
   
   *newfeti = feti;
   PetscFunctionReturn(0);

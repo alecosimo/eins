@@ -41,6 +41,8 @@ struct _p_FETI {
   PCType           pc_type_interface;
   /* B matrices*/
   Mat              B_delta,B_Ddelta;
+  /* Neumann problem */
+  KSP              ksp_neumann;
   /* Internal use of the class*/
   PetscInt         setupcalled;
   PetscInt         setfromoptionscalled;
