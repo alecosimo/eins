@@ -4,7 +4,8 @@
 
 static PetscErrorCode FETI1BuildLambdaAndB_Private(FETI);
 static PetscErrorCode FETI1SetUpNeumannSolver_Private(FETI);
-  
+static PetscErrorCode FETI1ComputeMatrixG_Private(FETI);
+
 #undef __FUNCT__
 #define __FUNCT__ "FETIDestroy_FETI1"
 /*@
@@ -19,8 +20,10 @@ PetscErrorCode FETIDestroy_FETI1(FETI ft);
 PetscErrorCode FETIDestroy_FETI1(FETI ft)
 {
   PetscErrorCode ierr;
-
+  FETI_1         *ft1 = (FETI_1*)ft->data;
+  
   PetscFunctionBegin;
+  ierr = MatDestroy(&ft1->localG);CHKERRQ(ierr);
   ierr = PetscFree(ft->data);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
@@ -42,7 +45,8 @@ PetscErrorCode FETISetUp_FETI1(FETI ft)
 
   PetscFunctionBegin;
   ierr = FETI1BuildLambdaAndB_Private(ft);CHKERRQ(ierr);
-  
+  ierr = FETI1SetUpNeumannSolver_Private(ft);CHKERRQ(ierr);  
+  ierr = FETI1ComputeMatrixG_Private(ft);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 
@@ -55,6 +59,7 @@ EXTERN_C_BEGIN
 
    Options:
 .  -feti_fullyredundant: use fully redundant Lagrange multipliers.
+.  -feti1_neumann_<ksp or pc option>: for setting pc and ksp options for the neumann solver. 
     
    Level: beginner
 
@@ -70,6 +75,7 @@ PetscErrorCode FETICreate_FETI1(FETI ft)
   ierr      = PetscNewLog(ft,&feti1);CHKERRQ(ierr);
   ft->data  = (void*)feti1;
 
+  feti1->localG                = 0;  
   /* function pointers */
   ft->ops->setup               = FETISetUp_FETI1;
   ft->ops->destroy             = FETIDestroy_FETI1;
@@ -169,7 +175,7 @@ static PetscErrorCode FETI1BuildLambdaAndB_Private(FETI ft)
   if (i != ft->n_lambda) {
     SETERRQ3(PETSC_COMM_WORLD,PETSC_ERR_PLIB,"Error in %s: global number of multipliers mismatch! (%d!=%d)\n",__FUNCT__,ft->n_lambda,i);
   }
-  
+  ft->n_local_lambda = n_local_lambda;
   /* Compute B_delta (local actions) */
   ierr = PetscMalloc1(sd->n_neigh,&aux_sums);CHKERRQ(ierr);
   ierr = PetscMalloc1(n_local_lambda,&l2g_indices);CHKERRQ(ierr);
@@ -256,7 +262,7 @@ static PetscErrorCode FETI1BuildLambdaAndB_Private(FETI ft)
   ierr = PetscFree(cols_B_delta);CHKERRQ(ierr);
   ierr = VecDestroy(&lambda_global);CHKERRQ(ierr);
 
-  MatSeqViewSynchronized(ft->B_delta);
+  /* MatSeqViewSynchronized(ft->B_delta); */
    
   PetscFunctionReturn(0);
 }
@@ -274,33 +280,41 @@ static PetscErrorCode FETI1BuildLambdaAndB_Private(FETI ft)
 static PetscErrorCode FETI1ComputeMatrixG_Private(FETI ft)
 {
   PetscErrorCode ierr;
+  Subdomain      sd = ft->subdomain;
+  PetscInt       infog,rank,n_local_lambda;
   MPI_Comm       comm;
-  Vec            lambda_global;
-  IS             IS_l2g_lambda;
-  IS             subset,subset_mult,subset_n;
-  PetscBool      fully_redundant;
-  PetscInt       i,j,s,n_boundary_dofs,n_global_lambda,partial_sum;
-  PetscInt       cum,n_local_lambda,n_lambda_for_dof,dual_size,n_neg_values,n_pos_values;
-  PetscMPIInt    rank;
-  PetscInt       *dual_dofs_boundary_indices,*aux_local_numbering_1;
-  const PetscInt *aux_global_numbering,*indices;
-  PetscInt       *aux_sums,*cols_B_delta,*l2g_indices;
-  PetscScalar    *array,*vals_B_delta;
-  PetscInt       *aux_local_numbering_2;
-  PetscScalar    scalar_value;
-  MatSolverPackage   stype;
-  Subdomain          sd = ft->subdomain;
-  PC                 pc_neumann;
+  Mat            rbm,x; 
+  FETI_1         *ft1 = (FETI_1*)ft->data;
   
   PetscFunctionBegin;
-  ierr = KSPGetPC(ft->ksp_neumann,&pc_neumann);CHKERRQ(ierr);
-  ierr = PCFactorGetMatSolverPackage(pc_neumann,&stype);CHKERRQ(ierr);
-  if(stype!=MATSOLVERMUMPS){
-    SETERRQ(PetscObjectComm((PetscObject)feti),PETSC_ERR_ARG_WRONGSTATE,"Error: FETI1 implementation only supports MUMPS for the factorization of the Neumann problem");
+  ierr   = PetscObjectGetComm((PetscObject)ft,&comm);CHKERRQ(ierr);
+  ierr   = MPI_Comm_rank(comm,&rank);CHKERRQ(ierr);
+  ft1->localG = 0;
+  /* get number of rigid body modes */
+  ierr   = MatMumpsGetInfog(ft1->F_neumann,28,&infog);CHKERRQ(ierr);
+  if(infog){
+    /* Compute rigid body modes */
+    ierr = MatCreateSeqDense(PETSC_COMM_SELF,sd->n,infog,NULL,&rbm);CHKERRQ(ierr);
+    ierr = MatDuplicate(rbm,MAT_DO_NOT_COPY_VALUES,&x);CHKERRQ(ierr);
+    ierr = MatAssemblyBegin(rbm,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
+    ierr = MatAssemblyEnd(rbm,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
+    ierr = MatMumpsSetIcntl(ft1->F_neumann,25,-1);CHKERRQ(ierr);
+    ierr = MatMatSolve(ft1->F_neumann,x,rbm);CHKERRQ(ierr);
+    ierr = MatDestroy(&x);CHKERRQ(ierr);
+    
+    ierr = MatGetSubMatrix(rbm,sd->is_B_local,NULL,MAT_INITIAL_MATRIX,&x);CHKERRQ(ierr);
+    ierr = MatCreateSeqDense(PETSC_COMM_SELF,ft->n_local_lambda,infog,NULL,&ft1->localG);CHKERRQ(ierr);
+    ierr = MatMatMult(ft->B_delta,x,MAT_REUSE_MATRIX,PETSC_DEFAULT,&ft1->localG);CHKERRQ(ierr);    
+    if(rank==1){
+      PetscPrintf(PETSC_COMM_SELF,"\n==================================================\n");
+      PetscPrintf(PETSC_COMM_SELF,"Printing rigid body modes\n");
+      PetscPrintf(PETSC_COMM_SELF,"==================================================\n");
+
+      MatView(ft1->localG,PETSC_VIEWER_STDOUT_SELF);
+    }
+    ierr = MatDestroy(&x);CHKERRQ(ierr);
+    ierr = MatDestroy(&rbm);CHKERRQ(ierr);
   }
-  ierr = PetscObjectGetComm((PetscObject)ft,&comm);CHKERRQ(ierr);
-  ierr = MPI_Comm_rank(comm,&rank);CHKERRQ(ierr);
-   
   PetscFunctionReturn(0);
 }
 
@@ -324,6 +338,10 @@ static PetscErrorCode FETI1SetUpNeumannSolver_Private(FETI ft)
   PetscErrorCode ierr;
   PC             pc;
   PetscBool      issbaij;
+  PetscInt       ival,icntl;
+  PetscReal      val;
+  FETI_1         *ft1 = (FETI_1*)ft->data;
+  Subdomain      sd = ft->subdomain;
   
   PetscFunctionBegin;
 #if !defined(PETSC_HAVE_MUMPS)
@@ -333,21 +351,33 @@ static PetscErrorCode FETI1SetUpNeumannSolver_Private(FETI ft)
     ierr = KSPCreate(PETSC_COMM_SELF,&ft->ksp_neumann);CHKERRQ(ierr);
     ierr = PetscObjectIncrementTabLevel((PetscObject)ft->ksp_neumann,(PetscObject)ft,1);CHKERRQ(ierr);
     ierr = KSPSetType(ft->ksp_neumann,KSPPREONLY);CHKERRQ(ierr);
-    ierr = KSPGetPC(pcbddc->ksp_neumann,&pc);CHKERRQ(ierr);
-    ierr = PetscObjectTypeCompare((PetscObject)(*ft->A_neumann),MATSEQSBAIJ,&issbaij);CHKERRQ(ierr);
+    ierr = KSPGetPC(ft->ksp_neumann,&pc);CHKERRQ(ierr);
+    ierr = PetscObjectTypeCompare((PetscObject)(sd->localA),MATSEQSBAIJ,&issbaij);CHKERRQ(ierr);
     if (issbaij) {
       ierr = PCSetType(pc,PCCHOLESKY);CHKERRQ(ierr);
     } else {
       ierr = PCSetType(pc,PCLU);CHKERRQ(ierr);
     }
     ierr = PCFactorSetMatSolverPackage(pc,MATSOLVERMUMPS);CHKERRQ(ierr);
-    ierr = KSPSetOperators(ft->ksp_neumann,*ft->A_neumann,*ft->A_neumann);CHKERRQ(ierr);
-    ierr = KSPSetFromOptions(ft->ksp_neumann);CHKERRQ(ierr);
+    ierr = KSPSetOperators(ft->ksp_neumann,sd->localA,sd->localA);CHKERRQ(ierr);
+    /* prefix for setting options */
+    ierr = KSPSetOptionsPrefix(ft->ksp_neumann,"feti1_neumann_");CHKERRQ(ierr);
+    
+    ierr = PCFactorSetUpMatSolverPackage(pc);CHKERRQ(ierr);
+    ierr = PCFactorGetMatrix(pc,&ft1->F_neumann);CHKERRQ(ierr);
+    /* sequential ordering */
+    ierr = MatMumpsSetIcntl(ft1->F_neumann,7,2);CHKERRQ(ierr);
+    /* Null row pivot detection */
+    ierr = MatMumpsSetIcntl(ft1->F_neumann,24,1);CHKERRQ(ierr);
+    /* threshhold for row pivot detection */
+    ierr = MatMumpsSetCntl(ft1->F_neumann,3,1.e-6);CHKERRQ(ierr);
+
     /* Maybe the following two options should be given as external options and not here*/
     ierr = PCFactorSetReuseFill(pc,PETSC_TRUE);CHKERRQ(ierr);
     ierr = PCFactorSetReuseOrdering(pc,PETSC_TRUE);CHKERRQ(ierr);
+    ierr = KSPSetFromOptions(ft->ksp_neumann);CHKERRQ(ierr);
   } else {
-    ierr = KSPSetOperators(ft->ksp_neumann,*ft->A_neumann,*ft->A_neumann);CHKERRQ(ierr);
+    ierr = KSPSetOperators(ft->ksp_neumann,sd->localA,sd->localA);CHKERRQ(ierr);
   }
   /* Set Up KSP for Neumann problem: here the factorization takes place!!! */
   ierr = KSPSetUp(ft->ksp_neumann);CHKERRQ(ierr);

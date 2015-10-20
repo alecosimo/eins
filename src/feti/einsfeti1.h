@@ -5,7 +5,8 @@
 
 /* Private context for the FETI-1 method.  */
 typedef struct {
-  Mat G;
+  Mat       F_neumann; /* matrix object specifically suited for symbolic factorization: it must not be destroyed with MatDestroy() */
+  Mat       localG;
 } FETI_1;
 
 

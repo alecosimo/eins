@@ -129,13 +129,12 @@ static PetscErrorCode ComputeSubdomainMatrix(DomainData dd, GLLData glldata, Mat
   if (!dd.ipx) { /* in this case, we need to zero out some of the rows, so use seqaij */
     ierr      = MatSetType(temp_local_mat,MATSEQAIJ);CHKERRQ(ierr);
   } else {
-    ierr      = MatSetType(temp_local_mat,MATSEQSBAIJ);CHKERRQ(ierr);
+    ierr      = MatSetType(temp_local_mat,MATSEQAIJ);CHKERRQ(ierr);
   }
 
   i = PetscPowRealInt(3.0*(dd.p+1.0),dd.dim);
 
   ierr = MatSeqAIJSetPreallocation(temp_local_mat,i,NULL);CHKERRQ(ierr);      /* very overestimated */
-  ierr = MatSeqSBAIJSetPreallocation(temp_local_mat,1,i,NULL);CHKERRQ(ierr);      /* very overestimated */
   ierr = MatSetOption(temp_local_mat,MAT_KEEP_NONZERO_PATTERN,PETSC_TRUE);CHKERRQ(ierr);
 
   yloc = dd.p+1;
@@ -181,19 +180,6 @@ static PetscErrorCode ComputeSubdomainMatrix(DomainData dd, GLLData glldata, Mat
   ierr = PetscFree(colsg);CHKERRQ(ierr);
   ierr = MatAssemblyBegin(temp_local_mat,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
   ierr = MatAssemblyEnd  (temp_local_mat,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
-#if DEBUG
-  {
-    Vec       lvec,rvec;
-    PetscReal norm;
-    ierr = MatCreateVecs(temp_local_mat,&lvec,&rvec);CHKERRQ(ierr);
-    ierr = VecSet(lvec,1.0);CHKERRQ(ierr);
-    ierr = MatMult(temp_local_mat,lvec,rvec);CHKERRQ(ierr);
-    ierr = VecNorm(rvec,NORM_INFINITY,&norm);CHKERRQ(ierr);
-    printf("Test null space of local mat % 1.14e\n",norm);
-    ierr = VecDestroy(&lvec);CHKERRQ(ierr);
-    ierr = VecDestroy(&rvec);CHKERRQ(ierr);
-  }
-#endif
   *local_mat = temp_local_mat;
   ierr       = MatDestroy(&elem_mat_DBC);CHKERRQ(ierr);
   PetscFunctionReturn(0);
@@ -461,7 +447,7 @@ static PetscErrorCode ComputeDirichletLocalRows(DomainData dd,PetscInt **dirichl
   PetscInt       localsize=0,i,j,k,*indices=0;
 
   PetscFunctionBeginUser; 
-  if (dirichlet && dd.ipx == 0) {    /* west boundary */
+  if (dd.ipx == 0) {    /* west boundary */
     localsize = dd.ym_l*dd.zm_l;
     ierr = PetscMalloc1(localsize,&indices);CHKERRQ(ierr);
     i = 0;
@@ -490,20 +476,27 @@ static PetscErrorCode ComputeMatrixAndRHS(DomainData dd,Mat* localA,Vec* localRH
   ierr = GLLStuffs(dd,&gll);CHKERRQ(ierr);
   /* Compute matrix of subdomain Neumann problem */
   ierr = ComputeSubdomainMatrix(dd,gll,localA);CHKERRQ(ierr);
-  ierr = MatSetOption(*localA,MAT_SPD,PETSC_TRUE);CHKERRQ(ierr);
   /* Compute RHS */
   ComputeDirichletLocalRows(dd,&dirichlet,&n_dirichlet);
   localsize = dd.xm_l*dd.ym_l*dd.zm_l;
   ierr      = VecCreateSeq(PETSC_COMM_SELF,localsize,&tempRHS);CHKERRQ(ierr);
-  ierr      = VecDuplicate(tempRHS,&vfix);CHKERRQ(ierr);
   ierr      = VecSet(tempRHS,2);CHKERRQ(ierr);
   ierr      = VecAssemblyBegin(tempRHS);CHKERRQ(ierr);
   ierr      = VecAssemblyEnd(tempRHS);CHKERRQ(ierr);
-  ierr      = VecSet(vfix,-5);CHKERRQ(ierr);
-  ierr      = VecAssemblyBegin(vfix);CHKERRQ(ierr);
-  ierr      = VecAssemblyEnd(vfix);CHKERRQ(ierr);
-  ierr      = MatSetOption(*localA,MAT_KEEP_NONZERO_PATTERN,PETSC_TRUE);CHKERRQ(ierr);
-  ierr      = MatZeroRowsColumns(*localA,n_dirichlet,dirichlet,1.0,vfix,tempRHS);CHKERRQ(ierr);
+
+  if (n_dirichlet) {
+    ierr      = MatSetOption(*localA,MAT_SYMMETRIC,PETSC_TRUE);CHKERRQ(ierr);
+    ierr      = MatSetOption(*localA,MAT_SPD,PETSC_TRUE);CHKERRQ(ierr);
+    ierr      = VecDuplicate(tempRHS,&vfix);CHKERRQ(ierr);
+    ierr      = VecSet(vfix,-5);CHKERRQ(ierr);
+    ierr      = VecAssemblyBegin(vfix);CHKERRQ(ierr);
+    ierr      = VecAssemblyEnd(vfix);CHKERRQ(ierr);
+    ierr      = MatSetOption(*localA,MAT_KEEP_NONZERO_PATTERN,PETSC_TRUE);CHKERRQ(ierr);
+    ierr      = MatZeroRowsColumns(*localA,n_dirichlet,dirichlet,1.0,vfix,tempRHS);CHKERRQ(ierr);
+  } else {
+    ierr = MatSetOption(*localA,MAT_SYMMETRIC,PETSC_TRUE);CHKERRQ(ierr);
+    ierr = MatSetOption(*localA,MAT_SPD,PETSC_FALSE);CHKERRQ(ierr);
+  }
   *localRHS = tempRHS;
   /* free allocated workspace */
   ierr = PetscFree(gll.zGL);CHKERRQ(ierr);
@@ -605,7 +598,8 @@ int main(int argc,char **args)
 #endif
   /* assemble global matrix */
   ierr = ComputeMatrixAndRHS(dd,&localA,&localRHS);CHKERRQ(ierr);
-  ierr = VecSeqViewSynchronized(localRHS);CHKERRQ(ierr);
+  /* ierr = MatSeqViewSynchronized(localA);CHKERRQ(ierr); */
+  /* ierr = VecSeqViewSynchronized(localRHS);CHKERRQ(ierr); */
   /* Compute global mapping of local dofs */
   ierr = ComputeMapping(dd,&mapping);CHKERRQ(ierr);
 
@@ -621,13 +615,13 @@ int main(int argc,char **args)
 
   /* Testing the VecScatters: the user will never deal explictly with these VecScatters. It is just a test. */
   /* --->>>> accessing private members: this is illegal in this part of the code */
-  ierr  = VecDuplicate(feti->subdomain->vec1_B,&u_B);CHKERRQ(ierr);
-  ierr  = VecScatterBegin(feti->subdomain->N_to_B,localRHS,u_B,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
-  ierr  = VecScatterEnd(feti->subdomain->N_to_B,localRHS,u_B,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
-  PetscPrintf(PETSC_COMM_WORLD,"\n==================================================\n");
-  PetscPrintf(PETSC_COMM_WORLD,"Printing result of VecScatter to the boundary\n");
-  PetscPrintf(PETSC_COMM_WORLD,"==================================================\n");
-  ierr  = VecSeqViewSynchronized(u_B);CHKERRQ(ierr);
+  /* ierr  = VecDuplicate(feti->subdomain->vec1_B,&u_B);CHKERRQ(ierr); */
+  /* ierr  = VecScatterBegin(feti->subdomain->N_to_B,localRHS,u_B,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr); */
+  /* ierr  = VecScatterEnd(feti->subdomain->N_to_B,localRHS,u_B,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr); */
+  /* PetscPrintf(PETSC_COMM_WORLD,"\n==================================================\n"); */
+  /* PetscPrintf(PETSC_COMM_WORLD,"Printing result of VecScatter to the boundary\n"); */
+  /* PetscPrintf(PETSC_COMM_WORLD,"==================================================\n"); */
+  /* ierr  = VecSeqViewSynchronized(u_B);CHKERRQ(ierr); */
   /* ---<<<< accessing private members: this is illegal in this part of the code */
   
   ierr = FETIDestroy(&feti);CHKERRQ(ierr);

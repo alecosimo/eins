@@ -483,6 +483,7 @@ PetscErrorCode  FETICreate(MPI_Comm comm,FETI *newfeti)
   feti->Wscaling             = 0;
   feti->scalingType          = 0;
   feti->lambda_local         = 0;
+  feti->n_local_lambda       = 0;
   feti->l2g_lambda           = 0;
   feti->n_lambda             = -1;
   feti->F                    = 0;

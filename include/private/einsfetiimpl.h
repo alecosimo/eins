@@ -32,7 +32,7 @@ struct _p_FETI {
   ScalingType      scalingType;
   /* Common attributes for the interface problem*/
   Vec              lambda_local;
-  PetscInt         n_lambda;
+  PetscInt         n_lambda,n_local_lambda;
   VecScatter       l2g_lambda;
   Mat              F;
   Vec              d;
