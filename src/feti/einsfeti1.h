@@ -5,7 +5,7 @@
 
 /* Private context for the FETI-1 method.  */
 typedef struct {
-
+  Mat G;
 } FETI_1;
 
 

@@ -42,7 +42,7 @@ PETSC_EXTERN PetscClassId FETI_CLASSID;
 /* Scaling type*/ 
 typedef enum {
   RHO_SCALING=0,        /* rho-scaling */
-  MULTIPLICITY_SCALING, /* Multiplicity scaling */
+  MULTIPLICITY_SCALING  /* Multiplicity scaling */
 } ScalingType;
 
 /* QMatrix type*/ 

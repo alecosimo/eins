@@ -16,7 +16,6 @@ static PetscErrorCode FETI1BuildLambdaAndB_Private(FETI);
  */
 PetscErrorCode FETIDestroy_FETI1(FETI ft)
 {
-  FETI_1*        feti1 = (FETI_1*)ft->data;
   PetscErrorCode ierr;
 
   PetscFunctionBegin;
@@ -37,7 +36,6 @@ PetscErrorCode FETIDestroy_FETI1(FETI ft)
 PetscErrorCode FETISetUp_FETI1(FETI ft)
 {
   PetscErrorCode ierr;
-  FETI_1*        feti1 = (FETI_1*)ft->data;
 
   PetscFunctionBegin;
   ierr = FETI1BuildLambdaAndB_Private(ft);CHKERRQ(ierr);

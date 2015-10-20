@@ -3,9 +3,6 @@
 
 #include <petscksp.h>
 
-
-PETSC_EXTERN PetscFunctionList KSPList;
-
 #define KSPPJGMRES "pjgmres"
 
 #endif/* EINSKSP_H*/

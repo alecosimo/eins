@@ -2,6 +2,7 @@
 #define FETIIMPL_H
 
 #include <einsfeti.h>
+#include <petscksp.h>
 #include <private/einssubdomain.h>
 #include <petsc/private/petscimpl.h>
 

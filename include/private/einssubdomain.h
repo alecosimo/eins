@@ -1,7 +1,7 @@
 #if !defined(SUBDOMAIN_H)
 #define SUBDOMAIN_H
 
-#include <petscksp.h>
+#include <petscmat.h>
 
 typedef struct _n_Subdomain *Subdomain;
 
