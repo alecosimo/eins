@@ -1,5 +1,6 @@
 # Compiler pedantic flags, as specified in Jed Brown's dohp code 
 # https://gcc.gnu.org/onlinedocs/gcc/Standards.html
+# https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html
 
 #set(DEFAULT_PEDANTIC_FLAGS "-std=c99 -pedantic -Wunused-variable -Wunused-parameter -Wall -Wextra -Wredundant-decls")
 set(DEFAULT_PEDANTIC_FLAGS "-std=c99 -pedantic -Wall -Wextra -Wundef -Wshadow -Wpointer-arith -Wbad-function-cast -Wcast-align -Wwrite-strings -Wconversion -Wlogical-op -Wsign-compare -Wstrict-prototypes -Wmissing-prototypes -Wmissing-declarations -Wredundant-decls -Wnested-externs -Winline -Wno-long-long -Wmissing-format-attribute -Wmissing-noreturn -Wpacked -Wdisabled-optimization -Wmultichar -Wformat-nonliteral -Wformat-security -Wformat-y2k -Wendif-labels -Wdeclaration-after-statement -Wold-style-definition -Winvalid-pch -Wmissing-field-initializers -Wvariadic-macros -Wunsafe-loop-optimizations -Wvolatile-register-var -Wstrict-aliasing -funit-at-a-time -Wno-sign-conversion -Wunused-variable -Wunused-parameter")
