@@ -323,35 +323,6 @@ PetscErrorCode  FETISetUp(FETI feti)
 
 
 #undef  __FUNCT__
-#define __FUNCT__ "FETIView"
-PetscErrorCode FETIView(FETI feti,PetscViewer viewer)
-{
-  /* TODO*/
-
-  /* PetscBool      match; */
-  /* PetscErrorCode ierr; */
-
-  /* PetscFunctionBegin; */
-  /* PetscValidHeaderSpecific(feti,FETI_CLASSID,1); */
-  /* if (!viewer) {ierr = PetscViewerASCIIGetStdout(((PetscObject)feti)->comm,&viewer);CHKERRQ(ierr);} */
-  /* PetscValidHeaderSpecific(viewer,PETSC_VIEWER_CLASSID,2); */
-  /* PetscCheckSameComm(feti,1,viewer,2); */
-  /* if (!feti->setup) PetscFunctionReturn(0); /\* XXX *\/ */
-  /* ierr = PetscObjectTypeCompare((PetscObject)viewer,PETSCVIEWERBINARY,&match);CHKERRQ(ierr); */
-  /* if (match) { ierr = FETISave(feti,viewer);CHKERRQ(ierr); PetscFunctionReturn(0); } */
-  /* ierr = PetscObjectTypeCompare((PetscObject)viewer,PETSCVIEWERASCII,&match);CHKERRQ(ierr); */
-  /* if (match) { ierr = FETIPrint(feti,viewer);CHKERRQ(ierr); PetscFunctionReturn(0); } */
-  /* ierr = PetscObjectTypeCompare((PetscObject)viewer,PETSCVIEWERDRAW,&match);CHKERRQ(ierr); */
-  /* if (match) { ierr = FETIDraw(feti,viewer);CHKERRQ(ierr); PetscFunctionReturn(0); } */
-  /* if (feti->ops->view) { */
-  /*   ierr = (*feti->ops->view)(feti,viewer);CHKERRQ(ierr); */
-  /* } */
-
-  PetscFunctionReturn(0);
-}
-
-
-#undef  __FUNCT__
 #define __FUNCT__ "FETICreateGlobalWorkingVec"
 /*@
    FETICreateGlobalWorkingVec - Creates the global (distributed) working vector by duplicating a given vector.
@@ -486,7 +457,7 @@ PetscErrorCode  FETICreate(MPI_Comm comm,FETI *newfeti)
   *newfeti = 0;
   ierr = FETIInitializePackage();CHKERRQ(ierr);
 
-  ierr = PetscHeaderCreate(feti,FETI_CLASSID,"FETI","FETI","FETI",comm,FETIDestroy,FETIView);CHKERRQ(ierr);
+  ierr = PetscHeaderCreate(feti,FETI_CLASSID,"FETI","FETI","FETI",comm,FETIDestroy,NULL);CHKERRQ(ierr);
   ierr = SubdomainCreate(((PetscObject)feti)->comm,&feti->subdomain);CHKERRQ(ierr);
   
   feti->setupcalled          = 0;

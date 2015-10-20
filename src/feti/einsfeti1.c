@@ -14,6 +14,7 @@ static PetscErrorCode FETI1BuildLambdaAndB_Private(FETI);
 
 .seealso FETICreate_FETI1
  */
+PetscErrorCode FETIDestroy_FETI1(FETI ft);
 PetscErrorCode FETIDestroy_FETI1(FETI ft)
 {
   PetscErrorCode ierr;
@@ -33,6 +34,7 @@ PetscErrorCode FETIDestroy_FETI1(FETI ft)
 .  ft - the FETI context
 
 */
+PetscErrorCode FETISetUp_FETI1(FETI ft);
 PetscErrorCode FETISetUp_FETI1(FETI ft)
 {
   PetscErrorCode ierr;
@@ -43,6 +45,7 @@ PetscErrorCode FETISetUp_FETI1(FETI ft)
 }
 
 
+EXTERN_C_BEGIN
 #undef __FUNCT__
 #define __FUNCT__ "FETICreate_FETI1"
 /*@
@@ -55,7 +58,8 @@ PetscErrorCode FETISetUp_FETI1(FETI ft)
 
 .keywords: FETI, FETI-1
 @*/
-PETSC_EXTERN PetscErrorCode FETICreate_FETI1(FETI ft)
+PetscErrorCode FETICreate_FETI1(FETI ft);
+PetscErrorCode FETICreate_FETI1(FETI ft)
 {
   PetscErrorCode      ierr;
   FETI_1*             feti1;
@@ -72,6 +76,7 @@ PETSC_EXTERN PetscErrorCode FETICreate_FETI1(FETI ft)
 
   PetscFunctionReturn(0);
 }
+EXTERN_C_END
 
 
 #undef __FUNCT__

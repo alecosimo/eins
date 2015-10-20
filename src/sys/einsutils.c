@@ -1,7 +1,7 @@
+#include <einssys.h>
 #include <petsc/private/petscimpl.h>
 #include <petscmat.h>
 #include <petscsf.h>
-
 
 #undef __FUNCT__
 #define __FUNCT__ "MatSeqViewSynchronized"

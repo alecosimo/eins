@@ -17,7 +17,8 @@ PetscBool EinsRegisterAllCalled  = PETSC_FALSE;
 /*
   Register all methods to KSP, TS, PC and SNES packages  
  */
-PetscErrorCode EinsRegisterAll(void)
+static PetscErrorCode EinsRegisterAll(void);
+static PetscErrorCode EinsRegisterAll(void)
 {
   PetscErrorCode ierr;
 
