@@ -237,6 +237,7 @@ PetscErrorCode FETICreateFMat(FETI ft,void (*FETIMatMult)(void),void (*FETIDestr
   ierr = MatCreateShell(comm,PETSC_DECIDE,PETSC_DECIDE,ft->n_lambda,ft->n_lambda,matctx,&ft->F);CHKERRQ(ierr);
   ierr = MatShellSetOperation(ft->F,MATOP_MULT,FETIMatMult);CHKERRQ(ierr);
   ierr = MatShellSetOperation(ft->F,MATOP_DESTROY,FETIDestroyMatF);CHKERRQ(ierr);
+  ierr = PetscObjectCompose((PetscObject)ft->F,"FETI",(PetscObject)ft);CHKERRQ(ierr);
   ierr = MatSetUp(ft->F);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
@@ -320,6 +321,8 @@ PetscErrorCode FETIDestroy(FETI *_feti)
   PetscValidHeaderSpecific(feti,FETI_CLASSID,1);
   if (--((PetscObject)feti)->refct > 0) PetscFunctionReturn(0);
   feti->setupcalled = 0;
+  if (feti->ops->destroy) {ierr = (*feti->ops->destroy)(feti);CHKERRQ(ierr);}
+  
   /* destroying FETI objects */
   ierr = SubdomainDestroy(&feti->subdomain);CHKERRQ(ierr);
   ierr = KSPDestroy(&feti->ksp_neumann);CHKERRQ(ierr);
@@ -327,19 +330,17 @@ PetscErrorCode FETIDestroy(FETI *_feti)
   ierr = MatDestroy(&feti->B_delta);CHKERRQ(ierr);
   ierr = MatDestroy(&feti->B_Ddelta);CHKERRQ(ierr);
   ierr = MatDestroy(&feti->Wscaling);CHKERRQ(ierr);
-  ierr = MatDestroy(&feti->A_II);CHKERRQ(ierr);
-  ierr = MatDestroy(&feti->A_BB);CHKERRQ(ierr);
-  ierr = MatDestroy(&feti->A_IB);CHKERRQ(ierr);
-  ierr = MatDestroy(&feti->F);CHKERRQ(ierr);
   ierr = VecDestroy(&feti->d);CHKERRQ(ierr);
   ierr = VecDestroy(&feti->lambda_local);CHKERRQ(ierr);
   ierr = VecScatterDestroy(&feti->l2g_lambda);CHKERRQ(ierr);
-
   /* destroying ComposedFunctions */
   ierr = PetscObjectComposeFunction((PetscObject)feti,"FETIMatMult_C",NULL);CHKERRQ(ierr);
   ierr = PetscObjectComposeFunction((PetscObject)feti,"FETIDestroyMatF_C",NULL);CHKERRQ(ierr);
-  
-  if (feti->ops->destroy) {ierr = (*feti->ops->destroy)(feti);CHKERRQ(ierr);}
+  /* destroying ComposedObjects */
+  if(feti->F){
+    ierr = PetscObjectCompose((PetscObject)feti->F,"FETI",NULL);CHKERRQ(ierr);
+    ierr = MatDestroy(&feti->F);CHKERRQ(ierr);
+  }
   ierr = PetscHeaderDestroy(&feti);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
@@ -583,9 +584,6 @@ PetscErrorCode  FETICreate(MPI_Comm comm,FETI *newfeti)
   feti->setupcalled          = 0;
   feti->setfromoptionscalled = 0;
   feti->data                 = 0;
-  feti->A_II                 = 0;
-  feti->A_BB                 = 0;
-  feti->A_IB                 = 0;
   feti->Wscaling             = 0;
   feti->scalingType          = 0;
   feti->lambda_local         = 0;

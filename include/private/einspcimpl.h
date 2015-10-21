@@ -2,10 +2,11 @@
 #define EINSPCIMPL_H
 
 #include <einspc.h>
+#include <einsfeti.h>
 #include <petsc/private/pcimpl.h>
 
-#define PCFETIHEADER                                                  \
-  Mat mat; 
+#define PCFETIHEADER  \
+  FETI ft; 
 
 PETSC_EXTERN PetscErrorCode PCCreate_DIRICHLET(PC);
 

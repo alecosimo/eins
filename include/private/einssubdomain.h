@@ -17,6 +17,8 @@ struct _n_Subdomain {
 
   PetscInt refct;            /* reference count*/
   MPI_Comm comm;
+
+  Mat A_II,A_BB,A_IB,A_BI;
   
   PetscInt n;                /* number of nodes (interior+interface) in this subdomain */
   PetscInt n_B;              /* number of interface nodes in this subdomain */
@@ -33,6 +35,7 @@ struct _n_Subdomain {
       vec2_N,
       vec1_D,
       vec1_B,
+      vec2_B,
       vec1_global;
   
   VecScatter  global_to_D;        /* scattering context from global to local interior nodes */
@@ -59,5 +62,6 @@ PETSC_EXTERN PetscErrorCode SubdomainSetLocalRHS(Subdomain,Vec);
 PETSC_EXTERN PetscErrorCode SubdomainSetMapping(Subdomain,ISLocalToGlobalMapping);
 PETSC_EXTERN PetscErrorCode SubdomainSetUp(Subdomain,PetscBool);
 PETSC_EXTERN PetscErrorCode SubdomainCreateGlobalWorkingVec(Subdomain,Vec);
-
+PETSC_EXTERN PetscErrorCode SubdomainComputeSubmatrices(Subdomain,MatReuse,PetscBool);
+  
 #endif/* SUBDOMAIN_H*/

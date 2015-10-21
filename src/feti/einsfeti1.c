@@ -60,10 +60,12 @@ EXTERN_C_BEGIN
 /*@
    FETI1 - Implementation of the FETI-1 method. Some comments about options can be put here!
 
-   Options:
+   Options database:
 .  -feti_fullyredundant: use fully redundant Lagrange multipliers.
 .  -feti_interface_<ksp or pc option>: options for the KSP for the interface problem
 .  -feti1_neumann_<ksp or pc option>: for setting pc and ksp options for the neumann solver. 
+.  -feti_pc_dirichilet_<ksp or pc option>: options for the KSP or PC to use for solving the Dirichlet problem
+   associated to the Dirichlet preconditioner
     
    Level: beginner
 
@@ -271,6 +273,8 @@ static PetscErrorCode FETI1BuildLambdaAndB_Private(FETI ft)
   ierr = PetscFree(cols_B_delta);CHKERRQ(ierr);
   ierr = VecDestroy(&lambda_global);CHKERRQ(ierr);
 
+  ierr = MatDuplicate(ft->B_delta,MAT_COPY_VALUES,&ft->B_Ddelta);CHKERRQ(ierr);
+
   MatSeqViewSynchronized(ft->B_delta);
    
   PetscFunctionReturn(0);
@@ -466,7 +470,7 @@ static PetscErrorCode FETI1SetUpNeumannSolver_Private(FETI ft)
     ierr = KSPSetOperators(ft->ksp_neumann,sd->localA,sd->localA);CHKERRQ(ierr);
     /* prefix for setting options */
     ierr = KSPSetOptionsPrefix(ft->ksp_neumann,"feti1_neumann_");CHKERRQ(ierr);
-    
+    ierr = MatSetOptionsPrefix(sd->localA,"feti1_neumann_");CHKERRQ(ierr);
     ierr = PCFactorSetUpMatSolverPackage(pc);CHKERRQ(ierr);
     ierr = PCFactorGetMatrix(pc,&ft1->F_neumann);CHKERRQ(ierr);
     /* sequential ordering */
@@ -477,9 +481,8 @@ static PetscErrorCode FETI1SetUpNeumannSolver_Private(FETI ft)
     ierr = MatMumpsSetCntl(ft1->F_neumann,3,1.e-6);CHKERRQ(ierr);
 
     /* Maybe the following two options should be given as external options and not here*/
-    ierr = PCFactorSetReuseFill(pc,PETSC_TRUE);CHKERRQ(ierr);
-    ierr = PCFactorSetReuseOrdering(pc,PETSC_TRUE);CHKERRQ(ierr);
     ierr = KSPSetFromOptions(ft->ksp_neumann);CHKERRQ(ierr);
+    ierr = PCFactorSetReuseFill(pc,PETSC_TRUE);CHKERRQ(ierr);
   } else {
     ierr = KSPSetOperators(ft->ksp_neumann,sd->localA,sd->localA);CHKERRQ(ierr);
   }

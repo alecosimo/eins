@@ -32,7 +32,6 @@ struct _p_FETI {
   PETSCHEADER(struct _FETIOps);
   /* Subdomain info*/
   Subdomain        subdomain;
-  Mat              A_II,A_BB,A_IB;
   /* Scaling info*/
   Mat              Wscaling;
   ScalingType      scalingType;

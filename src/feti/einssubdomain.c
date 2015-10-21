@@ -33,7 +33,12 @@ PetscErrorCode  SubdomainDestroy(Subdomain *_sd)
   ierr = VecDestroy(&sd->vec2_N);CHKERRQ(ierr);
   ierr = VecDestroy(&sd->vec1_D);CHKERRQ(ierr);
   ierr = VecDestroy(&sd->vec1_B);CHKERRQ(ierr);
+  ierr = VecDestroy(&sd->vec2_B);CHKERRQ(ierr);
   ierr = VecDestroy(&sd->vec1_global);CHKERRQ(ierr);
+  ierr = MatDestroy(&sd->A_II);CHKERRQ(ierr);
+  ierr = MatDestroy(&sd->A_BB);CHKERRQ(ierr);
+  ierr = MatDestroy(&sd->A_IB);CHKERRQ(ierr);
+  ierr = MatDestroy(&sd->A_BI);CHKERRQ(ierr);
   ierr = VecScatterDestroy(&sd->global_to_D);CHKERRQ(ierr);
   ierr = VecScatterDestroy(&sd->N_to_B);CHKERRQ(ierr);
   ierr = VecScatterDestroy(&sd->global_to_B);CHKERRQ(ierr);
@@ -184,6 +189,59 @@ PetscErrorCode SubdomainSetMapping(Subdomain sd,ISLocalToGlobalMapping isg2l)
 
 
 #undef __FUNCT__
+#define __FUNCT__ "SubdomainComputeSubmatrices"
+/*@
+  SubdomainComputeSubmatrices - Compute the subsmatrices A_II, A_IB, A_BI, A_BB of the local system matrix.
+
+   Input Parameter:
+.  sd      - The Subdomain context
+.  reuse   - Either MAT_INITIAL_MATRIX or MAT_REUSE_MATRIX
+.  onlyAbb - Compute only A_BB
+
+  Notes: The first time this is called you should use reuse equal to
+  MAT_INITIAL_MATRIX. Any additional calls to this routine with a
+  local mat of the same nonzero structure and with a call of
+  MAT_REUSE_MATRIX will reuse the matrix generated the first time.
+
+  Level: developer
+
+.keywords: FETI
+.seealso: FETICreate()
+@*/
+PetscErrorCode SubdomainComputeSubmatrices(Subdomain sd, MatReuse reuse, PetscBool onlyAbb)
+{
+  PetscErrorCode ierr;
+  PetscBool      issbaij;
+
+  PetscFunctionBegin; 
+  if (reuse == MAT_INITIAL_MATRIX) {
+    ierr = MatDestroy(&sd->A_II);CHKERRQ(ierr);
+    ierr = MatDestroy(&sd->A_IB);CHKERRQ(ierr);
+    ierr = MatDestroy(&sd->A_BI);CHKERRQ(ierr);
+    ierr = MatDestroy(&sd->A_BB);CHKERRQ(ierr);
+  }
+
+  ierr = MatGetSubMatrix(sd->localA,sd->is_B_local,sd->is_B_local,reuse,&sd->A_BB);CHKERRQ(ierr);
+  if(!onlyAbb){
+    ierr = MatGetSubMatrix(sd->localA,sd->is_I_local,sd->is_I_local,reuse,&sd->A_II);CHKERRQ(ierr); 
+    ierr = PetscObjectTypeCompare((PetscObject)sd->localA,MATSEQSBAIJ,&issbaij);CHKERRQ(ierr);
+    if (!issbaij) {
+      ierr = MatGetSubMatrix(sd->localA,sd->is_I_local,sd->is_B_local,reuse,&sd->A_IB);CHKERRQ(ierr);
+      ierr = MatGetSubMatrix(sd->localA,sd->is_B_local,sd->is_I_local,reuse,&sd->A_BI);CHKERRQ(ierr);
+    } else {
+      Mat newmat;
+      ierr = MatConvert(sd->localA,MATSEQBAIJ,MAT_INITIAL_MATRIX,&newmat);CHKERRQ(ierr);
+      ierr = MatGetSubMatrix(newmat,sd->is_I_local,sd->is_B_local,reuse,&sd->A_IB);CHKERRQ(ierr);
+      ierr = MatGetSubMatrix(newmat,sd->is_B_local,sd->is_I_local,reuse,&sd->A_BI);CHKERRQ(ierr);
+      ierr = MatDestroy(&newmat);CHKERRQ(ierr);
+    }
+    ierr = MatSetOption(sd->A_II,MAT_SYMMETRIC,issbaij);CHKERRQ(ierr);
+  }
+  PetscFunctionReturn(0);
+}
+
+
+#undef __FUNCT__
 #define __FUNCT__ "SubdomainCreate"
 /*@
   SubdomainCreate - Creates the basic structures for dealing with subdomain information, such
@@ -220,6 +278,7 @@ PetscErrorCode  SubdomainCreate(MPI_Comm comm, Subdomain *_sd)
   sd->vec2_N           = 0;
   sd->vec1_D           = 0;
   sd->vec1_B           = 0;
+  sd->vec2_B           = 0;
   sd->vec1_global      = 0;
   sd->global_to_D      = 0;
   sd->N_to_B           = 0;
@@ -327,6 +386,7 @@ PetscErrorCode SubdomainSetUp(Subdomain sd, PetscBool fetisetupcalled)
     ierr = VecDuplicate(sd->localRHS,&sd->vec1_N);CHKERRQ(ierr);
     ierr = VecDuplicate(sd->localRHS,&sd->vec2_N);CHKERRQ(ierr);
     ierr = VecCreateSeq(PETSC_COMM_SELF,sd->n_B,&sd->vec1_B);CHKERRQ(ierr);
+    ierr = VecDuplicate(sd->vec1_B,&sd->vec2_B);CHKERRQ(ierr);
     ierr = VecCreateSeq(PETSC_COMM_SELF,sd->n-sd->n_B,&sd->vec1_D);CHKERRQ(ierr);
     /* Creating the scatter contexts */
     ierr = VecScatterCreate(sd->vec1_N,sd->is_B_local,sd->vec1_B,(IS)0,&sd->N_to_B);CHKERRQ(ierr);

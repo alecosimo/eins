@@ -124,17 +124,10 @@ static PetscErrorCode ComputeSubdomainMatrix(DomainData dd, GLLData glldata, Mat
   localsize = dd.xm_l*dd.ym_l*dd.zm_l;
   ierr      = MatCreate(PETSC_COMM_SELF,&temp_local_mat);CHKERRQ(ierr);
   ierr      = MatSetSizes(temp_local_mat,localsize,localsize,localsize,localsize);CHKERRQ(ierr);
-  /* set local matrices type: here we use SEQSBAIJ primarily for testing purpose */
-  /* in order to avoid conversions inside the BDDC code, use SeqAIJ if possible */
-  if (!dd.ipx) { /* in this case, we need to zero out some of the rows, so use seqaij */
-    ierr      = MatSetType(temp_local_mat,MATSEQAIJ);CHKERRQ(ierr);
-  } else {
-    ierr      = MatSetType(temp_local_mat,MATSEQAIJ);CHKERRQ(ierr);
-  }
+  i         = PetscPowInt(3*(dd.p+1),dd.dim);
 
-  i = PetscPowInt(3*(dd.p+1),dd.dim);
-
-  ierr = MatSeqAIJSetPreallocation(temp_local_mat,i,NULL);CHKERRQ(ierr);      /* very overestimated */
+  ierr = MatSetType(temp_local_mat,MATSEQSBAIJ);CHKERRQ(ierr);
+  ierr = MatSeqSBAIJSetPreallocation(temp_local_mat,1,i,NULL);CHKERRQ(ierr);      /* very overestimated */
   ierr = MatSetOption(temp_local_mat,MAT_KEEP_NONZERO_PATTERN,PETSC_TRUE);CHKERRQ(ierr);
 
   yloc = dd.p+1;
