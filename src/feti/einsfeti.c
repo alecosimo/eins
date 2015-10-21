@@ -143,6 +143,43 @@ PetscErrorCode FETIGetType(FETI feti,FETIType *type)
 
 
 #undef __FUNCT__
+#define __FUNCT__ "FETICreateFMat"
+/*@
+   FETICreateFETIMatContext - Creates the matrix F for FETI interface problem (it is implemented as a MatShell).
+
+   Input Parameter:
+.  feti            - the FETI context
+.  FETIMatMult     - pointer to function for performing the matrix vector product
+.  FETIDestroyMatF - pointer to function for performing the destruction of the matrix context
+
+   Level: intermediate
+
+.keywords: FETI
+
+@*/
+PetscErrorCode FETICreateFMat(FETI ft,void (*FETIMatMult)(void),void (*FETIDestroyMatF)(void))
+{
+  PetscErrorCode   ierr;
+  FETIMat_ctx      matctx;
+  MPI_Comm         comm;
+
+  PetscFunctionBegin;
+  PetscValidHeaderSpecific(ft,FETI_CLASSID,1);
+  ierr  = PetscObjectGetComm((PetscObject)ft,&comm);CHKERRQ(ierr);
+  /* creating the mat context for the MatShell*/
+  ierr = PetscNew(&matctx);CHKERRQ(ierr);
+  matctx->ft = ft;
+  ierr = PetscObjectReference((PetscObject)ft);CHKERRQ(ierr);
+  /* creating the MatShell */
+  ierr = MatCreateShell(comm,PETSC_DECIDE,PETSC_DECIDE,ft->n_lambda,ft->n_lambda,matctx,&ft->F);CHKERRQ(ierr);
+  ierr = MatShellSetOperation(ft->F,MATOP_MULT,FETIMatMult);CHKERRQ(ierr);
+  ierr = MatShellSetOperation(ft->F,MATOP_DESTROY,FETIDestroyMatF);CHKERRQ(ierr);
+  ierr = MatSetUp(ft->F);CHKERRQ(ierr);
+  PetscFunctionReturn(0);
+}
+
+
+#undef __FUNCT__
 #define __FUNCT__ "FETISetFromOptions"
 /*@
    FETISetFromOptions - Sets FETI options from the options database.
@@ -233,7 +270,11 @@ PetscErrorCode FETIDestroy(FETI *_feti)
   ierr = VecDestroy(&feti->d);CHKERRQ(ierr);
   ierr = VecDestroy(&feti->lambda_local);CHKERRQ(ierr);
   ierr = VecScatterDestroy(&feti->l2g_lambda);CHKERRQ(ierr);
-    
+
+  /* destroying ComposedFunctions */
+  ierr = PetscObjectComposeFunction((PetscObject)feti,"FETIMatMult_C",NULL);CHKERRQ(ierr);
+  ierr = PetscObjectComposeFunction((PetscObject)feti,"FETIDestroyMatF_C",NULL);CHKERRQ(ierr);
+  
   if (feti->ops->destroy) {ierr = (*feti->ops->destroy)(feti);CHKERRQ(ierr);}
   ierr = PetscHeaderDestroy(&feti);CHKERRQ(ierr);
   PetscFunctionReturn(0);

@@ -132,7 +132,7 @@ static PetscErrorCode ComputeSubdomainMatrix(DomainData dd, GLLData glldata, Mat
     ierr      = MatSetType(temp_local_mat,MATSEQAIJ);CHKERRQ(ierr);
   }
 
-  i = PetscPowRealInt(3.0*(dd.p+1.0),dd.dim);
+  i = PetscPowInt(3*(dd.p+1),dd.dim);
 
   ierr = MatSeqAIJSetPreallocation(temp_local_mat,i,NULL);CHKERRQ(ierr);      /* very overestimated */
   ierr = MatSetOption(temp_local_mat,MAT_KEEP_NONZERO_PATTERN,PETSC_TRUE);CHKERRQ(ierr);

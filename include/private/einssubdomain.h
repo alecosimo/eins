@@ -30,6 +30,7 @@ struct _n_Subdomain {
 
   /* working vectors */
   Vec vec1_N,
+      vec2_N,
       vec1_D,
       vec1_B,
       vec1_global;

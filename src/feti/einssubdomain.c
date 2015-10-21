@@ -30,6 +30,7 @@ PetscErrorCode  SubdomainDestroy(Subdomain *_sd)
   ierr = ISDestroy(&sd->is_B_global);CHKERRQ(ierr);
   ierr = ISDestroy(&sd->is_I_global);CHKERRQ(ierr);
   ierr = VecDestroy(&sd->vec1_N);CHKERRQ(ierr);
+  ierr = VecDestroy(&sd->vec2_N);CHKERRQ(ierr);
   ierr = VecDestroy(&sd->vec1_D);CHKERRQ(ierr);
   ierr = VecDestroy(&sd->vec1_B);CHKERRQ(ierr);
   ierr = VecDestroy(&sd->vec1_global);CHKERRQ(ierr);
@@ -216,6 +217,7 @@ PetscErrorCode  SubdomainCreate(MPI_Comm comm, Subdomain *_sd)
   sd->is_B_global      = 0;
   sd->is_I_global      = 0;
   sd->vec1_N           = 0;
+  sd->vec2_N           = 0;
   sd->vec1_D           = 0;
   sd->vec1_B           = 0;
   sd->vec1_global      = 0;
@@ -323,6 +325,7 @@ PetscErrorCode SubdomainSetUp(Subdomain sd, PetscBool fetisetupcalled)
 
     /* Creating work vectors vec1_N, vec1_B and vec1_D */
     ierr = VecDuplicate(sd->localRHS,&sd->vec1_N);CHKERRQ(ierr);
+    ierr = VecDuplicate(sd->localRHS,&sd->vec2_N);CHKERRQ(ierr);
     ierr = VecCreateSeq(PETSC_COMM_SELF,sd->n_B,&sd->vec1_B);CHKERRQ(ierr);
     ierr = VecCreateSeq(PETSC_COMM_SELF,sd->n-sd->n_B,&sd->vec1_D);CHKERRQ(ierr);
     /* Creating the scatter contexts */

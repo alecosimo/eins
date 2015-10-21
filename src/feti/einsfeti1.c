@@ -1,10 +1,11 @@
 #include <../src/feti/einsfeti1.h>
 #include <einssys.h>
 
-
+/* private functions*/
 static PetscErrorCode FETI1BuildLambdaAndB_Private(FETI);
 static PetscErrorCode FETI1SetUpNeumannSolver_Private(FETI);
 static PetscErrorCode FETI1ComputeMatrixG_Private(FETI);
+static PetscErrorCode FETI1BuildInterfaceProblem_Private(FETI);
 
 #undef __FUNCT__
 #define __FUNCT__ "FETIDestroy_FETI1"
@@ -47,6 +48,7 @@ PetscErrorCode FETISetUp_FETI1(FETI ft)
   ierr = FETI1BuildLambdaAndB_Private(ft);CHKERRQ(ierr);
   ierr = FETI1SetUpNeumannSolver_Private(ft);CHKERRQ(ierr);  
   ierr = FETI1ComputeMatrixG_Private(ft);CHKERRQ(ierr);
+  ierr = FETI1BuildInterfaceProblem_Private(ft);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 
@@ -96,6 +98,11 @@ EXTERN_C_END
    Input Parameters:
 .  ft - the FETI context
 
+   Notes: 
+   In a future this rutine could be moved to the FETI class.
+
+   Level: developer
+   
 @*/
 static PetscErrorCode FETI1BuildLambdaAndB_Private(FETI ft)
 {
@@ -262,8 +269,110 @@ static PetscErrorCode FETI1BuildLambdaAndB_Private(FETI ft)
   ierr = PetscFree(cols_B_delta);CHKERRQ(ierr);
   ierr = VecDestroy(&lambda_global);CHKERRQ(ierr);
 
-  /* MatSeqViewSynchronized(ft->B_delta); */
+  MatSeqViewSynchronized(ft->B_delta);
    
+  PetscFunctionReturn(0);
+}
+
+
+#undef __FUNCT__
+#define __FUNCT__ "FETI1DestroyMatF"
+PetscErrorCode FETI1DestroyMatF(Mat A);
+PetscErrorCode FETI1DestroyMatF(Mat A)
+{
+  FETIMat_ctx    mat_ctx;
+  PetscErrorCode ierr;
+
+  PetscFunctionBegin;
+  ierr = MatShellGetContext(A,(void**)&mat_ctx);CHKERRQ(ierr);
+  ierr = FETIDestroy(&mat_ctx->ft);CHKERRQ(ierr);
+  ierr = PetscFree(mat_ctx);CHKERRQ(ierr);
+  PetscFunctionReturn(0);
+}
+
+
+#undef __FUNCT__
+#define __FUNCT__ "FETI1MatMult"
+PetscErrorCode FETI1MatMult(Mat F, Vec lambda_global, Vec y); /* y=F*lambda_global */
+PetscErrorCode FETI1MatMult(Mat F, Vec lambda_global, Vec y)
+{
+  FETIMat_ctx  mat_ctx;
+  FETI         ft;
+  FETI_1       *ft1;
+  Subdomain    sd;
+  
+  PetscErrorCode ierr;
+
+  PetscFunctionBegin;
+  ierr = MatShellGetContext(F,(void**)&mat_ctx);CHKERRQ(ierr);
+  ft   = mat_ctx->ft;
+  ft1  = (FETI_1*)ft->data;
+  sd   = ft->subdomain;
+  /* Application of B_delta^T */
+  ierr = VecScatterBegin(ft->l2g_lambda,lambda_global,ft->lambda_local,INSERT_VALUES,SCATTER_REVERSE);CHKERRQ(ierr);
+  ierr = VecScatterEnd(ft->l2g_lambda,lambda_global,ft->lambda_local,INSERT_VALUES,SCATTER_REVERSE);CHKERRQ(ierr);
+  ierr = MatMultTranspose(ft->B_delta,ft->lambda_local,sd->vec1_B);CHKERRQ(ierr);
+  ierr = VecSet(sd->vec1_N,0.0);CHKERRQ(ierr);
+  ierr = VecScatterBegin(sd->N_to_B,sd->vec1_B,sd->vec1_N,INSERT_VALUES,SCATTER_REVERSE);CHKERRQ(ierr);
+  ierr = VecScatterEnd(sd->N_to_B,sd->vec1_B,sd->vec1_N,INSERT_VALUES,SCATTER_REVERSE);CHKERRQ(ierr);
+  /* Application of the already factorized pseudo-inverse */
+  ierr = MatMumpsSetIcntl(ft1->F_neumann,25,0);CHKERRQ(ierr);
+  ierr = MatSolve(ft1->F_neumann,sd->vec1_N,sd->vec2_N);CHKERRQ(ierr);
+  /* Application of B_delta */
+  ierr = VecScatterBegin(sd->N_to_B,sd->vec2_N,sd->vec1_B,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
+  ierr = VecScatterEnd(sd->N_to_B,sd->vec2_N,sd->vec1_B,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
+  ierr = MatMult(ft->B_delta,sd->vec1_B,ft->lambda_local);CHKERRQ(ierr);
+  /** Communication with other processes is performed for the following operation */
+  ierr = VecSet(y,0.0);CHKERRQ(ierr);
+  ierr = VecScatterBegin(ft->l2g_lambda,ft->lambda_local,y,ADD_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
+  ierr = VecScatterEnd(ft->l2g_lambda,ft->lambda_local,y,ADD_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
+  PetscFunctionReturn(0);
+}
+
+
+#undef __FUNCT__
+#define __FUNCT__ "FETI1BuildInterfaceProblem_Private"
+/*@
+   FETI1BuildInterfaceProblem_Private - Builds the interface problem, that is the matrix F and the vector d.
+
+   Input Parameters:
+.  ft - the FETI context
+
+@*/
+static PetscErrorCode FETI1BuildInterfaceProblem_Private(FETI ft)
+{
+  PetscErrorCode ierr;
+  Subdomain      sd = ft->subdomain;
+  PetscInt       rank;
+  MPI_Comm       comm;
+  FETIMat_ctx    Fmatctx;
+  FETI_1         *ft1 = (FETI_1*)ft->data;
+  
+  PetscFunctionBegin;
+  ierr = PetscObjectGetComm((PetscObject)ft,&comm);CHKERRQ(ierr);
+  ierr = MPI_Comm_rank(comm,&rank);CHKERRQ(ierr);
+  /* Create the MatShell for F */
+  ierr = FETICreateFMat(ft,(void (*)(void))FETI1MatMult,(void (*)(void))FETI1DestroyMatF);CHKERRQ(ierr);
+  /* Creating vector d for the interface problem */
+  ierr = MatCreateVecs(ft->F,NULL,&ft->d);CHKERRQ(ierr);
+  /** Application of the already factorized pseudo-inverse */
+  ierr = MatMumpsSetIcntl(ft1->F_neumann,25,0);CHKERRQ(ierr);
+  ierr = MatSolve(ft1->F_neumann,sd->localRHS,sd->vec1_N);CHKERRQ(ierr);
+  /** Application of B_delta */
+  ierr = VecScatterBegin(sd->N_to_B,sd->vec1_N,sd->vec1_B,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
+  ierr = VecScatterEnd(sd->N_to_B,sd->vec1_N,sd->vec1_B,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
+  ierr = MatMult(ft->B_delta,sd->vec1_B,ft->lambda_local);CHKERRQ(ierr);
+  /*** Communication with other processes is performed for the following operation */
+  ierr = VecSet(ft->d,0.0);CHKERRQ(ierr);
+  ierr = VecScatterBegin(ft->l2g_lambda,ft->lambda_local,ft->d,ADD_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
+  ierr = VecScatterEnd(ft->l2g_lambda,ft->lambda_local,ft->d,ADD_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
+
+  PetscPrintf(PETSC_COMM_WORLD,"\n==================================================\n");
+  PetscPrintf(PETSC_COMM_WORLD,"Printing VECTOR D OF THE INTERFACE PROBLEM\n");
+  PetscPrintf(PETSC_COMM_WORLD,"==================================================\n");
+
+  VecView(ft->d,PETSC_VIEWER_STDOUT_WORLD);
+
   PetscFunctionReturn(0);
 }
 
@@ -281,7 +390,7 @@ static PetscErrorCode FETI1ComputeMatrixG_Private(FETI ft)
 {
   PetscErrorCode ierr;
   Subdomain      sd = ft->subdomain;
-  PetscInt       infog,rank,n_local_lambda;
+  PetscInt       infog,rank;
   MPI_Comm       comm;
   Mat            rbm,x; 
   FETI_1         *ft1 = (FETI_1*)ft->data;
@@ -327,6 +436,9 @@ static PetscErrorCode FETI1ComputeMatrixG_Private(FETI ft)
    Input Parameter:
 .  feti - the FETI context
 
+   Notes: 
+   In a future this rutine could be moved to the FETI class.
+
    Level: developer
 
 .keywords: FETI1
@@ -338,8 +450,6 @@ static PetscErrorCode FETI1SetUpNeumannSolver_Private(FETI ft)
   PetscErrorCode ierr;
   PC             pc;
   PetscBool      issbaij;
-  PetscInt       ival,icntl;
-  PetscReal      val;
   FETI_1         *ft1 = (FETI_1*)ft->data;
   Subdomain      sd = ft->subdomain;
   

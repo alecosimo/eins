@@ -8,7 +8,7 @@
 
 PETSC_EXTERN PetscBool FETIRegisterAllCalled;
 PETSC_EXTERN PetscErrorCode FETIRegisterAll(void);
-
+PETSC_EXTERN PetscErrorCode FETICreateFMat(FETI,void (*)(void),void (*)(void));
 
 typedef struct _FETIOps *FETIOps;
 struct _FETIOps {
@@ -18,6 +18,11 @@ struct _FETIOps {
   PetscErrorCode (*view)(FETI,PetscViewer);
   PetscErrorCode (*buildsolution)(FETI,Vec,Vec*);
 };
+
+struct _FETIMat_ctx {
+  FETI  ft;
+};
+typedef struct _FETIMat_ctx *FETIMat_ctx;
 
 /*
    FETI context
