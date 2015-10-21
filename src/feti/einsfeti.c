@@ -329,7 +329,7 @@ PetscErrorCode FETIDestroy(FETI *_feti)
   ierr = KSPDestroy(&feti->ksp_interface);CHKERRQ(ierr);
   ierr = MatDestroy(&feti->B_delta);CHKERRQ(ierr);
   ierr = MatDestroy(&feti->B_Ddelta);CHKERRQ(ierr);
-  ierr = MatDestroy(&feti->Wscaling);CHKERRQ(ierr);
+  ierr = VecDestroy(&feti->Wscaling);CHKERRQ(ierr);
   ierr = VecDestroy(&feti->d);CHKERRQ(ierr);
   ierr = VecDestroy(&feti->lambda_local);CHKERRQ(ierr);
   ierr = VecScatterDestroy(&feti->l2g_lambda);CHKERRQ(ierr);
@@ -393,6 +393,52 @@ PetscErrorCode  FETIInitializePackage(void)
   ierr = PetscLogEventRegister("FETISetUp",FETI_CLASSID,&FETI_SetUp);CHKERRQ(ierr);
   /* Set FETIFinalizePackage */
   ierr = PetscRegisterFinalize(FETIFinalizePackage);CHKERRQ(ierr);
+  PetscFunctionReturn(0);
+}
+
+
+#undef __FUNCT__
+#define __FUNCT__ "FETIScalingSetUp"
+/*@
+   FETIScalingSetUp - Computes the scaling for the FETI method
+
+   Input Parameter:
+.  ft - the FETI context
+
+   Notes:
+   It must be called after calling SubdomainSetUp()
+
+   Level: developer
+
+.keywords: FETI
+
+.seealso: FETICreate(), FETISetUp(), SubdomainSetUp()
+@*/
+PetscErrorCode  FETIScalingSetUp(FETI ft)
+{
+  PetscErrorCode   ierr;
+  Subdomain        sd = ft->subdomain;
+  
+  PetscFunctionBegin;
+  PetscValidHeaderSpecific(feti,FETI_CLASSID,1);
+  /*ierr = PetscOptionsGetBool(((PetscObject)ft)->prefix,"-feti_scaling_type",&pcis->use_stiffness_scaling,NULL);CHKERRQ(ierr);*/
+  /* take a look to PetscOptionsString()*/
+  if (!pcis->use_stiffness_scaling) {
+    ierr = VecSet(pcis->D,ft->scaling_factor);CHKERRQ(ierr);
+  } else {
+    ierr = MatGetDiagonal(matis->A,pcis->vec1_N);CHKERRQ(ierr);
+    ierr = VecScatterBegin(pcis->N_to_B,pcis->vec1_N,pcis->D,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
+    ierr = VecScatterEnd(pcis->N_to_B,pcis->vec1_N,pcis->D,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
+  }
+  ierr = VecCopy(pcis->D,pcis->vec1_B);CHKERRQ(ierr);
+  ierr = MatCreateVecs(pc->pmat,&counter,0);CHKERRQ(ierr); /* temporary auxiliar vector */
+  ierr = VecSet(counter,0.0);CHKERRQ(ierr);
+  ierr = VecScatterBegin(pcis->global_to_B,pcis->vec1_B,counter,ADD_VALUES,SCATTER_REVERSE);CHKERRQ(ierr);
+  ierr = VecScatterEnd(pcis->global_to_B,pcis->vec1_B,counter,ADD_VALUES,SCATTER_REVERSE);CHKERRQ(ierr);
+  ierr = VecScatterBegin(pcis->global_to_B,counter,pcis->vec1_B,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
+  ierr = VecScatterEnd(pcis->global_to_B,counter,pcis->vec1_B,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
+  ierr = VecPointwiseDivide(pcis->D,pcis->D,pcis->vec1_B);CHKERRQ(ierr);
+  ierr = VecDestroy(&counter);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 
@@ -585,6 +631,7 @@ PetscErrorCode  FETICreate(MPI_Comm comm,FETI *newfeti)
   feti->setfromoptionscalled = 0;
   feti->data                 = 0;
   feti->Wscaling             = 0;
+  feti->scaling_factor       = 1.;
   feti->scalingType          = 0;
   feti->lambda_local         = 0;
   feti->n_local_lambda       = 0;

@@ -17,3 +17,6 @@
 * Re-think about options in FETI1SetUpNeumannSolver_Private:
   ierr = PCFactorSetReuseFill(pc,PETSC_TRUE);CHKERRQ(ierr);
   ierr = PCFactorSetReuseOrdering(pc,PETSC_TRUE);CHKERRQ(ierr);
+
+* Subdomain::vec1_D is not being used by the moment... Try to optimize
+  the "work vectors"

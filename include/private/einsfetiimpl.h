@@ -33,7 +33,8 @@ struct _p_FETI {
   /* Subdomain info*/
   Subdomain        subdomain;
   /* Scaling info*/
-  Mat              Wscaling;
+  Vec              Wscaling; /* by now only supporting diag scaling*/
+  PetscReal        scaling_factor;
   ScalingType      scalingType;
   /* Common attributes for the interface problem*/
   Vec              lambda_local;

@@ -68,5 +68,6 @@ PETSC_EXTERN PetscErrorCode FETISetLocalMat(FETI,Mat);
 PETSC_EXTERN PetscErrorCode FETICreateGlobalWorkingVec(FETI,Vec);
 PETSC_EXTERN PetscErrorCode FETIFinalizePackage(void);
 PETSC_EXTERN PetscErrorCode FETIInitializePackage(void);
-
+PETSC_EXTERN PetscErrorCode FETIScalingSetUp(FETI);
+  
 #endif/* FETI_H*/
