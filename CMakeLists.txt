@@ -86,7 +86,7 @@ M_INCLUDE_RECURSE("${PROJECT_SOURCE_DIR}/test" "*CMakeLists.txt")
 # add library to be built
 add_library(libEins SHARED ${Eins_sources})
 target_link_libraries(libEins ${Eins_libraries})
-set_target_properties(libEins PROPERTIES DEBUG_POSTFIX _d OUTPUT_NAME "eins")
+set_target_properties(libEins PROPERTIES OUTPUT_NAME "eins")
 
 # add the install targets
 # install(TARGETS Eins DESTINATION bin)
