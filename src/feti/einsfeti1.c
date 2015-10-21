@@ -366,13 +366,6 @@ static PetscErrorCode FETI1BuildInterfaceProblem_Private(FETI ft)
   ierr = VecSet(ft->d,0.0);CHKERRQ(ierr);
   ierr = VecScatterBegin(ft->l2g_lambda,ft->lambda_local,ft->d,ADD_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
   ierr = VecScatterEnd(ft->l2g_lambda,ft->lambda_local,ft->d,ADD_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
-
-  PetscPrintf(PETSC_COMM_WORLD,"\n==================================================\n");
-  PetscPrintf(PETSC_COMM_WORLD,"Printing VECTOR D OF THE INTERFACE PROBLEM\n");
-  PetscPrintf(PETSC_COMM_WORLD,"==================================================\n");
-
-  VecView(ft->d,PETSC_VIEWER_STDOUT_WORLD);
-
   PetscFunctionReturn(0);
 }
 
