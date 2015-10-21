@@ -3,6 +3,7 @@
 
 #include "einssys.h" 
 #include "einsksp.h"
+#include "einspc.h"
 #include "einsfeti.h" 
 
 #endif/* EINS_H*/

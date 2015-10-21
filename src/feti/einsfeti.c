@@ -113,6 +113,33 @@ PetscErrorCode  FETISetType(FETI feti,FETIType type)
 
 
 #undef __FUNCT__
+#define __FUNCT__ "FETISetInterfaceSolver"
+/*@C
+   FETISetInterfaceSolver - Sets the KSP and PC to be used for solving the FETI interface problem.
+
+   Input Parameter:
+.  ft - the FETI context.
+.  kt - the KSP solver type.
+.  pt - the PC type.
+
+  Level: basic
+
+.seealso: FETIType, FETICreate()
+
+@*/
+PetscErrorCode FETISetInterfaceSolver(FETI ft,KSPType kt,PCType pt)
+{
+  PetscFunctionBegin;
+  PetscValidHeaderSpecific(ft,FETI_CLASSID,1);
+  PetscValidCharPointer(kt,2);
+  PetscValidCharPointer(pt,3);
+  ft->ksp_type_interface = kt;
+  ft->pc_type_interface = pt;
+  PetscFunctionReturn(0);
+}
+
+
+#undef __FUNCT__
 #define __FUNCT__ "FETIGetType"
 /*@C
    FETIGetType - Gets the FETI type and name (as a string) the FETI context.
@@ -136,8 +163,44 @@ PetscErrorCode FETIGetType(FETI feti,FETIType *type)
 {
   PetscFunctionBegin;
   PetscValidHeaderSpecific(feti,FETI_CLASSID,1);
-  PetscValidPointer(type,2);
   *type = ((PetscObject)feti)->type_name;
+  PetscFunctionReturn(0);
+}
+
+
+#undef __FUNCT__
+#define __FUNCT__ "FETIBuildInterfaceKSP"
+/*@
+   FETIBuildInterfaceKSP - Builds the KSP and PC contexts for the interface problem.
+
+   Input Parameter:
+.  feti            - the FETI context
+
+   Level: intermediate
+
+.keywords: FETI
+
+@*/
+PetscErrorCode FETIBuildInterfaceKSP(FETI ft)
+{
+  PetscErrorCode   ierr;
+  MPI_Comm         comm;
+  PC               pc;
+  
+  PetscFunctionBegin;
+  PetscValidHeaderSpecific(ft,FETI_CLASSID,1);
+  ierr  = PetscObjectGetComm((PetscObject)ft,&comm);CHKERRQ(ierr);
+  if(!ft->F) SETERRQ(PetscObjectComm((PetscObject)ft),PETSC_ERR_ARG_WRONGSTATE,"Error: Matrix F for the interface problem must be first defined");
+  if(!ft->ksp_type_interface) SETERRQ(PetscObjectComm((PetscObject)ft),PETSC_ERR_ARG_WRONGSTATE,"Error: KSP type for the interface problem must be first defined");
+  if(!ft->pc_type_interface) SETERRQ(PetscObjectComm((PetscObject)ft),PETSC_ERR_ARG_WRONGSTATE,"Error: PC type for the interface problem must be first defined");
+  ierr = KSPCreate(comm,&ft->ksp_interface);CHKERRQ(ierr);
+  ierr = KSPSetType(ft->ksp_interface,ft->ksp_type_interface);CHKERRQ(ierr);
+  ierr = KSPGetPC(ft->ksp_interface,&pc);CHKERRQ(ierr);
+  ierr = PCSetType(pc,ft->pc_type_interface);CHKERRQ(ierr);
+  ierr = KSPSetOperators(ft->ksp_interface,ft->F,ft->F);CHKERRQ(ierr);
+  ierr = KSPSetOptionsPrefix(ft->ksp_interface,"feti_interface_");CHKERRQ(ierr);
+  ierr = KSPSetFromOptions(ft->ksp_interface);CHKERRQ(ierr);
+  ierr = KSPSetUp(ft->ksp_interface);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 
@@ -192,6 +255,7 @@ PetscErrorCode FETICreateFMat(FETI ft,void (*FETIMatMult)(void),void (*FETIDestr
 
    Options Database:
 .   -feti_type: speciefies the FETI method
+.   -feti_interface_<ksp_option>: options for the KSP for the interface problem
 
    Level: begginer
 
@@ -495,6 +559,7 @@ PetscErrorCode FETISetMapping(FETI ft,ISLocalToGlobalMapping isg2l)
 
    Options
 .  -feti_type <type> - Sets the FETI type
+.  -feti_interface_<ksp_option>: options for the KSP for the interface problem
 
    Level: developer
 

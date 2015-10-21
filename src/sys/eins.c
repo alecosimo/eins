@@ -1,6 +1,7 @@
 #include <eins.h>
 #include <private/einsfetiimpl.h>
 #include <private/einskspimpl.h>
+#include <private/einspcimpl.h>
 
 
 PETSC_EXTERN PetscBool EinsInitializeCalled;
@@ -30,6 +31,8 @@ static PetscErrorCode EinsRegisterAll(void)
   ierr = KSPRegisterAll();CHKERRQ(ierr);
   ierr = KSPRegister(KSPPJGMRES,KSPCreate_PJGMRES);CHKERRQ(ierr);
   /*Register PC*/
+  ierr = PCRegisterAll();CHKERRQ(ierr);
+  ierr = PCRegister(PCFETI_DIRICHLET,PCCreate_DIRICHLET);CHKERRQ(ierr);
   /*Register TS*/
   /*Register SNES*/
   PetscFunctionReturn(0);

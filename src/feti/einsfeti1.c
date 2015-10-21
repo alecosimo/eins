@@ -49,6 +49,7 @@ PetscErrorCode FETISetUp_FETI1(FETI ft)
   ierr = FETI1SetUpNeumannSolver_Private(ft);CHKERRQ(ierr);  
   ierr = FETI1ComputeMatrixG_Private(ft);CHKERRQ(ierr);
   ierr = FETI1BuildInterfaceProblem_Private(ft);CHKERRQ(ierr);
+  ierr = FETIBuildInterfaceKSP(ft);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 
@@ -61,6 +62,7 @@ EXTERN_C_BEGIN
 
    Options:
 .  -feti_fullyredundant: use fully redundant Lagrange multipliers.
+.  -feti_interface_<ksp or pc option>: options for the KSP for the interface problem
 .  -feti1_neumann_<ksp or pc option>: for setting pc and ksp options for the neumann solver. 
     
    Level: beginner
@@ -345,7 +347,6 @@ static PetscErrorCode FETI1BuildInterfaceProblem_Private(FETI ft)
   Subdomain      sd = ft->subdomain;
   PetscInt       rank;
   MPI_Comm       comm;
-  FETIMat_ctx    Fmatctx;
   FETI_1         *ft1 = (FETI_1*)ft->data;
   
   PetscFunctionBegin;

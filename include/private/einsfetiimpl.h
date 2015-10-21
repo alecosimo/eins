@@ -9,6 +9,7 @@
 PETSC_EXTERN PetscBool FETIRegisterAllCalled;
 PETSC_EXTERN PetscErrorCode FETIRegisterAll(void);
 PETSC_EXTERN PetscErrorCode FETICreateFMat(FETI,void (*)(void),void (*)(void));
+PETSC_EXTERN PetscErrorCode FETIBuildInterfaceKSP(FETI);
 
 typedef struct _FETIOps *FETIOps;
 struct _FETIOps {

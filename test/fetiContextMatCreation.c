@@ -608,6 +608,7 @@ int main(int argc,char **args)
   ierr = FETISetType(feti,FETI1);CHKERRQ(ierr);
   ierr = FETISetLocalMat(feti,localA);CHKERRQ(ierr);
   ierr = FETISetLocalRHS(feti,localRHS);CHKERRQ(ierr);
+  ierr = FETISetInterfaceSolver(feti,KSPPJGMRES,PCFETI_DIRICHLET);CHKERRQ(ierr);
   ierr = FETISetMapping(feti,mapping);CHKERRQ(ierr);
   ierr = ISCreateMPIVec(dd.gcomm,dd.xm*dd.ym*dd.zm,mapping,&global_sol);CHKERRQ(ierr);
   ierr = FETICreateGlobalWorkingVec(feti,global_sol);CHKERRQ(ierr);
