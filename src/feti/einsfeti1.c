@@ -45,6 +45,7 @@ PetscErrorCode FETISetUp_FETI1(FETI ft)
   PetscErrorCode ierr;
 
   PetscFunctionBegin;
+  ierr = FETIScalingSetUp(ft);CHKERRQ(ierr);
   ierr = FETI1BuildLambdaAndB_Private(ft);CHKERRQ(ierr);
   ierr = FETI1SetUpNeumannSolver_Private(ft);CHKERRQ(ierr);  
   ierr = FETI1ComputeMatrixG_Private(ft);CHKERRQ(ierr);
@@ -66,6 +67,8 @@ EXTERN_C_BEGIN
 .  -feti1_neumann_<ksp or pc option>: for setting pc and ksp options for the neumann solver. 
 .  -feti_pc_dirichilet_<ksp or pc option>: options for the KSP or PC to use for solving the Dirichlet problem
    associated to the Dirichlet preconditioner
+.  -feti_scaling_type - Sets the scaling type
+.  -feti_scaling_factor - Sets a scaling factor different from one
     
    Level: beginner
 
@@ -110,24 +113,26 @@ EXTERN_C_END
 @*/
 static PetscErrorCode FETI1BuildLambdaAndB_Private(FETI ft)
 {
-  PetscErrorCode ierr;
-  MPI_Comm       comm;
-  Vec            lambda_global;
-  IS             IS_l2g_lambda;
-  IS             subset,subset_mult,subset_n;
-  PetscBool      fully_redundant;
-  PetscInt       i,j,s,n_boundary_dofs,n_global_lambda,partial_sum;
-  PetscInt       cum,n_local_lambda,n_lambda_for_dof,dual_size,n_neg_values,n_pos_values;
-  PetscMPIInt    rank;
-  PetscInt       *dual_dofs_boundary_indices,*aux_local_numbering_1;
-  const PetscInt *aux_global_numbering,*indices;
-  PetscInt       *aux_sums,*cols_B_delta,*l2g_indices;
-  PetscScalar    *array,*vals_B_delta;
-  PetscInt       *aux_local_numbering_2;
-  PetscScalar    scalar_value;
-  Subdomain      sd = ft->subdomain;
+  PetscErrorCode    ierr;
+  MPI_Comm          comm;
+  Vec               lambda_global;
+  IS                IS_l2g_lambda;
+  IS                subset,subset_mult,subset_n;
+  PetscBool         fully_redundant;
+  PetscInt          i,j,s,n_boundary_dofs,n_global_lambda,partial_sum,up;
+  PetscInt          cum,n_local_lambda,n_lambda_for_dof,dual_size,n_neg_values,n_pos_values;
+  PetscMPIInt       rank;
+  PetscInt          *dual_dofs_boundary_indices,*aux_local_numbering_1;
+  const PetscInt    *aux_global_numbering,*indices;
+  PetscInt          *aux_sums,*cols_B_delta,*l2g_indices;
+  PetscScalar       *array,*vals_B_delta,*vals_B_Ddelta;
+  PetscInt          *aux_local_numbering_2;
+  PetscScalar       scalar_value;
+  Subdomain         sd = ft->subdomain;
+  const PetscScalar *Warray;
   
   PetscFunctionBegin;
+  if(!ft->Wscaling) SETERRQ(PetscObjectComm((PetscObject)ft),PETSC_ERR_ARG_WRONGSTATE,"Error: FETIScalingSetUp must be first called");
   ierr = PetscObjectGetComm((PetscObject)ft,&comm);CHKERRQ(ierr);
   ierr = MPI_Comm_rank(comm,&rank);CHKERRQ(ierr);
 
@@ -191,8 +196,10 @@ static PetscErrorCode FETI1BuildLambdaAndB_Private(FETI ft)
   ierr = PetscMalloc1(sd->n_neigh,&aux_sums);CHKERRQ(ierr);
   ierr = PetscMalloc1(n_local_lambda,&l2g_indices);CHKERRQ(ierr);
   ierr = PetscMalloc1(n_local_lambda,&vals_B_delta);CHKERRQ(ierr);
+  ierr = PetscMalloc1(n_local_lambda,&vals_B_Ddelta);CHKERRQ(ierr);
   ierr = PetscMalloc1(n_local_lambda,&cols_B_delta);CHKERRQ(ierr);
   ierr = ISGetIndices(subset_n,&aux_global_numbering);CHKERRQ(ierr);
+  ierr = VecGetArrayRead(ft->Wscaling,&Warray);CHKERRQ(ierr);
   n_global_lambda=0;
   partial_sum=0;
   cum = 0;
@@ -212,34 +219,43 @@ static PetscErrorCode FETI1BuildLambdaAndB_Private(FETI ft)
     n_pos_values = j - n_neg_values;
     if (fully_redundant) {
       for (s=0;s<n_neg_values;s++) {
+	up = dual_dofs_boundary_indices[i];
         l2g_indices    [partial_sum+s]=aux_sums[s]+n_neg_values-s-1+n_global_lambda;
-        cols_B_delta   [partial_sum+s]=dual_dofs_boundary_indices[i];
+        cols_B_delta   [partial_sum+s]=up;
         vals_B_delta   [partial_sum+s]=-1.0;
+	vals_B_Ddelta  [partial_sum+s]=-Warray[up];
       }
       for (s=0;s<n_pos_values;s++) {
+	up = dual_dofs_boundary_indices[i];
         l2g_indices    [partial_sum+s+n_neg_values]=aux_sums[n_neg_values]+s+n_global_lambda;
-        cols_B_delta   [partial_sum+s+n_neg_values]=dual_dofs_boundary_indices[i];
+        cols_B_delta   [partial_sum+s+n_neg_values]=up;
         vals_B_delta   [partial_sum+s+n_neg_values]=1.0;
+	vals_B_Ddelta  [partial_sum+s+n_neg_values]=Warray[up];	
       }
       partial_sum += j;
     } else {
       /* l2g_indices and default cols and vals of B_delta */
+      up = dual_dofs_boundary_indices[i];
       for (s=0;s<j;s++) {
         l2g_indices    [partial_sum+s]=n_global_lambda+s;
-        cols_B_delta   [partial_sum+s]=dual_dofs_boundary_indices[i];
+        cols_B_delta   [partial_sum+s]=up;
         vals_B_delta   [partial_sum+s]=0.0;
+	vals_B_Ddelta  [partial_sum+s]=0.0;	
       }
       /* B_delta */
       if ( n_neg_values > 0 ) { /* there's a rank next to me to the left */
         vals_B_delta   [partial_sum+n_neg_values-1]=-1.0;
+	vals_B_Ddelta  [partial_sum+n_neg_values-1]=-Warray[up];	
       }
       if ( n_neg_values < j ) { /* there's a rank next to me to the right */
         vals_B_delta   [partial_sum+n_neg_values]=1.0;
+	vals_B_Ddelta  [partial_sum+n_neg_values]=Warray[up];
       }
       partial_sum += j;
     }
     cum += aux_local_numbering_2[i];
   }
+  ierr = VecRestoreArrayRead(ft->Wscaling,&Warray);CHKERRQ(ierr);
   ierr = ISRestoreIndices(subset_n,&aux_global_numbering);CHKERRQ(ierr);
   ierr = ISDestroy(&subset_mult);CHKERRQ(ierr);
   ierr = ISDestroy(&subset_n);CHKERRQ(ierr);
@@ -259,24 +275,32 @@ static PetscErrorCode FETI1BuildLambdaAndB_Private(FETI ft)
 
   /* Create local part of B_delta */
   ierr = MatCreate(PETSC_COMM_SELF,&ft->B_delta);CHKERRQ(ierr);
+  ierr = MatCreate(PETSC_COMM_SELF,&ft->B_Ddelta);CHKERRQ(ierr);
   ierr = MatSetSizes(ft->B_delta,n_local_lambda,sd->n_B,n_local_lambda,sd->n_B);CHKERRQ(ierr);
+  ierr = MatSetSizes(ft->B_Ddelta,n_local_lambda,sd->n_B,n_local_lambda,sd->n_B);CHKERRQ(ierr);
   ierr = MatSetType(ft->B_delta,MATSEQAIJ);CHKERRQ(ierr);
+  ierr = MatSetType(ft->B_Ddelta,MATSEQAIJ);CHKERRQ(ierr);
   ierr = MatSeqAIJSetPreallocation(ft->B_delta,1,NULL);CHKERRQ(ierr);
+  ierr = MatSeqAIJSetPreallocation(ft->B_Ddelta,1,NULL);CHKERRQ(ierr);
   ierr = MatSetOption(ft->B_delta,MAT_IGNORE_ZERO_ENTRIES,PETSC_TRUE);CHKERRQ(ierr);
+  ierr = MatSetOption(ft->B_Ddelta,MAT_IGNORE_ZERO_ENTRIES,PETSC_TRUE);CHKERRQ(ierr);
   for (i=0;i<n_local_lambda;i++) {
     ierr = MatSetValue(ft->B_delta,i,cols_B_delta[i],vals_B_delta[i],INSERT_VALUES);CHKERRQ(ierr);
+    ierr = MatSetValue(ft->B_Ddelta,i,cols_B_delta[i],vals_B_Ddelta[i],INSERT_VALUES);CHKERRQ(ierr);
   }
   ierr = MatAssemblyBegin(ft->B_delta,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
   ierr = MatAssemblyEnd  (ft->B_delta,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
+  ierr = MatAssemblyBegin(ft->B_Ddelta,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
+  ierr = MatAssemblyEnd  (ft->B_Ddelta,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
 
   ierr = PetscFree(vals_B_delta);CHKERRQ(ierr);
+  ierr = PetscFree(vals_B_Ddelta);CHKERRQ(ierr);
   ierr = PetscFree(cols_B_delta);CHKERRQ(ierr);
   ierr = VecDestroy(&lambda_global);CHKERRQ(ierr);
 
-  ierr = MatDuplicate(ft->B_delta,MAT_COPY_VALUES,&ft->B_Ddelta);CHKERRQ(ierr);
-
-  MatSeqViewSynchronized(ft->B_delta);
-   
+  /* compute scaled version of B_delta, that is B_Ddelta */
+  MatSeqViewSynchronized(ft->B_Ddelta);
+  
   PetscFunctionReturn(0);
 }
 

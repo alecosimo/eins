@@ -20,3 +20,5 @@
 
 * Subdomain::vec1_D is not being used by the moment... Try to optimize
   the "work vectors"
+
+* Functions which are private declare them as static and add _Private

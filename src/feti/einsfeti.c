@@ -4,9 +4,15 @@ PetscClassId      FETI_CLASSID;
 PetscLogEvent     FETI_SetUp;
 PetscBool         FETIRegisterAllCalled   = PETSC_FALSE;
 PetscFunctionList FETIList                = 0;
+PetscFunctionList FETIScalingList         = 0;
 static PetscBool  FETIPackageInitialized  = PETSC_FALSE;
 
+
 PETSC_EXTERN PetscErrorCode FETICreate_FETI1(FETI);
+/* scaling stuff */
+PETSC_EXTERN PetscErrorCode FETIScalingSetUp_rho(FETI);
+PETSC_EXTERN PetscErrorCode FETIScalingSetUp_multiplicity(FETI);
+PETSC_EXTERN PetscErrorCode FETIScalingDestroy(FETI);
 
 #undef __FUNCT__
 #define __FUNCT__ "FETIRegister"
@@ -267,7 +273,7 @@ PetscErrorCode  FETISetFromOptions(FETI feti)
 {
   PetscErrorCode ierr;
   char           type[256];
-  const char*    def="FETI1";
+  const char*    def="feti1";
   PetscBool      flg;
 
   PetscFunctionBegin;
@@ -329,7 +335,7 @@ PetscErrorCode FETIDestroy(FETI *_feti)
   ierr = KSPDestroy(&feti->ksp_interface);CHKERRQ(ierr);
   ierr = MatDestroy(&feti->B_delta);CHKERRQ(ierr);
   ierr = MatDestroy(&feti->B_Ddelta);CHKERRQ(ierr);
-  ierr = VecDestroy(&feti->Wscaling);CHKERRQ(ierr);
+  ierr = FETIScalingDestroy(feti);CHKERRQ(ierr);
   ierr = VecDestroy(&feti->d);CHKERRQ(ierr);
   ierr = VecDestroy(&feti->lambda_local);CHKERRQ(ierr);
   ierr = VecScatterDestroy(&feti->l2g_lambda);CHKERRQ(ierr);
@@ -363,6 +369,7 @@ PetscErrorCode  FETIFinalizePackage(void)
 
   PetscFunctionBegin;
   ierr = PetscFunctionListDestroy(&FETIList);CHKERRQ(ierr);
+  ierr = PetscFunctionListDestroy(&FETIScalingList);CHKERRQ(ierr);
   FETIPackageInitialized = PETSC_FALSE;
   FETIRegisterAllCalled  = PETSC_FALSE;
   PetscFunctionReturn(0);
@@ -393,52 +400,6 @@ PetscErrorCode  FETIInitializePackage(void)
   ierr = PetscLogEventRegister("FETISetUp",FETI_CLASSID,&FETI_SetUp);CHKERRQ(ierr);
   /* Set FETIFinalizePackage */
   ierr = PetscRegisterFinalize(FETIFinalizePackage);CHKERRQ(ierr);
-  PetscFunctionReturn(0);
-}
-
-
-#undef __FUNCT__
-#define __FUNCT__ "FETIScalingSetUp"
-/*@
-   FETIScalingSetUp - Computes the scaling for the FETI method
-
-   Input Parameter:
-.  ft - the FETI context
-
-   Notes:
-   It must be called after calling SubdomainSetUp()
-
-   Level: developer
-
-.keywords: FETI
-
-.seealso: FETICreate(), FETISetUp(), SubdomainSetUp()
-@*/
-PetscErrorCode  FETIScalingSetUp(FETI ft)
-{
-  PetscErrorCode   ierr;
-  Subdomain        sd = ft->subdomain;
-  
-  PetscFunctionBegin;
-  PetscValidHeaderSpecific(feti,FETI_CLASSID,1);
-  /*ierr = PetscOptionsGetBool(((PetscObject)ft)->prefix,"-feti_scaling_type",&pcis->use_stiffness_scaling,NULL);CHKERRQ(ierr);*/
-  /* take a look to PetscOptionsString()*/
-  if (!pcis->use_stiffness_scaling) {
-    ierr = VecSet(pcis->D,ft->scaling_factor);CHKERRQ(ierr);
-  } else {
-    ierr = MatGetDiagonal(matis->A,pcis->vec1_N);CHKERRQ(ierr);
-    ierr = VecScatterBegin(pcis->N_to_B,pcis->vec1_N,pcis->D,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
-    ierr = VecScatterEnd(pcis->N_to_B,pcis->vec1_N,pcis->D,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
-  }
-  ierr = VecCopy(pcis->D,pcis->vec1_B);CHKERRQ(ierr);
-  ierr = MatCreateVecs(pc->pmat,&counter,0);CHKERRQ(ierr); /* temporary auxiliar vector */
-  ierr = VecSet(counter,0.0);CHKERRQ(ierr);
-  ierr = VecScatterBegin(pcis->global_to_B,pcis->vec1_B,counter,ADD_VALUES,SCATTER_REVERSE);CHKERRQ(ierr);
-  ierr = VecScatterEnd(pcis->global_to_B,pcis->vec1_B,counter,ADD_VALUES,SCATTER_REVERSE);CHKERRQ(ierr);
-  ierr = VecScatterBegin(pcis->global_to_B,counter,pcis->vec1_B,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
-  ierr = VecScatterEnd(pcis->global_to_B,counter,pcis->vec1_B,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
-  ierr = VecPointwiseDivide(pcis->D,pcis->D,pcis->vec1_B);CHKERRQ(ierr);
-  ierr = VecDestroy(&counter);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 
@@ -604,9 +565,11 @@ PetscErrorCode FETISetMapping(FETI ft,ISLocalToGlobalMapping isg2l)
    Output Parameter:
 .  feti - location to put the FETI context
 
-   Options
+   Options Database:
 .  -feti_type <type> - Sets the FETI type
-.  -feti_interface_<ksp_option>: options for the KSP for the interface problem
+.  -feti_interface_<ksp_option> - options for the KSP for the interface problem
+.  -feti_scaling_type - Sets the scaling type
+.  -feti_scaling_factor - Sets a scaling factor different from one
 
    Level: developer
 
@@ -623,16 +586,17 @@ PetscErrorCode  FETICreate(MPI_Comm comm,FETI *newfeti)
   PetscValidPointer(newfeti,1);
   *newfeti = 0;
   ierr = FETIInitializePackage();CHKERRQ(ierr);
-
+ 
   ierr = PetscHeaderCreate(feti,FETI_CLASSID,"FETI","FETI","FETI",comm,FETIDestroy,NULL);CHKERRQ(ierr);
   ierr = SubdomainCreate(((PetscObject)feti)->comm,&feti->subdomain);CHKERRQ(ierr);
-  
+
+  /* adding scaling types*/
+  ierr = PetscFunctionListAdd(&FETIScalingList,SCRHO,FETIScalingSetUp_rho);CHKERRQ(ierr);
+  ierr = PetscFunctionListAdd(&FETIScalingList,SCMULTIPLICITY,FETIScalingSetUp_multiplicity);CHKERRQ(ierr);
+
   feti->setupcalled          = 0;
   feti->setfromoptionscalled = 0;
   feti->data                 = 0;
-  feti->Wscaling             = 0;
-  feti->scaling_factor       = 1.;
-  feti->scalingType          = 0;
   feti->lambda_local         = 0;
   feti->n_local_lambda       = 0;
   feti->l2g_lambda           = 0;
@@ -645,6 +609,10 @@ PetscErrorCode  FETICreate(MPI_Comm comm,FETI *newfeti)
   feti->B_delta              = 0;
   feti->B_Ddelta             = 0;
   feti->ksp_neumann          = 0;
+  /* scaling variables initialization*/
+  feti->Wscaling             = 0;
+  feti->scaling_factor       = 1.;
+  feti->scaling_type         = SCNONE;
   
   *newfeti = feti;
   PetscFunctionReturn(0);

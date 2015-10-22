@@ -35,7 +35,7 @@ struct _p_FETI {
   /* Scaling info*/
   Vec              Wscaling; /* by now only supporting diag scaling*/
   PetscReal        scaling_factor;
-  ScalingType      scalingType;
+  FETIScalingType      scaling_type;
   /* Common attributes for the interface problem*/
   Vec              lambda_local;
   PetscInt         n_lambda,n_local_lambda;

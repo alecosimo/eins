@@ -29,7 +29,6 @@ typedef const char* FETIType;
 #define FETINONE            "none"
 #define FETI1               "feti1"
 
-
 /*
     FETIList contains the list of FETI methods currently registered
    These are added with FETIRegister()
@@ -40,10 +39,11 @@ PETSC_EXTERN PetscFunctionList FETIList;
 PETSC_EXTERN PetscClassId FETI_CLASSID;
 
 /* Scaling type*/ 
-typedef enum {
-  RHO_SCALING=0,        /* rho-scaling */
-  MULTIPLICITY_SCALING  /* Multiplicity scaling */
-} ScalingType;
+PETSC_EXTERN PetscFunctionList FETIScalingList;
+typedef const char* FETIScalingType;
+#define SCRHO            "scrho"
+#define SCMULTIPLICITY   "scmultiplicity"
+#define SCNONE           "scnone"
 
 /* QMatrix type*/ 
 typedef enum {
@@ -68,6 +68,9 @@ PETSC_EXTERN PetscErrorCode FETISetLocalMat(FETI,Mat);
 PETSC_EXTERN PetscErrorCode FETICreateGlobalWorkingVec(FETI,Vec);
 PETSC_EXTERN PetscErrorCode FETIFinalizePackage(void);
 PETSC_EXTERN PetscErrorCode FETIInitializePackage(void);
+/* scaling */
 PETSC_EXTERN PetscErrorCode FETIScalingSetUp(FETI);
-  
+PETSC_EXTERN PetscErrorCode FETIScalingSetScalingFactor(FETI,PetscScalar);
+PETSC_EXTERN PetscErrorCode FETIScalingSetType(FETI,FETIScalingType);
+
 #endif/* FETI_H*/
