@@ -24,16 +24,15 @@ PetscErrorCode FETIScalingSetUp_multiplicity(FETI ft)
   PetscErrorCode   ierr;
   Subdomain        sd = ft->subdomain;
   PetscInt         i;
+  PetscScalar      *array;
   
   PetscFunctionBegin;
   PetscValidHeaderSpecific(ft,FETI_CLASSID,1);
   ierr = VecDuplicate(sd->vec1_B,&ft->Wscaling);CHKERRQ(ierr);
+  ierr = VecGetArray(ft->Wscaling,&array);CHKERRQ(ierr);
   ierr = VecSet(ft->Wscaling,ft->scaling_factor);CHKERRQ(ierr);
-  for ( i=0;i<sd->n_B;i++ ) { ierr = VecSetValue(sd->vec1_B,i,(PetscScalar)sd->count[i],INSERT_VALUES);CHKERRQ(ierr);}
-  ierr = VecAssemblyBegin(sd->vec1_B);CHKERRQ(ierr);
-  ierr = VecAssemblyEnd(sd->vec1_B);CHKERRQ(ierr);
-  ierr = VecShift(sd->vec1_B,1);CHKERRQ(ierr);
-  ierr = VecPointwiseDivide(ft->Wscaling,ft->Wscaling,sd->vec1_B);CHKERRQ(ierr);
+  for ( i=0;i<sd->n_B;i++ ) { array[i]=ft->scaling_factor/(sd->count[i]+1);}
+  ierr = VecRestoreArray(ft->Wscaling,&array);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 

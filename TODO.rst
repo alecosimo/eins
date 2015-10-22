@@ -22,3 +22,6 @@
   the "work vectors"
 
 * Functions which are private declare them as static and add _Private
+
+* Added scaling SCNONE, that is do not apply any scaling
+  
