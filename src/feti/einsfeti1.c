@@ -47,7 +47,7 @@ PetscErrorCode FETISetUp_FETI1(FETI ft)
   PetscFunctionBegin;
   ierr = FETIScalingSetUp(ft);CHKERRQ(ierr);
   ierr = FETI1BuildLambdaAndB_Private(ft);CHKERRQ(ierr);
-  ierr = FETI1SetUpNeumannSolver_Private(ft);CHKERRQ(ierr);  
+  ierr = FETI1SetUpNeumannSolver_Private(ft);CHKERRQ(ierr);
   ierr = FETI1ComputeMatrixG_Private(ft);CHKERRQ(ierr);
   ierr = FETI1BuildInterfaceProblem_Private(ft);CHKERRQ(ierr);
   ierr = FETIBuildInterfaceKSP(ft);CHKERRQ(ierr);

@@ -23,21 +23,17 @@ PetscErrorCode FETIScalingSetUp_multiplicity(FETI ft)
 {
   PetscErrorCode   ierr;
   Subdomain        sd = ft->subdomain;
-  Vec              counter;
+  PetscInt         i;
   
   PetscFunctionBegin;
   PetscValidHeaderSpecific(ft,FETI_CLASSID,1);
   ierr = VecDuplicate(sd->vec1_B,&ft->Wscaling);CHKERRQ(ierr);
   ierr = VecSet(ft->Wscaling,ft->scaling_factor);CHKERRQ(ierr);
-
-  ierr = VecDuplicate(sd->vec1_global,&counter);CHKERRQ(ierr);
-  ierr = VecSet(counter,0.0);CHKERRQ(ierr);
-  ierr = VecScatterBegin(sd->global_to_B,ft->Wscaling,counter,ADD_VALUES,SCATTER_REVERSE);CHKERRQ(ierr);
-  ierr = VecScatterEnd(sd->global_to_B,ft->Wscaling,counter,ADD_VALUES,SCATTER_REVERSE);CHKERRQ(ierr);
-  ierr = VecScatterBegin(sd->global_to_B,counter,sd->vec1_B,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
-  ierr = VecScatterEnd(sd->global_to_B,counter,sd->vec1_B,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr); 
+  for ( i=0;i<sd->n_B;i++ ) { ierr = VecSetValue(sd->vec1_B,i,(PetscScalar)sd->count[i],INSERT_VALUES);CHKERRQ(ierr);}
+  ierr = VecAssemblyBegin(sd->vec1_B);CHKERRQ(ierr);
+  ierr = VecAssemblyEnd(sd->vec1_B);CHKERRQ(ierr);
+  ierr = VecShift(sd->vec1_B,1);CHKERRQ(ierr);
   ierr = VecPointwiseDivide(ft->Wscaling,ft->Wscaling,sd->vec1_B);CHKERRQ(ierr);
-  ierr = VecDestroy(&counter);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 
@@ -177,7 +173,7 @@ PetscErrorCode  FETIScalingSetUp(FETI ft)
   ierr = PetscFunctionListFind(FETIScalingList,scltype,&func);CHKERRQ(ierr);    
   if (!func) SETERRQ1(PetscObjectComm((PetscObject)ft),PETSC_ERR_ARG_UNKNOWN_TYPE,"Unable to find requested FETIScaling type %s",scltype);
   /* destroy previous scaling vector */
-  ierr = VecDestroy(&feti->Wscaling);CHKERRQ(ierr);
+  ierr = VecDestroy(&ft->Wscaling);CHKERRQ(ierr);
   ierr = (*func)(ft);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
