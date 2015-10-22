@@ -30,9 +30,39 @@ PetscErrorCode FETIScalingSetUp_multiplicity(FETI ft)
   PetscValidHeaderSpecific(ft,FETI_CLASSID,1);
   ierr = VecDuplicate(sd->vec1_B,&ft->Wscaling);CHKERRQ(ierr);
   ierr = VecGetArray(ft->Wscaling,&array);CHKERRQ(ierr);
-  ierr = VecSet(ft->Wscaling,ft->scaling_factor);CHKERRQ(ierr);
   for ( i=0;i<sd->n_B;i++ ) { array[i]=ft->scaling_factor/(sd->count[i]+1);}
   ierr = VecRestoreArray(ft->Wscaling,&array);CHKERRQ(ierr);
+  PetscFunctionReturn(0);
+}
+
+
+#undef __FUNCT__
+#define __FUNCT__ "FETIScalingSetUp_none"
+/*@
+   FETIScalingSetUp_none - Set ups no scaling
+
+   Input Parameter:
+.  ft - the FETI context
+
+   Notes:
+   It must be called after calling SubdomainSetUp()
+
+   Level: developer
+
+.keywords: FETI
+
+.seealso: FETIScalingSetUp(), FETICreate(), FETISetUp(), SubdomainSetUp()
+@*/
+PetscErrorCode FETIScalingSetUp_none(FETI);
+PetscErrorCode FETIScalingSetUp_none(FETI ft)
+{
+  PetscErrorCode   ierr;
+  Subdomain        sd = ft->subdomain;
+  
+  PetscFunctionBegin;
+  PetscValidHeaderSpecific(ft,FETI_CLASSID,1);
+  ierr = VecDuplicate(sd->vec1_B,&ft->Wscaling);CHKERRQ(ierr);
+  ierr = VecSet(ft->Wscaling,1.0);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 
@@ -166,7 +196,7 @@ PetscErrorCode  FETIScalingSetUp(FETI ft)
   if (flg) {
     scltype = type;
   } else {
-    ierr = PetscStrcmp((char*)(ft->scaling_type),SCNONE,&flg);CHKERRQ(ierr);
+    ierr = PetscStrcmp((char*)(ft->scaling_type),SCUNK,&flg);CHKERRQ(ierr);
     scltype = flg ? def : ft->scaling_type;
   }
   ierr = PetscFunctionListFind(FETIScalingList,scltype,&func);CHKERRQ(ierr);    

@@ -44,6 +44,7 @@ typedef const char* FETIScalingType;
 #define SCRHO            "scrho"
 #define SCMULTIPLICITY   "scmultiplicity"
 #define SCNONE           "scnone"
+#define SCUNK           "scunk" /* Unknown scaling*/
 
 /* QMatrix type*/ 
 typedef enum {

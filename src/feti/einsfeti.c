@@ -10,6 +10,7 @@ static PetscBool  FETIPackageInitialized  = PETSC_FALSE;
 
 PETSC_EXTERN PetscErrorCode FETICreate_FETI1(FETI);
 /* scaling stuff */
+PETSC_EXTERN PetscErrorCode FETIScalingSetUp_none(FETI);
 PETSC_EXTERN PetscErrorCode FETIScalingSetUp_rho(FETI);
 PETSC_EXTERN PetscErrorCode FETIScalingSetUp_multiplicity(FETI);
 PETSC_EXTERN PetscErrorCode FETIScalingDestroy(FETI);
@@ -591,6 +592,7 @@ PetscErrorCode  FETICreate(MPI_Comm comm,FETI *newfeti)
   ierr = SubdomainCreate(((PetscObject)feti)->comm,&feti->subdomain);CHKERRQ(ierr);
 
   /* adding scaling types*/
+  ierr = PetscFunctionListAdd(&FETIScalingList,SCNONE,FETIScalingSetUp_none);CHKERRQ(ierr);
   ierr = PetscFunctionListAdd(&FETIScalingList,SCRHO,FETIScalingSetUp_rho);CHKERRQ(ierr);
   ierr = PetscFunctionListAdd(&FETIScalingList,SCMULTIPLICITY,FETIScalingSetUp_multiplicity);CHKERRQ(ierr);
 
@@ -612,7 +614,7 @@ PetscErrorCode  FETICreate(MPI_Comm comm,FETI *newfeti)
   /* scaling variables initialization*/
   feti->Wscaling             = 0;
   feti->scaling_factor       = 1.;
-  feti->scaling_type         = SCNONE;
+  feti->scaling_type         = SCUNK;
   
   *newfeti = feti;
   PetscFunctionReturn(0);
