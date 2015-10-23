@@ -435,7 +435,7 @@ static PetscErrorCode FETI1ComputeMatrixG_Private(FETI ft)
     
     ierr = MatGetSubMatrix(rbm,sd->is_B_local,NULL,MAT_INITIAL_MATRIX,&x);CHKERRQ(ierr);
     ierr = MatCreateSeqDense(PETSC_COMM_SELF,ft->n_local_lambda,infog,NULL,&ft1->localG);CHKERRQ(ierr);
-    ierr = MatMatMult(ft->B_delta,x,MAT_REUSE_MATRIX,PETSC_DEFAULT,&ft1->localG);CHKERRQ(ierr);    
+    ierr = MatMatMult(ft->B_Ddelta,x,MAT_REUSE_MATRIX,PETSC_DEFAULT,&ft1->localG);CHKERRQ(ierr);    
     if(rank==1){
       PetscPrintf(PETSC_COMM_SELF,"\n==================================================\n");
       PetscPrintf(PETSC_COMM_SELF,"Printing rigid body modes\n");
