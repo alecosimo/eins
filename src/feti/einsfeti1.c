@@ -6,6 +6,12 @@ static PetscErrorCode FETI1BuildLambdaAndB_Private(FETI);
 static PetscErrorCode FETI1SetUpNeumannSolver_Private(FETI);
 static PetscErrorCode FETI1ComputeMatrixG_Private(FETI);
 static PetscErrorCode FETI1BuildInterfaceProblem_Private(FETI);
+static PetscErrorCode FETIDestroy_FETI1(FETI);
+static PetscErrorCode FETISetUp_FETI1(FETI);
+static PetscErrorCode FETI1DestroyMatF_Private(Mat);
+static PetscErrorCode FETI1MatMult_Private(Mat,Vec,Vec);
+static PetscErrorCode FETISetFromOptions_FETI1(PetscOptions*,FETI);
+static PetscErrorCode FETI1SetUpCoarseProblem_Private(FETI);
 
 #undef __FUNCT__
 #define __FUNCT__ "FETIDestroy_FETI1"
@@ -17,8 +23,7 @@ static PetscErrorCode FETI1BuildInterfaceProblem_Private(FETI);
 
 .seealso FETICreate_FETI1
 @*/
-PetscErrorCode FETIDestroy_FETI1(FETI ft);
-PetscErrorCode FETIDestroy_FETI1(FETI ft)
+static PetscErrorCode FETIDestroy_FETI1(FETI ft)
 {
   PetscErrorCode ierr;
   FETI_1         *ft1 = (FETI_1*)ft->data;
@@ -39,8 +44,7 @@ PetscErrorCode FETIDestroy_FETI1(FETI ft)
 .  ft - the FETI context
 
 @*/
-PetscErrorCode FETISetUp_FETI1(FETI ft);
-PetscErrorCode FETISetUp_FETI1(FETI ft)
+static PetscErrorCode FETISetUp_FETI1(FETI ft)
 {
   PetscErrorCode ierr;
 
@@ -51,6 +55,35 @@ PetscErrorCode FETISetUp_FETI1(FETI ft)
   ierr = FETI1ComputeMatrixG_Private(ft);CHKERRQ(ierr);
   ierr = FETI1BuildInterfaceProblem_Private(ft);CHKERRQ(ierr);
   ierr = FETIBuildInterfaceKSP(ft);CHKERRQ(ierr);
+  ierr = FETI1SetUpCoarseProblem_Private(ft);CHKERRQ(ierr);
+  PetscFunctionReturn(0);
+}
+
+
+#undef  __FUNCT__
+#define __FUNCT__ "FETISetFromOptions_FETI1"
+/*@
+   FETISetFromOptions_FETI1 - Function to set up options from command line.
+
+   Input Parameter:
+.  ft - the FETI context
+
+   Level: beginner
+
+.keywords: FETI, options
+@*/
+static PetscErrorCode FETISetFromOptions_FETI1(PetscOptions *PetscOptionsObject,FETI ft)
+{
+  PetscErrorCode ierr;
+  FETI_1         *ft1 = (FETI_1*)ft->data;
+  
+  PetscFunctionBegin;
+  ierr = PetscOptionsHead(PetscOptionsObject,"FETI1 options");CHKERRQ(ierr);
+
+  /* Primal space cumstomization */
+  ierr = PetscOptionsBool("-feti1_destroy_coarse","If set, the matrix of the coarse problem, that is (G^T*G) or (G^T*Q*G), will be destroyed","none",ft1->destroy_coarse,&ft1->destroy_coarse,NULL);CHKERRQ(ierr);
+
+  ierr = PetscOptionsTail();CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 
@@ -69,6 +102,7 @@ EXTERN_C_BEGIN
    associated to the Dirichlet preconditioner
 .  -feti_scaling_type - Sets the scaling type
 .  -feti_scaling_factor - Sets a scaling factor different from one
+.  -feti1_destroy_coarse - If set, the matrix of the coarse problem, that is (G^T*G) or (G^T*Q*G), will be destroyed
     
    Level: beginner
 
@@ -84,11 +118,16 @@ PetscErrorCode FETICreate_FETI1(FETI ft)
   ierr      = PetscNewLog(ft,&feti1);CHKERRQ(ierr);
   ft->data  = (void*)feti1;
 
-  feti1->localG                = 0;  
+  feti1->localG                = 0;
+  feti1->coarse_problem        = 0;
+  feti1->F_coarse              = 0;
+  feti1->destroy_coarse        = PETSC_FALSE;
+  feti1->n_rbm                 = 0;  
+
   /* function pointers */
   ft->ops->setup               = FETISetUp_FETI1;
   ft->ops->destroy             = FETIDestroy_FETI1;
-  ft->ops->setfromoptions      = 0;//FETISetFromOptions_FETI1;
+  ft->ops->setfromoptions      = FETISetFromOptions_FETI1;
   ft->ops->view                = 0;
 
   PetscFunctionReturn(0);
@@ -306,9 +345,18 @@ static PetscErrorCode FETI1BuildLambdaAndB_Private(FETI ft)
 
 
 #undef __FUNCT__
-#define __FUNCT__ "FETI1DestroyMatF"
-PetscErrorCode FETI1DestroyMatF(Mat A);
-PetscErrorCode FETI1DestroyMatF(Mat A)
+#define __FUNCT__ "FETI1DestroyMatF_Private"
+/*@
+  FETI1DestroyMatF_Private - Destroy function for the MatShell matrix defining the interface problem's matrix F
+
+   Input Parameters:
+.  A - the Matrix context
+
+   Level: developer
+
+.seealso FETI1BuildInterfaceProblem_Private
+@*/
+static PetscErrorCode FETI1DestroyMatF_Private(Mat A)
 {
   FETIMat_ctx    mat_ctx;
   PetscErrorCode ierr;
@@ -322,9 +370,21 @@ PetscErrorCode FETI1DestroyMatF(Mat A)
 
 
 #undef __FUNCT__
-#define __FUNCT__ "FETI1MatMult"
-PetscErrorCode FETI1MatMult(Mat F, Vec lambda_global, Vec y); /* y=F*lambda_global */
-PetscErrorCode FETI1MatMult(Mat F, Vec lambda_global, Vec y)
+#define __FUNCT__ "FETI1MatMult_Private"
+/*@
+  FETI1MatMult_Private - MatMult function for the MatShell matrix defining the interface problem's matrix F. 
+  It performes the product y=F*lambda_global
+
+   Input Parameters:
+.  F             - the Matrix context
+.  lambda_global - vector to be multiplied by the matrix
+.  y             - vector where to save the result of the multiplication
+
+   Level: developer
+
+.seealso FETI1BuildInterfaceProblem_Private
+@*/
+static PetscErrorCode FETI1MatMult_Private(Mat F, Vec lambda_global, Vec y) /* y=F*lambda_global */
 {
   FETIMat_ctx  mat_ctx;
   FETI         ft;
@@ -381,7 +441,7 @@ static PetscErrorCode FETI1BuildInterfaceProblem_Private(FETI ft)
   ierr = PetscObjectGetComm((PetscObject)ft,&comm);CHKERRQ(ierr);
   ierr = MPI_Comm_rank(comm,&rank);CHKERRQ(ierr);
   /* Create the MatShell for F */
-  ierr = FETICreateFMat(ft,(void (*)(void))FETI1MatMult,(void (*)(void))FETI1DestroyMatF);CHKERRQ(ierr);
+  ierr = FETICreateFMat(ft,(void (*)(void))FETI1MatMult_Private,(void (*)(void))FETI1DestroyMatF_Private);CHKERRQ(ierr);
   /* Creating vector d for the interface problem */
   ierr = MatCreateVecs(ft->F,NULL,&ft->d);CHKERRQ(ierr);
   /** Application of the already factorized pseudo-inverse */
@@ -412,7 +472,7 @@ static PetscErrorCode FETI1ComputeMatrixG_Private(FETI ft)
 {
   PetscErrorCode ierr;
   Subdomain      sd = ft->subdomain;
-  PetscInt       infog,rank;
+  PetscInt       rank;
   MPI_Comm       comm;
   Mat            rbm,x; 
   FETI_1         *ft1 = (FETI_1*)ft->data;
@@ -420,12 +480,12 @@ static PetscErrorCode FETI1ComputeMatrixG_Private(FETI ft)
   PetscFunctionBegin;
   ierr   = PetscObjectGetComm((PetscObject)ft,&comm);CHKERRQ(ierr);
   ierr   = MPI_Comm_rank(comm,&rank);CHKERRQ(ierr);
-  ft1->localG = 0;
+  ierr   = MatDestroy(&ft1->localG);CHKERRQ(ierr);
   /* get number of rigid body modes */
-  ierr   = MatMumpsGetInfog(ft1->F_neumann,28,&infog);CHKERRQ(ierr);
-  if(infog){
+  ierr   = MatMumpsGetInfog(ft1->F_neumann,28,&ft1->n_rbm);CHKERRQ(ierr);
+  if(ft1->n_rbm){
     /* Compute rigid body modes */
-    ierr = MatCreateSeqDense(PETSC_COMM_SELF,sd->n,infog,NULL,&rbm);CHKERRQ(ierr);
+    ierr = MatCreateSeqDense(PETSC_COMM_SELF,sd->n,ft1->n_rbm,NULL,&rbm);CHKERRQ(ierr);
     ierr = MatDuplicate(rbm,MAT_DO_NOT_COPY_VALUES,&x);CHKERRQ(ierr);
     ierr = MatAssemblyBegin(rbm,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
     ierr = MatAssemblyEnd(rbm,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
@@ -434,7 +494,7 @@ static PetscErrorCode FETI1ComputeMatrixG_Private(FETI ft)
     ierr = MatDestroy(&x);CHKERRQ(ierr);
     
     ierr = MatGetSubMatrix(rbm,sd->is_B_local,NULL,MAT_INITIAL_MATRIX,&x);CHKERRQ(ierr);
-    ierr = MatCreateSeqDense(PETSC_COMM_SELF,ft->n_local_lambda,infog,NULL,&ft1->localG);CHKERRQ(ierr);
+    ierr = MatCreateSeqDense(PETSC_COMM_SELF,ft->n_local_lambda,ft1->n_rbm,NULL,&ft1->localG);CHKERRQ(ierr);
     ierr = MatMatMult(ft->B_Ddelta,x,MAT_REUSE_MATRIX,PETSC_DEFAULT,&ft1->localG);CHKERRQ(ierr);    
     if(rank==1){
       PetscPrintf(PETSC_COMM_SELF,"\n==================================================\n");
@@ -515,3 +575,78 @@ static PetscErrorCode FETI1SetUpNeumannSolver_Private(FETI ft)
 
   PetscFunctionReturn(0);
 }
+
+
+#undef __FUNCT__
+#define __FUNCT__ "FETI1SetUpCoarseProblem_Private"
+/*@
+   FETI1SetUpCoarseProblem_Private - It mainly configures the coarse problem and factorizes it.
+
+   Input Parameter:
+.  feti - the FETI context
+
+   Notes: 
+   FETI1ComputeMatrixG_Private() should be called before calling FETI1SetUpCoarseProblem_Private()
+
+   Level: developer
+
+.keywords: FETI1
+
+.seealso: FETI1SetUpCoarseProblem_FETI1()
+@*/
+static PetscErrorCode FETI1SetUpCoarseProblem_Private(FETI ft)
+{
+  PetscErrorCode ierr;
+  FETI_1         *ft1 = (FETI_1*)ft->data;
+  Subdomain      sd = ft->subdomain;
+  PetscMPIInt    sz,*displ,size,total_rbm;
+  /* nnz: array containing the number of block nonzeros in the upper triangular plus diagonal portion of each block*/
+  PetscInt       i,rank,*n_rbm_comm,*nnz,*localnnz=NULL; 
+  MPI_Comm       comm;
+    
+  PetscFunctionBegin;
+  ierr   = PetscObjectGetComm((PetscObject)ft,&comm);CHKERRQ(ierr);
+  ierr   = MPI_Comm_rank(comm,&rank);CHKERRQ(ierr);
+  ierr   = MPI_Comm_size(comm,&size);CHKERRQ(ierr);
+  /* Create matrix for the coarse problem */
+  if(ft1->destroy_coarse || !ft1->coarse_problem) {
+    ierr = MatDestroy(&ft1->coarse_problem);CHKERRQ(ierr);
+
+    /* computing n_rbm_comm that is number of rbm per subdomain, displ structure for next allgatherv 
+       and total number of rbm of the system */
+    ierr = PetscMalloc1(size,&n_rbm_comm);CHKERRQ(ierr);
+    ierr = MPI_Allgather(&ft1->n_rbm,1,MPIU_INT,n_rbm_comm,1,MPIU_INT,comm);CHKERRQ(ierr); 
+    ierr = PetscMalloc1(size,&displ);CHKERRQ(ierr);
+    displ[0] = 0;
+    total_rbm = 0;
+    for (i=1;i<size;i++){
+      total_rbm += n_rbm_comm[i-1];
+      displ[i] = displ[i-1] + n_rbm_comm[i-1];
+    }
+    total_rbm += n_rbm_comm[size-1];
+
+    /* localnnz: nonzeros for my row of the coarse probem */
+    if (ft1->n_rbm) {
+      ierr = PetscMalloc1(ft1->n_rbm,&localnnz);CHKERRQ(ierr);
+      localnnz[0] = ft1->n_rbm;
+      for (i=1;i<sd->n_neigh;i++) localnnz[0] += n_rbm_comm[sd->neigh[i]]*(sd->neigh[i]>rank);
+      for (i=1;i<ft1->n_rbm;i++) localnnz[i] = localnnz[0];
+    }
+    ierr = PetscMalloc1(total_rbm,&nnz);CHKERRQ(ierr);
+    ierr = PetscMPIIntCast(ft1->n_rbm,&sz);CHKERRQ(ierr);
+    ierr = MPI_Allgatherv(localnnz,sz,MPIU_INT,nnz,n_rbm_comm,displ,MPIU_INT,comm);CHKERRQ(ierr);
+    
+    if(!rank){
+      PetscPrintf(PETSC_COMM_SELF,"\n################# Total RBM number %d\n",total_rbm);
+      PetscIntView(total_rbm,(const PetscInt*)nnz,PETSC_VIEWER_STDOUT_SELF);
+    }
+    
+    if (ft1->n_rbm) ierr = PetscFree(localnnz);CHKERRQ(ierr);
+    ierr = PetscFree(n_rbm_comm);CHKERRQ(ierr);
+    ierr = PetscFree(displ);CHKERRQ(ierr);
+    ierr = PetscFree(nnz);CHKERRQ(ierr);
+  }
+  
+  PetscFunctionReturn(0);
+}
+
