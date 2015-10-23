@@ -3,15 +3,13 @@
 
 * Check FETIDestroy()
 
-* SCALING: take into account that part of the scaling of BDDC is
-  taking part at the end PCISSetUp
-
 * CHANGE DOC: at the end vec1_global is built during the setup phase
   of the subdomain object.
 
-* SCALING: take into account that part of the scaling is set up in
-  bddcfetidp.c::PCBDDCSetupFETIDPMatContext
-  
+* SCALING: Is it possible to improve FETIScalingSetUp_multiplicity(),
+  specifically line   for ( i=0;i<sd->n_B;i++ ) {
+  array[i]=ft->scaling_factor/(sd->count[i]+1);}?
+    
 * Optimize memory allocation in Subdomain class using PetscMalloc5()?
 
 * Re-think about options in FETI1SetUpNeumannSolver_Private:
