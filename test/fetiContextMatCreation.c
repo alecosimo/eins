@@ -576,8 +576,6 @@ int main(int argc,char **args)
 
   /* Init EINS */
   EinsInitialize(&argc,&args,(char*)0,help);
-  /* Set default options */
-  ierr = FETI1SetDefaultOptions();CHKERRQ(ierr);
   /* Initialize DomainData */
   ierr = InitializeDomainData(&dd);CHKERRQ(ierr);
   /* Decompose domain */
@@ -601,6 +599,9 @@ int main(int argc,char **args)
   /* Setting FETI */
   ierr = FETICreate(dd.gcomm,&feti);CHKERRQ(ierr);
   ierr = FETISetType(feti,FETI1);CHKERRQ(ierr);
+  /* Set default options */
+  ierr = FETI1SetDefaultOptions();CHKERRQ(ierr);
+  ierr = FETISetFromOptions(feti);CHKERRQ(ierr);
   ierr = FETISetLocalMat(feti,localA);CHKERRQ(ierr);
   ierr = FETISetLocalRHS(feti,localRHS);CHKERRQ(ierr);
   ierr = FETISetInterfaceSolver(feti,KSPPJGMRES,PCFETI_DIRICHLET);CHKERRQ(ierr);

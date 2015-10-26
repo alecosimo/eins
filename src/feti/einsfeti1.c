@@ -104,7 +104,7 @@ EXTERN_C_BEGIN
    associated to the Dirichlet preconditioner
 .  -feti_scaling_type - Sets the scaling type
 .  -feti_scaling_factor - Sets a scaling factor different from one
-.  -feti1_destroy_coarse - If set, the matrix of the coarse problem, that is (G^T*G) or (G^T*Q*G), will be destroyed
+.  -feti1_destroy_coarse - If set, the matrix of the coarse problem, that is (G^T*G) or (G^T*Q*G), will be destroyed after factorization.
 .  -feti1_pc_coarse_<ksp or pc option>: options for the KSP for the coarse problem
 
    Level: beginner
@@ -501,13 +501,13 @@ static PetscErrorCode FETI1ComputeMatrixG_Private(FETI ft)
     ierr = MatGetSubMatrix(rbm,sd->is_B_local,NULL,MAT_INITIAL_MATRIX,&x);CHKERRQ(ierr);
     ierr = MatCreateSeqDense(PETSC_COMM_SELF,ft->n_lambda_local,ft1->n_rbm,NULL,&ft1->localG);CHKERRQ(ierr);
     ierr = MatMatMult(ft->B_Ddelta,x,MAT_REUSE_MATRIX,PETSC_DEFAULT,&ft1->localG);CHKERRQ(ierr);    
-    if(rank==3){
-      PetscPrintf(PETSC_COMM_SELF,"\n==================================================\n");
-      PetscPrintf(PETSC_COMM_SELF,"Printing rigid body modes, rank %d\n", rank);
-      PetscPrintf(PETSC_COMM_SELF,"==================================================\n");
+    /* if(rank==3){ */
+    /*   PetscPrintf(PETSC_COMM_SELF,"\n==================================================\n"); */
+    /*   PetscPrintf(PETSC_COMM_SELF,"Printing rigid body modes, rank %d\n", rank); */
+    /*   PetscPrintf(PETSC_COMM_SELF,"==================================================\n"); */
 
-      MatView(ft1->localG,PETSC_VIEWER_STDOUT_SELF);
-    }
+    /*   MatView(ft1->localG,PETSC_VIEWER_STDOUT_SELF); */
+    /* } */
     ierr = MatDestroy(&x);CHKERRQ(ierr);
     ierr = MatDestroy(&rbm);CHKERRQ(ierr);
   }
@@ -901,7 +901,12 @@ static PetscErrorCode FETI1FactorizeCoarseProblem_Private(FETI ft)
   ierr = PCFactorSetUpMatSolverPackage(pc);CHKERRQ(ierr);
   ierr = KSPSetUp(ft1->ksp_coarse);CHKERRQ(ierr);
   ierr = PCFactorGetMatrix(pc,&ft1->F_coarse);CHKERRQ(ierr);
-  
+
+  if(ft1->destroy_coarse) {
+    ierr = MatDestroy(&ft1->coarse_problem);CHKERRQ(ierr);
+    ft1->coarse_problem = 0;    
+  }
+
   PetscFunctionReturn(0);
 }
 
@@ -928,8 +933,9 @@ PetscErrorCode FETI1SetDefaultOptions()
                           -feti_pc_dirichlet_mat_mumps_icntl_7 2                \
                           -feti1_pc_coarse_pc_factor_mat_solver_package mumps   \
                           -feti1_pc_coarse_mat_mumps_icntl_7 2";
-  char other_options[] = "-feti_fullyredundant            \
-                          -feti_scaling_type scmultiplicity";
+  char other_options[] = "-feti_fullyredundant             \
+                          -feti_scaling_type scmultiplicity \
+                          -feti1_destroy_coarse";
 
 #if defined(PETSC_HAVE_MUMPS)
   PetscOptionsInsertString(mumps_options);
