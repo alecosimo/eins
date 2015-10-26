@@ -604,9 +604,9 @@ static PetscErrorCode FETI1SetUpCoarseProblem_Private(FETI ft)
   PetscErrorCode ierr;
   FETI_1         *ft1 = (FETI_1*)ft->data;
   Subdomain      sd = ft->subdomain;
-  PetscMPIInt    i_mpi,size,*displ,*c_displ,*c_count,n_recv,n_send;
+  PetscMPIInt    i_mpi,i_mpi1,size,*displ,*c_displ,*c_count,n_recv,n_send,rank;
   /* nnz: array containing the number of block nonzeros in the upper triangular plus diagonal portion of each block*/
-  PetscInt       i,j,idx,rank,*n_rbm_comm,*nnz,total_rbm,total_size_matrices=0,*neigh_sorted,*localnnz=NULL;
+  PetscInt       i,j,idx,*n_rbm_comm,*nnz,total_rbm,total_size_matrices=0,*neigh_sorted,*localnnz=NULL;
   PetscInt       max_n_rbm,k,k0,*c_coarse,*r_coarse,total_c_coarse,n_idxn=0,*idxm=NULL,*idxn=NULL;
   PetscScalar    *m_pointer=NULL,*matrices=NULL,**array=NULL;
   MPI_Comm       comm;
@@ -664,9 +664,12 @@ static PetscErrorCode FETI1SetUpCoarseProblem_Private(FETI ft)
     /* create the "global" matrix for holding G^T*G */
     ierr = MatCreate(PETSC_COMM_SELF,&ft1->coarse_problem);CHKERRQ(ierr);
     ierr = MatSetType(ft1->coarse_problem,MATSEQBAIJ);CHKERRQ(ierr);
+    ierr = MatSetBlockSize(ft1->coarse_problem,1);CHKERRQ(ierr);
     ierr = MatSetSizes(ft1->coarse_problem,total_rbm,total_rbm,total_rbm,total_rbm);CHKERRQ(ierr);
+    ierr = MatSetOption(ft1->coarse_problem,MAT_ROW_ORIENTED,PETSC_FALSE);CHKERRQ(ierr);
     ierr = MatSeqSBAIJSetPreallocation(ft1->coarse_problem,1,PETSC_DEFAULT,nnz);CHKERRQ(ierr);
-
+    ierr = MatSetUp(ft1->coarse_problem);CHKERRQ(ierr);
+    
     /* Communicate matrices G */
     if (ft1->n_rbm) {
       ierr = PetscMalloc1(total_size_matrices,&matrices);CHKERRQ(ierr);
@@ -799,24 +802,48 @@ static PetscErrorCode FETI1SetUpCoarseProblem_Private(FETI ft)
 
     ierr = MPI_Allgatherv(idxm,ft1->n_rbm,MPIU_INT,r_coarse,n_rbm_comm,displ,MPIU_INT,comm);CHKERRQ(ierr);
     ierr = MPI_Allgatherv(idxn,n_idxn,MPIU_INT,c_coarse,c_count,c_displ,MPIU_INT,comm);CHKERRQ(ierr);
-    /* ierr = MatAssemblyBegin(ft1->coarse_problem,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr); */
-    /* ierr = MatAssemblyEnd(ft1->coarse_problem,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr); */
+
+    if(rank==2){
+      PetscPrintf(PETSC_COMM_SELF,"\n################# Printing result, rank %d\n",rank);
+      MatView(result,PETSC_VIEWER_STDOUT_SELF);      
+    }
+
     
-    if(rank==1){
+    k  = 0;
+    k0 = 0;
+    for (i=0;i<size;i++) {
+      if(n_rbm_comm[i]>0){
+	ierr = PetscMPIIntCast(n_rbm_comm[i]*c_count[i],&i_mpi);CHKERRQ(ierr);
+	ierr = PetscMPIIntCast(i,&i_mpi1);CHKERRQ(ierr);
+	if(i==rank) {
+	  ierr = MPI_Bcast(m_pointer,i_mpi,MPIU_SCALAR,i_mpi1,comm);CHKERRQ(ierr);
+	  ierr = MatSetValuesBlocked(ft1->coarse_problem,n_rbm_comm[i],&r_coarse[k],c_count[i],&c_coarse[k0],m_pointer,INSERT_VALUES);CHKERRQ(ierr);
+	  ierr = MatDenseRestoreArray(result,&m_pointer);CHKERRQ(ierr);
+	  ierr = MatDestroy(&result);CHKERRQ(ierr);
+	} else {
+	  ierr = PetscMalloc1(i_mpi,&matrices);CHKERRQ(ierr);	  
+	  ierr = MPI_Bcast(matrices,i_mpi,MPIU_SCALAR,i_mpi1,comm);CHKERRQ(ierr);
+	  ierr = MatSetValuesBlocked(ft1->coarse_problem,n_rbm_comm[i],&r_coarse[k],c_count[i],&c_coarse[k0],matrices,INSERT_VALUES);CHKERRQ(ierr);
+	  ierr = PetscFree(matrices);CHKERRQ(ierr);
+	}
+	k0 += c_count[i];
+	k  += n_rbm_comm[i];
+      }
+    }
+    ierr = MatAssemblyBegin(ft1->coarse_problem,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
+    ierr = MatAssemblyEnd(ft1->coarse_problem,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
+    
+    if(rank==2){
       PetscPrintf(PETSC_COMM_SELF,"\n################# Printing Gholder, rank %d\n",rank);
-      //MatView(Gholder,PETSC_VIEWER_STDOUT_SELF);
+      MatView(ft1->coarse_problem,PETSC_VIEWER_STDOUT_SELF);
       //PetscPrintf(PETSC_COMM_SELF,"\n################# Total RBM number %d\n",total_rbm);
-      PetscIntView(total_rbm,(const PetscInt*)r_coarse,PETSC_VIEWER_STDOUT_SELF);
+      //      PetscIntView(total_rbm,(const PetscInt*)r_coarse,PETSC_VIEWER_STDOUT_SELF);
       /* PetscIntView(total_rbm,(const PetscInt*)nnz,PETSC_VIEWER_STDOUT_SELF); */
       /* PetscIntView(size,(const PetscInt*)c_displ,PETSC_VIEWER_STDOUT_SELF); */
       /* PetscIntView(size,(const PetscInt*)c_count,PETSC_VIEWER_STDOUT_SELF); */
-      PetscIntView(total_c_coarse,(const PetscInt*)c_coarse,PETSC_VIEWER_STDOUT_SELF);
+      // PetscIntView(total_c_coarse,(const PetscInt*)c_coarse,PETSC_VIEWER_STDOUT_SELF);
     }
 
-    if(m_pointer){
-      ierr = MatDenseRestoreArray(result,&m_pointer);CHKERRQ(ierr);
-      ierr = MatDestroy(&result);CHKERRQ(ierr);
-    }
     if (localnnz) { ierr = PetscFree(localnnz);CHKERRQ(ierr); }
     if (ft1->n_rbm) { ierr = MatDestroy(&Gholder);CHKERRQ(ierr);}
     if (idxm) { ierr = PetscFree(idxm);CHKERRQ(ierr);}

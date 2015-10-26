@@ -204,7 +204,7 @@ PetscErrorCode FETIBuildInterfaceKSP(FETI ft)
   ierr = KSPSetType(ft->ksp_interface,ft->ksp_type_interface);CHKERRQ(ierr);
   ierr = KSPGetPC(ft->ksp_interface,&pc);CHKERRQ(ierr);
   ierr = PCSetType(pc,ft->pc_type_interface);CHKERRQ(ierr);
-  ierr = KSPSetOperators(ft->ksp_interface,ft->F,ft->F);CHKERRQ(ierr);
+  ierr = KSPSetOperators(ft->ksp_interface,ft->F,ft->F);CHKERRQ(ierr);  
   ierr = KSPSetOptionsPrefix(ft->ksp_interface,"feti_interface_");CHKERRQ(ierr);
   ierr = KSPSetFromOptions(ft->ksp_interface);CHKERRQ(ierr);
   ierr = KSPSetUp(ft->ksp_interface);CHKERRQ(ierr);
