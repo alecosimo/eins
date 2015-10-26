@@ -22,3 +22,7 @@
 * Functions which are private declare them as static and add _Private
   
 * Coarse problem assembling: communicate only localnnz[0] for each processor.
+
+* Add a FETI1SetDefaultOptions() for setting for example MUMPS for
+  solving the dirchlet problem for the preconditioner and for setting
+  MUMPS for ksp_coarse.

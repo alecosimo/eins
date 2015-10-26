@@ -12,6 +12,7 @@ static PetscErrorCode FETI1DestroyMatF_Private(Mat);
 static PetscErrorCode FETI1MatMult_Private(Mat,Vec,Vec);
 static PetscErrorCode FETISetFromOptions_FETI1(PetscOptions*,FETI);
 static PetscErrorCode FETI1SetUpCoarseProblem_Private(FETI);
+static PetscErrorCode FETI1FactorizeCoarseProblem_Private(FETI);
 
 #undef __FUNCT__
 #define __FUNCT__ "FETIDestroy_FETI1"
@@ -56,6 +57,7 @@ static PetscErrorCode FETISetUp_FETI1(FETI ft)
   ierr = FETI1BuildInterfaceProblem_Private(ft);CHKERRQ(ierr);
   ierr = FETIBuildInterfaceKSP(ft);CHKERRQ(ierr);
   ierr = FETI1SetUpCoarseProblem_Private(ft);CHKERRQ(ierr);
+  ierr = FETI1FactorizeCoarseProblem_Private(ft);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 
@@ -103,7 +105,8 @@ EXTERN_C_BEGIN
 .  -feti_scaling_type - Sets the scaling type
 .  -feti_scaling_factor - Sets a scaling factor different from one
 .  -feti1_destroy_coarse - If set, the matrix of the coarse problem, that is (G^T*G) or (G^T*Q*G), will be destroyed
-    
+.  -feti1_pc_coarse_<ksp or pc option>: options for the KSP for the coarse problem
+
    Level: beginner
 
 .keywords: FETI, FETI-1
@@ -663,7 +666,7 @@ static PetscErrorCode FETI1SetUpCoarseProblem_Private(FETI ft)
 
     /* create the "global" matrix for holding G^T*G */
     ierr = MatCreate(PETSC_COMM_SELF,&ft1->coarse_problem);CHKERRQ(ierr);
-    ierr = MatSetType(ft1->coarse_problem,MATSEQBAIJ);CHKERRQ(ierr);
+    ierr = MatSetType(ft1->coarse_problem,MATSEQSBAIJ);CHKERRQ(ierr);
     ierr = MatSetBlockSize(ft1->coarse_problem,1);CHKERRQ(ierr);
     ierr = MatSetSizes(ft1->coarse_problem,total_rbm,total_rbm,total_rbm,total_rbm);CHKERRQ(ierr);
     ierr = MatSetOption(ft1->coarse_problem,MAT_ROW_ORIENTED,PETSC_FALSE);CHKERRQ(ierr);
@@ -799,16 +802,11 @@ static PetscErrorCode FETI1SetUpCoarseProblem_Private(FETI ft)
       idx            += n_rbm_comm[i];
     }
     ierr = PetscMalloc1(total_c_coarse,&c_coarse);CHKERRQ(ierr);
-
+    /* gather rows and columns*/
     ierr = MPI_Allgatherv(idxm,ft1->n_rbm,MPIU_INT,r_coarse,n_rbm_comm,displ,MPIU_INT,comm);CHKERRQ(ierr);
     ierr = MPI_Allgatherv(idxn,n_idxn,MPIU_INT,c_coarse,c_count,c_displ,MPIU_INT,comm);CHKERRQ(ierr);
 
-    if(rank==2){
-      PetscPrintf(PETSC_COMM_SELF,"\n################# Printing result, rank %d\n",rank);
-      MatView(result,PETSC_VIEWER_STDOUT_SELF);      
-    }
-
-    
+    /* gather values for the coarse problem's matrix and assemble it */
     k  = 0;
     k0 = 0;
     for (i=0;i<size;i++) {
@@ -833,16 +831,16 @@ static PetscErrorCode FETI1SetUpCoarseProblem_Private(FETI ft)
     ierr = MatAssemblyBegin(ft1->coarse_problem,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
     ierr = MatAssemblyEnd(ft1->coarse_problem,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
     
-    if(rank==2){
-      PetscPrintf(PETSC_COMM_SELF,"\n################# Printing Gholder, rank %d\n",rank);
-      MatView(ft1->coarse_problem,PETSC_VIEWER_STDOUT_SELF);
-      //PetscPrintf(PETSC_COMM_SELF,"\n################# Total RBM number %d\n",total_rbm);
-      //      PetscIntView(total_rbm,(const PetscInt*)r_coarse,PETSC_VIEWER_STDOUT_SELF);
-      /* PetscIntView(total_rbm,(const PetscInt*)nnz,PETSC_VIEWER_STDOUT_SELF); */
-      /* PetscIntView(size,(const PetscInt*)c_displ,PETSC_VIEWER_STDOUT_SELF); */
-      /* PetscIntView(size,(const PetscInt*)c_count,PETSC_VIEWER_STDOUT_SELF); */
-      // PetscIntView(total_c_coarse,(const PetscInt*)c_coarse,PETSC_VIEWER_STDOUT_SELF);
-    }
+    /* if(rank==2){ */
+    /*   PetscPrintf(PETSC_COMM_SELF,"\n################# Printing Gholder, rank %d\n",rank); */
+    /*   MatView(ft1->coarse_problem,PETSC_VIEWER_STDOUT_SELF); */
+    /*   //PetscPrintf(PETSC_COMM_SELF,"\n################# Total RBM number %d\n",total_rbm); */
+    /*   //      PetscIntView(total_rbm,(const PetscInt*)r_coarse,PETSC_VIEWER_STDOUT_SELF); */
+    /*   /\* PetscIntView(total_rbm,(const PetscInt*)nnz,PETSC_VIEWER_STDOUT_SELF); *\/ */
+    /*   /\* PetscIntView(size,(const PetscInt*)c_displ,PETSC_VIEWER_STDOUT_SELF); *\/ */
+    /*   /\* PetscIntView(size,(const PetscInt*)c_count,PETSC_VIEWER_STDOUT_SELF); *\/ */
+    /*   // PetscIntView(total_c_coarse,(const PetscInt*)c_coarse,PETSC_VIEWER_STDOUT_SELF); */
+    /* } */
 
     if (localnnz) { ierr = PetscFree(localnnz);CHKERRQ(ierr); }
     if (ft1->n_rbm) { ierr = MatDestroy(&Gholder);CHKERRQ(ierr);}
@@ -857,8 +855,86 @@ static PetscErrorCode FETI1SetUpCoarseProblem_Private(FETI ft)
     ierr = PetscFree(c_displ);CHKERRQ(ierr);
     if (send_reqs) { ierr = PetscFree(send_reqs);CHKERRQ(ierr);}
     if (recv_reqs) { ierr = PetscFree(recv_reqs);CHKERRQ(ierr);}
+
   }
   
   PetscFunctionReturn(0);
 }
 
+
+#undef __FUNCT__
+#define __FUNCT__ "FETI1FactorizeCoarseProblem_Private"
+/*@
+   FETI1FactorizeCoarseProblem_Private - Factorizes the coarse problem. 
+
+   Input Parameter:
+.  feti - the FETI context
+
+   Notes: 
+   FETI1SetUpCoarseProblem_Private() must be called before calling FETI1FactorizeCoarseProblem_Private().
+
+   Level: developer
+
+.keywords: FETI1
+
+.seealso: FETI1SetUpCoarseProblem_Private()
+@*/
+static PetscErrorCode FETI1FactorizeCoarseProblem_Private(FETI ft)
+{
+  PetscErrorCode ierr;
+  FETI_1         *ft1 = (FETI_1*)ft->data;
+  Subdomain      sd = ft->subdomain;
+  PC             pc;
+  
+  PetscFunctionBegin;
+  if(!ft1->coarse_problem) SETERRQ(PetscObjectComm((PetscObject)ft),PETSC_ERR_ARG_WRONGSTATE,"Error: FETI1SetUpCoarseProblem_Private() must be first called");
+
+  /* factorize the coarse problem */
+  ierr = KSPCreate(PETSC_COMM_SELF,&ft1->ksp_coarse);CHKERRQ(ierr);
+  ierr = KSPSetType(ft1->ksp_coarse,KSPPREONLY);CHKERRQ(ierr);
+  ierr = KSPSetOptionsPrefix(ft1->ksp_coarse,"feti1_pc_coarse_");CHKERRQ(ierr);
+  ierr = MatSetOptionsPrefix(ft1->coarse_problem,"feti1_pc_coarse_");CHKERRQ(ierr);
+  ierr = KSPGetPC(ft1->ksp_coarse,&pc);CHKERRQ(ierr);
+  ierr = PCSetType(pc,PCCHOLESKY);CHKERRQ(ierr);
+  ierr = KSPSetFromOptions(ft1->ksp_coarse);CHKERRQ(ierr);
+  ierr = KSPSetOperators(ft1->ksp_coarse,ft1->coarse_problem,ft1->coarse_problem);CHKERRQ(ierr);
+  ierr = PCFactorSetUpMatSolverPackage(pc);CHKERRQ(ierr);
+  ierr = KSPSetUp(ft1->ksp_coarse);CHKERRQ(ierr);
+  ierr = PCFactorGetMatrix(pc,&ft1->F_coarse);CHKERRQ(ierr);
+  
+  PetscFunctionReturn(0);
+}
+
+
+#undef __FUNCT__
+#define __FUNCT__ "FETI1SetDefaultOptions"
+/*@
+   FETI1SetDefaultOptions - Sets default options for the FETI1
+   solver. Mainly, it sets every KSP to MUMPS and sets fully redudant
+   lagrange multipliers.
+
+   Level: beginner
+
+.keywords: FETI1
+
+@*/
+PetscErrorCode FETI1SetDefaultOptions();
+PetscErrorCode FETI1SetDefaultOptions()
+{
+  PetscErrorCode ierr;
+  
+  PetscFunctionBegin;
+  char mumps_options[] = "-feti_pc_dirichlet_pc_factor_mat_solver_package mumps \
+                          -feti_pc_dirichlet_mat_mumps_icntl_7 2                \
+                          -feti1_pc_coarse_pc_factor_mat_solver_package mumps   \
+                          -feti1_pc_coarse_mat_mumps_icntl_7 2";
+  char other_options[] = "-feti_fullyredundant            \
+                          -feti_scaling_type scmultiplicity";
+
+#if defined(PETSC_HAVE_MUMPS)
+  PetscOptionsInsertString(mumps_options);
+#endif
+  PetscOptionsInsertString(other_options);
+  
+  PetscFunctionReturn(0);
+}

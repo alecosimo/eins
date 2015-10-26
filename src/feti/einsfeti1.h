@@ -12,6 +12,7 @@ typedef struct {
   Mat          localG;
   Mat          coarse_problem;
   Mat          F_coarse;        /* matrix object specifically suited for symbolic factorization: it must not be destroyed with MatDestroy() */
+  KSP          ksp_coarse;
   PetscBool    destroy_coarse;  /* destroy coarse matrix after factorization? */
   
 } FETI_1;

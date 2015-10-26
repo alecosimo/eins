@@ -576,6 +576,8 @@ int main(int argc,char **args)
 
   /* Init EINS */
   EinsInitialize(&argc,&args,(char*)0,help);
+  /* Set default options */
+  ierr = FETI1SetDefaultOptions();CHKERRQ(ierr);
   /* Initialize DomainData */
   ierr = InitializeDomainData(&dd);CHKERRQ(ierr);
   /* Decompose domain */
