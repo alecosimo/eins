@@ -498,9 +498,9 @@ static PetscErrorCode FETI1ComputeMatrixG_Private(FETI ft)
     ierr = MatGetSubMatrix(rbm,sd->is_B_local,NULL,MAT_INITIAL_MATRIX,&x);CHKERRQ(ierr);
     ierr = MatCreateSeqDense(PETSC_COMM_SELF,ft->n_lambda_local,ft1->n_rbm,NULL,&ft1->localG);CHKERRQ(ierr);
     ierr = MatMatMult(ft->B_Ddelta,x,MAT_REUSE_MATRIX,PETSC_DEFAULT,&ft1->localG);CHKERRQ(ierr);    
-    if(rank==1){
+    if(rank==3){
       PetscPrintf(PETSC_COMM_SELF,"\n==================================================\n");
-      PetscPrintf(PETSC_COMM_SELF,"Printing rigid body modes\n");
+      PetscPrintf(PETSC_COMM_SELF,"Printing rigid body modes, rank %d\n", rank);
       PetscPrintf(PETSC_COMM_SELF,"==================================================\n");
 
       MatView(ft1->localG,PETSC_VIEWER_STDOUT_SELF);
@@ -607,11 +607,15 @@ static PetscErrorCode FETI1SetUpCoarseProblem_Private(FETI ft)
   PetscMPIInt    i_mpi,size,*displ,n_recv,n_send;
   /* nnz: array containing the number of block nonzeros in the upper triangular plus diagonal portion of each block*/
   PetscInt       i,j,idx,rank,*n_rbm_comm,*nnz,*localnnz=NULL,total_rbm,total_size_matrices=0,*indices,n_indices;
-  PetscScalar    *matrices=NULL,**array=NULL;
+  PetscInt       *idxm,*idxn,max_n_rbm,k,k0;
+  PetscScalar    *matrices=NULL,**array=NULL,*m_pointer;
   MPI_Comm       comm;
   MPI_Request    *send_reqs=NULL,*recv_reqs=NULL;
   IS             isindex;
-  Mat            *submat;
+  /* Gholder: for holding non-local G that I receive from neighbours*/
+  /* submat: submatrices of my own G to send to my neighbours */
+  /* result: result of the local multiplication G^T*G*/
+  Mat            *submat,Gholder,result;
   
   PetscFunctionBegin;
   ierr   = PetscObjectGetComm((PetscObject)ft,&comm);CHKERRQ(ierr);
@@ -641,12 +645,14 @@ static PetscErrorCode FETI1SetUpCoarseProblem_Private(FETI ft)
       total_size_matrices = 0;
       n_recv              = 0;
       n_send              = 0;
+      max_n_rbm           = ft1->n_rbm;
       for (i=1;i<ft->n_neigh_lb;i++){
-	n_recv += (ft->neigh_lb[i]>rank)*(n_rbm_comm[ft->neigh_lb[i]]>0);
-	n_send += (ft->neigh_lb[i]<rank)*(n_rbm_comm[ft->neigh_lb[i]]>0);
-	i_mpi = n_rbm_comm[ft->neigh_lb[i]]*(ft->neigh_lb[i]>rank);
+	n_recv              += (ft->neigh_lb[i]>rank)*(n_rbm_comm[ft->neigh_lb[i]]>0);
+	n_send              += (ft->neigh_lb[i]<rank)*(n_rbm_comm[ft->neigh_lb[i]]>0);
+	i_mpi                = n_rbm_comm[ft->neigh_lb[i]]*(ft->neigh_lb[i]>rank);
+	max_n_rbm            = (max_n_rbm > i_mpi) ? max_n_rbm : i_mpi;
 	total_size_matrices += i_mpi*ft->n_shared_lb[i];
-	localnnz[0] += i_mpi;
+	localnnz[0]         += i_mpi;
       }
       for (i=1;i<ft1->n_rbm;i++) localnnz[i] = localnnz[0];
     }
@@ -672,12 +678,9 @@ static PetscErrorCode FETI1SetUpCoarseProblem_Private(FETI ft)
 	j    = 0;
 	for (i=1;i<ft->n_neigh_lb;i++){
 	  if ((ft->neigh_lb[i]<rank) && (n_rbm_comm[ft->neigh_lb[i]]>0)) {
-
-	    ISLocalToGlobalMappingApply(ft->mapping_lambda,ft->n_shared_lb[i],ft->shared_lb[i],indices);
-
 	    ierr = ISCreateGeneral(PETSC_COMM_SELF,ft->n_shared_lb[i],ft->shared_lb[i],PETSC_USE_POINTER,&isindex);CHKERRQ(ierr);
 	    ierr = MatGetSubMatrix(ft1->localG,isindex,NULL,MAT_INITIAL_MATRIX,&submat[j]);CHKERRQ(ierr);
-	    ierr = MatDenseGetArray(submat,&array[j]);CHKERRQ(ierr);   
+	    ierr = MatDenseGetArray(submat[j],&array[j]);CHKERRQ(ierr);   
 	    ierr = PetscMPIIntCast(ft->neigh_lb[i],&i_mpi);CHKERRQ(ierr);
 	    
 	    ierr = MPI_Isend(array[j],ft1->n_rbm*ft->n_shared_lb[i],MPIU_SCALAR,i_mpi,0,comm,&send_reqs[j]);CHKERRQ(ierr);
@@ -685,26 +688,21 @@ static PetscErrorCode FETI1SetUpCoarseProblem_Private(FETI ft)
 	    ierr = ISDestroy(&isindex);CHKERRQ(ierr);
 
 	    j++;
-	    //PetscIntView(ft->n_shared_lb[i],indices,PETSC_VIEWER_STDOUT_SELF);
 	  }
 	}
-	//PetscPrintf(PETSC_COMM_SELF,"\n################# rank: %d, Send j: %d, and n_send: %d\n",rank,j,n_send);
       }
       if(n_recv) {
 	ierr = PetscMalloc1(n_recv,&recv_reqs);CHKERRQ(ierr);
-	ierr = MatCreateSeqDense(PETSC_COMM_SELF,ft->n_lambda_local,localnnz[0],&submat);CHKERRQ(ierr);
-	ierr = MatZeroEntries(submat);CHKERRQ(ierr);
 	j    = 0;
 	idx  = 0;
 	for (i=1;i<ft->n_neigh_lb;i++){
 	  if ((ft->neigh_lb[i]>rank)&&(n_rbm_comm[ft->neigh_lb[i]]>0)) {
 	    ierr = PetscMPIIntCast(ft->neigh_lb[i],&i_mpi);CHKERRQ(ierr);
+	    
 	    ierr = MPI_Irecv(&matrices[idx],n_rbm_comm[ft->neigh_lb[i]]*ft->n_shared_lb[i],MPIU_SCALAR,i_mpi,0,comm,&recv_reqs[j]);CHKERRQ(ierr);
+	    
 	    idx += n_rbm_comm[ft->neigh_lb[i]]*ft->n_shared_lb[i]; 
 	    j++;
-	    ISLocalToGlobalMappingApply(ft->mapping_lambda,ft->n_shared_lb[i],ft->shared_lb[i],indices);
-		    //	    ierr = ISGlobalToLocalMappingApply(ft->mapping_lambda,IS_GTOLM_MASK,ft->n_shared_lb[i],ft->shared_lb[i],&n_indices,indices);CHKERRQ(ierr);
-	    PetscIntView(ft->n_shared_lb[i],indices,PETSC_VIEWER_STDOUT_SELF);
 	  }
 	  
 	}
@@ -712,24 +710,63 @@ static PetscErrorCode FETI1SetUpCoarseProblem_Private(FETI ft)
       }
       if(n_recv) { ierr = MPI_Waitall(n_recv,recv_reqs,MPI_STATUSES_IGNORE);CHKERRQ(ierr);}
       if(n_send) { ierr = MPI_Waitall(n_send,send_reqs,MPI_STATUSES_IGNORE);CHKERRQ(ierr);}
-      for (i=0;i<n_send;i++) {
-	ierr = MatDenseRestoreArray(submat[i],&array[i]);CHKERRQ(ierr);
-	ierr = MatDestroy(&submat[i]);CHKERRQ(ierr);
+      if(n_send) {
+	for (i=0;i<n_send;i++) {
+	  ierr = MatDenseRestoreArray(submat[i],&array[i]);CHKERRQ(ierr);
+	  ierr = MatDestroy(&submat[i]);CHKERRQ(ierr);
+	}
+	ierr = PetscFree(array);CHKERRQ(ierr);
+	ierr = PetscFree(submat);CHKERRQ(ierr);
       }
-      ierr = PetscFree(array);CHKERRQ(ierr);
-      ierr = PetscFree(submat);CHKERRQ(ierr);
+    }
+
+    /* perform multiplication */
+    if (ft1->n_rbm) {
+      ierr = PetscMalloc1(ft->n_lambda_local,&idxm);CHKERRQ(ierr);
+      ierr = PetscMalloc1(max_n_rbm,&idxn);CHKERRQ(ierr);
+      for (i=0;i<ft->n_lambda_local;i++) idxm[i] = i;
+      for (i=0;i<ft1->n_rbm;i++) idxn[i] = i;
+      ierr = MatCreateSeqDense(PETSC_COMM_SELF,ft->n_lambda_local,localnnz[0],NULL,&Gholder);CHKERRQ(ierr);
+      ierr = MatSetOption(Gholder,MAT_ROW_ORIENTED,PETSC_FALSE);CHKERRQ(ierr);
+      ierr = MatZeroEntries(Gholder);CHKERRQ(ierr);
+      ierr = MatDenseGetArray(ft1->localG,&m_pointer);CHKERRQ(ierr);
+      ierr = MatSetValuesBlocked(Gholder,ft->n_lambda_local,idxm,ft1->n_rbm,idxn,m_pointer,INSERT_VALUES);CHKERRQ(ierr);
+      ierr = MatDenseRestoreArray(ft1->localG,&m_pointer);CHKERRQ(ierr);
+
+      j    = 0;
+      idx  = 0;
+      for (k=1;k<ft->n_neigh_lb;k++){
+	if ((ft->neigh_lb[k]>rank)&&(n_rbm_comm[ft->neigh_lb[k]]>0)) {
+	  for (k0=0;k0<n_rbm_comm[ft->neigh_lb[k]];k0++) idxn[k0] = i++;
+	  ierr = MatSetValuesBlocked(Gholder,ft->n_shared_lb[k],ft->shared_lb[k],n_rbm_comm[ft->neigh_lb[k]],idxn,&matrices[idx],INSERT_VALUES);CHKERRQ(ierr);
+	      
+	  idx += n_rbm_comm[ft->neigh_lb[k]]*ft->n_shared_lb[k]; 
+	  j++;
+	}
+      }
+      ierr = MatAssemblyBegin(Gholder,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
+      ierr = MatAssemblyEnd(Gholder,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
+
+      ierr = MatTransposeMatMult(ft1->localG,Gholder,MAT_INITIAL_MATRIX,PETSC_DEFAULT,&result);CHKERRQ(ierr);
+	
+      ierr = PetscFree(idxm);CHKERRQ(ierr);
+      ierr = PetscFree(idxn);CHKERRQ(ierr);
+      if(matrices) { ierr = PetscFree(matrices);CHKERRQ(ierr);}
     }
     /* assemble matrix */
     /* ierr = MatAssemblyBegin(ft1->coarse_problem,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr); */
     /* ierr = MatAssemblyEnd(ft1->coarse_problem,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr); */
     
     if(rank==1){
+      PetscPrintf(PETSC_COMM_SELF,"\n################# Printing Gholder, rank %d\n",rank);
+      MatView(Gholder,PETSC_VIEWER_STDOUT_SELF);
       //PetscPrintf(PETSC_COMM_SELF,"\n################# Total RBM number %d\n",total_rbm);
       //PetscScalarView(total_size_matrices,(const PetscScalar*)matrices,PETSC_VIEWER_STDOUT_SELF);
     }
+
     
-    if (localnnz){ ierr = PetscFree(localnnz);CHKERRQ(ierr);}
-    if (matrices){ ierr = PetscFree(matrices);CHKERRQ(ierr);}
+    if (localnnz) { ierr = PetscFree(localnnz);CHKERRQ(ierr); }
+    if (ft1->n_rbm) { ierr = MatDestroy(&Gholder);CHKERRQ(ierr);}
     ierr = PetscFree(n_rbm_comm);CHKERRQ(ierr);
     ierr = PetscFree(displ);CHKERRQ(ierr);
     ierr = PetscFree(nnz);CHKERRQ(ierr);

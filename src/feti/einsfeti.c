@@ -340,6 +340,11 @@ PetscErrorCode FETIDestroy(FETI *_feti)
   ierr = VecDestroy(&feti->d);CHKERRQ(ierr);
   ierr = VecDestroy(&feti->lambda_local);CHKERRQ(ierr);
   ierr = VecScatterDestroy(&feti->l2g_lambda);CHKERRQ(ierr);
+  if (feti->n_neigh_lb > -1) {
+    ierr = ISLocalToGlobalMappingRestoreInfo(feti->mapping_lambda,&(feti->n_neigh_lb),&(feti->neigh_lb),&(feti->n_shared_lb),&(feti->shared_lb));CHKERRQ(ierr);
+  }
+  ierr = ISLocalToGlobalMappingDestroy(&feti->mapping_lambda);CHKERRQ(ierr);
+
   /* destroying ComposedFunctions */
   ierr = PetscObjectComposeFunction((PetscObject)feti,"FETIMatMult_C",NULL);CHKERRQ(ierr);
   ierr = PetscObjectComposeFunction((PetscObject)feti,"FETIDestroyMatF_C",NULL);CHKERRQ(ierr);
@@ -600,7 +605,8 @@ PetscErrorCode  FETICreate(MPI_Comm comm,FETI *newfeti)
   feti->setfromoptionscalled = 0;
   feti->data                 = 0;
   feti->lambda_local         = 0;
-  feti->n_local_lambda       = 0;
+  feti->mapping_lambda       = 0;
+  feti->n_lambda_local       = 0;
   feti->l2g_lambda           = 0;
   feti->n_lambda             = -1;
   feti->F                    = 0;
@@ -611,6 +617,10 @@ PetscErrorCode  FETICreate(MPI_Comm comm,FETI *newfeti)
   feti->B_delta              = 0;
   feti->B_Ddelta             = 0;
   feti->ksp_neumann          = 0;
+  feti->n_neigh_lb           = -1;
+  feti->neigh_lb             = 0;
+  feti->n_shared_lb          = 0;
+  feti->shared_lb            = 0;
   /* scaling variables initialization*/
   feti->Wscaling             = 0;
   feti->scaling_factor       = 1.;

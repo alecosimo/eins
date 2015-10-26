@@ -35,16 +35,22 @@ struct _p_FETI {
   /* Scaling info*/
   Vec              Wscaling; /* by now only supporting diag scaling*/
   PetscReal        scaling_factor;
-  FETIScalingType      scaling_type;
+  FETIScalingType  scaling_type;
   /* Common attributes for the interface problem*/
-  Vec              lambda_local;
-  PetscInt         n_lambda,n_local_lambda;
-  VecScatter       l2g_lambda;
-  Mat              F;
-  Vec              d;
-  KSP              ksp_interface;
-  KSPType          ksp_type_interface;
-  PCType           pc_type_interface;
+  Vec                    lambda_local;
+  PetscInt               n_lambda,n_lambda_local;
+  Mat                    F;
+  Vec                    d;
+  KSP                    ksp_interface;
+  KSPType                ksp_type_interface;
+  PCType                 pc_type_interface;
+  /* mapping information for interface problem */
+  VecScatter             l2g_lambda;
+  ISLocalToGlobalMapping mapping_lambda;
+  PetscInt               n_neigh_lb;
+  PetscInt               *neigh_lb;  
+  PetscInt               *n_shared_lb;
+  PetscInt               **shared_lb; 
   /* B matrices*/
   Mat              B_delta,B_Ddelta;
   /* Neumann problem */

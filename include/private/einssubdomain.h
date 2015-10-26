@@ -49,6 +49,7 @@ struct _n_Subdomain {
   PetscInt *n_shared;        /* n_shared[j] is the number of nodes shared with subdomain neigh[j]                        */
   PetscInt **shared;         /* shared[j][i] is the local index of the i-th node shared with subdomain neigh[j]          */
 
+  /* the following two structures provide information only for dofs at the bounday using hte numbering at the boundary*/
   PetscInt *count;           /* number of neighbors for DOF i at the iterface. I does not count itself. dim(count)=n_B   */
   PetscInt **neighbours_set; /* neighbours_set[i][j] is the number of the j-th subdomain sharing dof i-th                */
 

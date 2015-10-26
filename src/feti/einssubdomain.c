@@ -285,7 +285,10 @@ PetscErrorCode  SubdomainCreate(MPI_Comm comm, Subdomain *_sd)
   sd->global_to_B      = 0;
   sd->mapping          = 0;
   sd->BtoNmap          = 0;
-  sd->n_neigh          = -1;  
+  sd->n_neigh          = -1;
+  sd->neigh            = 0;
+  sd->n_shared         = 0;
+  sd->shared           = 0;
   PetscFunctionReturn(0);  
 }
 

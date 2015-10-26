@@ -21,3 +21,4 @@
 
 * Functions which are private declare them as static and add _Private
   
+* Coarse problem assembling: communicate only localnnz[0] for each processor.
