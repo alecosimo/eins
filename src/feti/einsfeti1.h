@@ -8,8 +8,17 @@ typedef struct {
   Mat          F_neumann; /* matrix object specifically suited for symbolic factorization: it must not be destroyed with MatDestroy() */
 
   /* Coarse problem stuff */
-  PetscInt     n_rbm;           /* number of rigid body modes */
+  const char*  coarse_options;  /* for setting default options database for coarse problem */
+  PetscMPIInt  *displ;          /* Entry i specifies the displacement at which to place the incoming data from process i in gather operations */
+                                /* it is relative to communicator floatingComm */
+  PetscMPIInt  *count_rbm;      /* Entry i specifies the number of elements to be received from process i. It is equal to the n_rbm of each process */
+                                /* it is relative to communicator floatingComm */
+  PetscInt     total_rbm;       /* total number of rigid body modes */
+  PetscInt     n_rbm;           /* local number of rigid body modes */
+  MPI_Comm     floatingComm;    /* communicator for floating substructures */
+  PetscMPIInt  *neigh_floating;  /* neighbours translated to the new communicator floatingComm numbering */
   Mat          localG;
+  Vec          local_e;
   Mat          coarse_problem;
   Mat          F_coarse;        /* matrix object specifically suited for symbolic factorization: it must not be destroyed with MatDestroy() */
   KSP          ksp_coarse;

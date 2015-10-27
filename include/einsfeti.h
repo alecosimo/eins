@@ -70,7 +70,7 @@ PETSC_EXTERN PetscErrorCode FETICreateGlobalWorkingVec(FETI,Vec);
 PETSC_EXTERN PetscErrorCode FETIFinalizePackage(void);
 PETSC_EXTERN PetscErrorCode FETIInitializePackage(void);
 /* FETI1 stuff */
-PETSC_EXTERN PetscErrorCode FETI1SetDefaultOptions(void);
+PETSC_EXTERN PetscErrorCode FETI1SetDefaultOptions(FETI);
 /* scaling */
 PETSC_EXTERN PetscErrorCode FETIScalingSetUp(FETI);
 PETSC_EXTERN PetscErrorCode FETIScalingSetScalingFactor(FETI,PetscScalar);

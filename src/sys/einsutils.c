@@ -9,16 +9,16 @@
    MatSeqViewSynchronized - Prints a sequential Mat to the standard output in a synchronized form, that is first for process 0, then for process 1,... Process 0 waits the last process to finish.
 
    Input Parameter:
+.  comm   - The MPI communicator 
 .  mat    - The sequential matrix to print
 
    Level: beginner
 
 @*/
-PetscErrorCode MatSeqViewSynchronized(Mat mat)
+PetscErrorCode MatSeqViewSynchronized(MPI_Comm comm,Mat mat)
 {
   PetscErrorCode ierr;
   PetscMPIInt    size,rank,buff=1;
-  MPI_Comm       comm = MPI_COMM_WORLD;
   MPI_Status     status;
   
   PetscFunctionBeginUser;
@@ -42,16 +42,16 @@ PetscErrorCode MatSeqViewSynchronized(Mat mat)
    VecSeqViewSynchronized - Prints a sequential Vec to the standard output in a synchronized form, that is first for process 0, then for process 1,... Process 0 waits the last process to finish.
 
    Input Parameter:
+.  comm   - The MPI communicator
 .  vec    - The sequential vector to print
 
    Level: beginner
 
 @*/
-PetscErrorCode VecSeqViewSynchronized(Vec vec)
+PetscErrorCode VecSeqViewSynchronized(MPI_Comm comm,Vec vec)
 {
   PetscErrorCode ierr;
   PetscMPIInt    size,rank,buff=1;
-  MPI_Comm       comm = MPI_COMM_WORLD;
   MPI_Status     status;
   
   PetscFunctionBeginUser;
