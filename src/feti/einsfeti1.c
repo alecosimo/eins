@@ -923,7 +923,6 @@ static PetscErrorCode FETI1FactorizeCoarseProblem_Private(FETI ft)
 @*/
 PetscErrorCode FETI1SetDefaultOptions(void)
 {
-  PetscFunctionBegin;
   char mumps_options[] = "-feti_pc_dirichlet_pc_factor_mat_solver_package mumps \
                           -feti_pc_dirichlet_mat_mumps_icntl_7 2                \
                           -feti1_pc_coarse_pc_factor_mat_solver_package mumps   \
@@ -931,7 +930,8 @@ PetscErrorCode FETI1SetDefaultOptions(void)
   char other_options[] = "-feti_fullyredundant             \
                           -feti_scaling_type scmultiplicity \
                           -feti1_destroy_coarse";
-
+  
+  PetscFunctionBegin;
 #if defined(PETSC_HAVE_MUMPS)
   PetscOptionsInsertString(mumps_options);
 #endif
