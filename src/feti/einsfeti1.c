@@ -606,7 +606,6 @@ static PetscErrorCode FETI1SetUpCoarseProblem_Private(FETI ft)
 {
   PetscErrorCode ierr;
   FETI_1         *ft1 = (FETI_1*)ft->data;
-  Subdomain      sd = ft->subdomain;
   PetscMPIInt    i_mpi,i_mpi1,size,*displ,*c_displ,*c_count,n_recv,n_send,rank;
   /* nnz: array containing the number of block nonzeros in the upper triangular plus diagonal portion of each block*/
   PetscInt       i,j,idx,*n_rbm_comm,*nnz,total_rbm,total_size_matrices=0,*neigh_sorted,*localnnz=NULL;
@@ -883,7 +882,6 @@ static PetscErrorCode FETI1FactorizeCoarseProblem_Private(FETI ft)
 {
   PetscErrorCode ierr;
   FETI_1         *ft1 = (FETI_1*)ft->data;
-  Subdomain      sd = ft->subdomain;
   PC             pc;
   
   PetscFunctionBegin;
@@ -923,11 +921,8 @@ static PetscErrorCode FETI1FactorizeCoarseProblem_Private(FETI ft)
 .keywords: FETI1
 
 @*/
-PetscErrorCode FETI1SetDefaultOptions();
-PetscErrorCode FETI1SetDefaultOptions()
+PetscErrorCode FETI1SetDefaultOptions(void)
 {
-  PetscErrorCode ierr;
-  
   PetscFunctionBegin;
   char mumps_options[] = "-feti_pc_dirichlet_pc_factor_mat_solver_package mumps \
                           -feti_pc_dirichlet_mat_mumps_icntl_7 2                \
