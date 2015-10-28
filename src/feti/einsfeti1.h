@@ -18,9 +18,9 @@ typedef struct {
   MPI_Comm     floatingComm;    /* communicator for floating substructures */
   PetscMPIInt  *neigh_floating; /* neighbours translated to the new communicator floatingComm numbering */
   Mat          localG;          /* local G matrix (current processor) */
-  Mat          Gholder;         /* matrix which stores the matrices localG of the neighbours and including the one from  */
-                                /* the current processor. By taking into account the rank of the processors, the matrices. */
-                                /* are listed in ascending order, that is like [G2, G3, G6, G7] */
+  Mat          *Gholder;        /* each entry is one neighbour's localG matrix. The order follows, the order of ft1->neighs_lb */
+  PetscScalar  *matrices;       /* array for storing the values of the matrices "stored" in Gholder */
+  PetscInt     n_Gholder;       /* number of floating neighbours */
   Vec          local_e;
   Mat          coarse_problem;
   Mat          F_coarse;        /* matrix object specifically suited for symbolic factorization: it must not be destroyed with MatDestroy() */
