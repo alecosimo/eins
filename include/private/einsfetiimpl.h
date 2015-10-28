@@ -38,6 +38,7 @@ struct _p_FETI {
   FETIScalingType  scaling_type;
   /* Common attributes for the interface problem*/
   Vec                    lambda_local;
+  Vec                    lambda_global; /* global distributed (mpi) solution vector for the interface problem */
   PetscInt               n_lambda,n_lambda_local;
   Mat                    F;
   Vec                    d;

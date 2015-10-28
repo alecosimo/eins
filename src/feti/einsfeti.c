@@ -339,6 +339,7 @@ PetscErrorCode FETIDestroy(FETI *_feti)
   ierr = FETIScalingDestroy(feti);CHKERRQ(ierr);
   ierr = VecDestroy(&feti->d);CHKERRQ(ierr);
   ierr = VecDestroy(&feti->lambda_local);CHKERRQ(ierr);
+  ierr = VecDestroy(&feti->lambda_global);CHKERRQ(ierr);
   ierr = VecScatterDestroy(&feti->l2g_lambda);CHKERRQ(ierr);
   if (feti->n_neigh_lb > -1) {
     ierr = ISLocalToGlobalMappingRestoreInfo(feti->mapping_lambda,&(feti->n_neigh_lb),&(feti->neigh_lb),&(feti->n_shared_lb),&(feti->shared_lb));CHKERRQ(ierr);
@@ -605,6 +606,7 @@ PetscErrorCode  FETICreate(MPI_Comm comm,FETI *newfeti)
   feti->setfromoptionscalled = 0;
   feti->data                 = 0;
   feti->lambda_local         = 0;
+  feti->lambda_sol           = 0;
   feti->mapping_lambda       = 0;
   feti->n_lambda_local       = 0;
   feti->l2g_lambda           = 0;
