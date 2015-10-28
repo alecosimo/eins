@@ -731,7 +731,7 @@ static PetscErrorCode FETI1SetUpCoarseProblem_Private(FETI ft)
   ierr = PetscMalloc1(total_size_matrices,&ft1->matrices);CHKERRQ(ierr);
   ierr = PetscMalloc1(n_send,&send_reqs);CHKERRQ(ierr);
   ierr = PetscMalloc1(n_send,&submat);CHKERRQ(ierr);
-  ierr = PetscMalloc1(n_recv,&array);CHKERRQ(ierr);
+  ierr = PetscMalloc1(n_send,&array);CHKERRQ(ierr);
   if(n_send) {
     for (j=0, i=1; i<ft->n_neigh_lb; i++){
       ierr = ISCreateGeneral(PETSC_COMM_SELF,ft->n_shared_lb[i],ft->shared_lb[i],PETSC_USE_POINTER,&isindex);CHKERRQ(ierr);
