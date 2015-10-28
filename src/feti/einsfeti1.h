@@ -8,7 +8,6 @@ typedef struct {
   Mat          F_neumann; /* matrix object specifically suited for symbolic factorization: it must not be destroyed with MatDestroy() */
 
   /* Coarse problem stuff */
-  const char*  coarse_options;  /* for setting default options database for coarse problem */
   PetscMPIInt  *displ;          /* Entry i specifies the displacement at which to place the incoming data from process i in gather operations */
                                 /* it is relative to communicator floatingComm */
   PetscMPIInt  *count_rbm;      /* Entry i specifies the number of elements to be received from process i. It is equal to the n_rbm of each process */

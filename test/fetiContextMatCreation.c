@@ -600,7 +600,7 @@ int main(int argc,char **args)
   ierr = FETICreate(dd.gcomm,&feti);CHKERRQ(ierr);
   ierr = FETISetType(feti,FETI1);CHKERRQ(ierr);
   /* Set default options */
-  ierr = FETI1SetDefaultOptions(feti);CHKERRQ(ierr);
+  ierr = FETI1SetDefaultOptions(&argc,&args,NULL);CHKERRQ(ierr);
   ierr = FETISetFromOptions(feti);CHKERRQ(ierr);
   ierr = FETISetLocalMat(feti,localA);CHKERRQ(ierr);
   ierr = FETISetLocalRHS(feti,localRHS);CHKERRQ(ierr);

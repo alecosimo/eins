@@ -152,7 +152,6 @@ PetscErrorCode FETICreate_FETI1(FETI ft)
   feti1->max_n_rbm             = 0;
   feti1->displ                 = 0;
   feti1->count_rbm             = 0;
-  feti1->coarse_options        = 0;
   
   /* function pointers */
   ft->ops->setup               = FETISetUp_FETI1;
@@ -923,7 +922,6 @@ static PetscErrorCode FETI1FactorizeCoarseProblem_Private(FETI ft)
   PetscFunctionBegin; 
   if(!ft1->coarse_problem) SETERRQ(PetscObjectComm((PetscObject)ft),PETSC_ERR_ARG_WRONGSTATE,"Error: FETI1SetUpCoarseProblem_Private() must be first called");
 
-  if (ft1->coarse_options)  PetscOptionsInsertString(ft1->coarse_options);
   /* factorize the coarse problem */
   ierr = KSPCreate(PETSC_COMM_SELF,&ft1->ksp_coarse);CHKERRQ(ierr);
   ierr = KSPSetType(ft1->ksp_coarse,KSPPREONLY);CHKERRQ(ierr);
@@ -1079,20 +1077,23 @@ static PetscErrorCode FETI1ComputeInitialCondition_Private(FETI ft)
    solver. Mainly, it sets every KSP to MUMPS and sets fully redudant
    lagrange multipliers.
 
-   Input:
-.  ft  -  The FETI context
+   Input: Input taken by PetscOptionsInsert()
+.  argc   -  number of command line arguments
+.  args   -  the command line arguments
+.  file   -  optional file
 
    Level: beginner
 
 .keywords: FETI1
 
+.seealso: PetscOptionsInsert()
 @*/
-PetscErrorCode FETI1SetDefaultOptions(FETI ft)
+PetscErrorCode FETI1SetDefaultOptions(int *argc,char ***args,const char file[])
 {
-  FETI_1 *ft1                 = (FETI_1*)ft->data;
+  PetscErrorCode    ierr;
   char mumps_options[]        = "-feti_pc_dirichlet_pc_factor_mat_solver_package mumps \
-                                 -feti_pc_dirichlet_mat_mumps_icntl_7 2";
-  char mumps_coarse_options[] = "-feti1_pc_coarse_pc_factor_mat_solver_package mumps   \
+                                 -feti_pc_dirichlet_mat_mumps_icntl_7 2                \
+                                 -feti1_pc_coarse_pc_factor_mat_solver_package mumps   \
                                  -feti1_pc_coarse_mat_mumps_icntl_7 2";
   char other_options[]        = "-feti_fullyredundant             \
                                  -feti_scaling_type scmultiplicity \
@@ -1100,10 +1101,10 @@ PetscErrorCode FETI1SetDefaultOptions(FETI ft)
   
   PetscFunctionBegin;
 #if defined(PETSC_HAVE_MUMPS)
-  PetscOptionsInsertString(mumps_options);
-  ft1->coarse_options = mumps_coarse_options;
+  ierr = PetscOptionsInsertString(mumps_options);CHKERRQ(ierr);
 #endif
-  PetscOptionsInsertString(other_options);
-  
+  ierr = PetscOptionsInsertString(other_options);CHKERRQ(ierr);
+  ierr = PetscOptionsInsert(argc,args,file);CHKERRQ(ierr);
+    
   PetscFunctionReturn(0);
 }
