@@ -606,7 +606,7 @@ PetscErrorCode  FETICreate(MPI_Comm comm,FETI *newfeti)
   feti->setfromoptionscalled = 0;
   feti->data                 = 0;
   feti->lambda_local         = 0;
-  feti->lambda_sol           = 0;
+  feti->lambda_global        = 0;
   feti->mapping_lambda       = 0;
   feti->n_lambda_local       = 0;
   feti->l2g_lambda           = 0;

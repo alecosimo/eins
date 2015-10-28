@@ -14,17 +14,14 @@ typedef struct {
   PetscMPIInt  *count_rbm;      /* Entry i specifies the number of elements to be received from process i. It is equal to the n_rbm of each process */
                                 /* it is relative to communicator floatingComm */
   PetscInt     n_rbm;           /* local number of rigid body modes */
-  PetscInt     n_neigh_rbm;     /* number of rigid body modes of my neighbours, including mines */
   PetscInt     total_rbm;       /* total number of rigid body modes */
   PetscInt     max_n_rbm;       /* the maximum of the number of rbm from me and my neighbours */
-  MPI_Comm     floatingComm;    /* communicator for floating substructures */
-  PetscMPIInt  *neigh_floating; /* neighbours'ranks translated from the WORLD comm to the communicator floatingComm */
   Mat          localG;          /* local G matrix (current processor) */
   Mat          *Gholder;        /* each entry is one neighbour's localG matrix. The order follows, the order of ft1->neighs_lb */
   PetscScalar  *matrices;       /* array for storing the values of the matrices "stored" in Gholder */
   PetscInt     n_Gholder;       /* number of floating neighbours */
-  PetscInt     **neigh_holder;  /* Entry i, that is neigh_holder[i], corresponds to rank in the floatingComm communicator,neigh_holder[i][0], and
-				   to the rank in the WORLD communicator, neigh_holder[i][1], of the neighbour with matrix localG in entry i of Gholder */
+  PetscInt     **neigh_holder;  /* Entry neigh_holder[i][0] corresponds to rank of the processor of the neighbour with matrix localG stored in Gholder[i]. 
+				   Entry neigh_holder[i][1] corresponds to the index in which neigh_holder[i][0] is listed in the array ft->neigh_lb. */
   Vec          local_e;
   Mat          coarse_problem;
   Mat          F_coarse;        /* matrix object specifically suited for symbolic factorization: it must not be destroyed with MatDestroy() */
