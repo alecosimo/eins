@@ -16,8 +16,11 @@ typedef struct {
   PetscInt     total_rbm;       /* total number of rigid body modes */
   PetscInt     n_rbm;           /* local number of rigid body modes */
   MPI_Comm     floatingComm;    /* communicator for floating substructures */
-  PetscMPIInt  *neigh_floating;  /* neighbours translated to the new communicator floatingComm numbering */
-  Mat          localG;
+  PetscMPIInt  *neigh_floating; /* neighbours translated to the new communicator floatingComm numbering */
+  Mat          localG;          /* local G matrix (current processor) */
+  Mat          Gholder;         /* matrix which stores the matrices localG of the neighbours and including the one from  */
+                                /* the current processor. By taking into account the rank of the processors, the matrices. */
+                                /* are listed in ascending order, that is like [G2, G3, G6, G7] */
   Vec          local_e;
   Mat          coarse_problem;
   Mat          F_coarse;        /* matrix object specifically suited for symbolic factorization: it must not be destroyed with MatDestroy() */
