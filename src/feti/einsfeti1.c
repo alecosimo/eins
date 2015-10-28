@@ -712,10 +712,8 @@ static PetscErrorCode FETI1SetUpCoarseProblem_Private(FETI ft)
   }
   ierr = MPI_Allgatherv(&localnnz,(n_rbm_comm[rankG]>0),MPIU_INT,idxm,c_count,c_displ,MPIU_INT,comm);CHKERRQ(ierr);
   for (k0=0,k=0,i=0;i<sizeG;i++) {
-    if(ft1->count_rbm[i]) {
-      for(j=0;j<ft1->count_rbm[i];j++) nnz[k++] = idxm[k0];
-      k0++;
-    }
+    for(j=0;j<ft1->count_rbm[i];j++) nnz[k++] = idxm[k0];
+    k0 += (ft1->count_rbm[i]>0);
   }
   ierr = PetscFree(idxm);CHKERRQ(ierr);
 
