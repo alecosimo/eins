@@ -15,6 +15,7 @@ static PetscErrorCode FETI1SetUpCoarseProblem_Private(FETI);
 static PetscErrorCode FETI1FactorizeCoarseProblem_Private(FETI);
 static PetscErrorCode FETI1ApplyCoarseProblem_Private(FETI,Vec,Vec);
 static PetscErrorCode FETI1ComputeInitialCondition_Private(FETI);
+static PetscErrorCode FETI1Project_Private(FETI,Vec,Vec);
 
 #undef __FUNCT__
 #define __FUNCT__ "FETIDestroy_FETI1"
@@ -1041,6 +1042,51 @@ static PetscErrorCode FETI1ApplyCoarseProblem_Private(FETI ft,Vec v_local,Vec r_
 
 @*/
 static PetscErrorCode FETI1ComputeInitialCondition_Private(FETI ft)
+{
+  PetscErrorCode    ierr;
+  FETI_1            *ft1 = (FETI_1*)ft->data;
+  Vec               asm_e;
+  PetscScalar       *rbuff;
+  const PetscScalar *sbuff;
+  MPI_Comm          comm;
+  
+  PetscFunctionBegin;
+  ierr = PetscObjectGetComm((PetscObject)ft,&comm);CHKERRQ(ierr);
+  ierr = VecCreateSeq(PETSC_COMM_SELF,ft1->total_rbm,&asm_e);CHKERRQ(ierr);
+  if (ft1->n_rbm) { ierr = VecGetArrayRead(ft1->local_e,&sbuff);CHKERRQ(ierr);}   
+  ierr = VecGetArray(asm_e,&rbuff);CHKERRQ(ierr); 
+  ierr = MPI_Allgatherv(sbuff,ft1->n_rbm,MPIU_SCALAR,rbuff,ft1->count_rbm,ft1->displ,MPIU_SCALAR,comm);CHKERRQ(ierr);
+  ierr = VecRestoreArray(asm_e,&rbuff);CHKERRQ(ierr);
+  if (ft1->n_rbm) { ierr = VecRestoreArrayRead(ft1->local_e,&sbuff);CHKERRQ(ierr);}
+
+  ierr = FETI1ApplyCoarseProblem_Private(ft,asm_e,ft->lambda_global);CHKERRQ(ierr);
+
+  VecView(ft->lambda_global,PETSC_VIEWER_STDOUT_WORLD);
+  /* VecSeqViewSynchronized(ft1->floatingComm,ft1->local_e); */
+  /* VecSeqViewSynchronized(ft1->floatingComm,asm_e); */
+  
+  if (ft1->n_rbm) { ierr = VecDestroy(&ft1->local_e);CHKERRQ(ierr);}
+  ierr = VecDestroy(&asm_e);CHKERRQ(ierr);
+  PetscFunctionReturn(0);
+}
+
+
+#undef __FUNCT__
+#define __FUNCT__ "FETI1Project_Private"
+/*@
+   FETI1Project_Private - Performs the projection step of FETI1.
+
+   Input Parameter:
+.  ft - the FETI context
+.  x  - the vector to project
+.  y  - the projected vector
+
+   Level: developer
+
+.keywords: FETI1
+
+@*/
+static PetscErrorCode FETI1Project_Private(FETI ft, Vec x, Vec y)
 {
   PetscErrorCode    ierr;
   FETI_1            *ft1 = (FETI_1*)ft->data;
