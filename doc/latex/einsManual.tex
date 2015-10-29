@@ -238,7 +238,11 @@ Good practices for the version control of the EINS project:
   \mint{bash}!git config --global core.excludesfile ~/.gitignore_global!
 \end{itemize}
 
+\section{GTAGS}
 
+You can run the command \mint{bash}!find {include,src,test} -regex '.*\.\(cc\|hh\|cpp\|C\|hpp\|c\|h\|cu\)$' | gtags -f -! to build the
+tags files needed by global. If you are using emacs and you are not
+familiar with GTAGS, it is worthwhile taking a look to this \href{http://emacswiki.org/emacs/GnuGlobal}{webpage}.
 
 \chapter{CMake project implementation}
 
