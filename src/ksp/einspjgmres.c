@@ -144,6 +144,12 @@ PetscErrorCode KSPGMRESCycle(PetscInt *itcount,KSP ksp)
     PetscFunctionReturn(0);
   }
 
+
+  /************ checking convergence  ********************/
+  /*
+    take a look to petsc/src/ksp/ksp/interface/iterative.c:KSPConvergedDefault()
+
+   */
   ierr = (*ksp->converged)(ksp,ksp->its,res,&ksp->reason,ksp->cnvP);CHKERRQ(ierr);
   while (!ksp->reason && it < max_k && ksp->its < ksp->max_it) {
     if (it) {
@@ -154,8 +160,13 @@ PetscErrorCode KSPGMRESCycle(PetscInt *itcount,KSP ksp)
     if (gmres->vv_allocated <= it + VEC_OFFSET + 1) {
       ierr = KSPGMRESGetNewVectors(ksp,it+1);CHKERRQ(ierr);
     }
+
+    /******* Projection step ********/
+    
     ierr = KSP_PCApplyBAorAB(ksp,VEC_VV(it),VEC_VV(1+it),VEC_TEMP_MATOP);CHKERRQ(ierr);
 
+    /******* Re-Projection step ********/
+    
     /* update hessenberg matrix and do Gram-Schmidt */
     ierr = (*gmres->orthog)(ksp,it);CHKERRQ(ierr);
     if (ksp->reason) break;
