@@ -1,8 +1,14 @@
+* Can FETI1ApplyCoarseProblem_Private() be improved by considering
+  VecScatters when mapping from Total_rbm to n_rbm. Right now I'm
+  using VecGetSubVector().
+
 * Consider a reset in class FETI. Should it also be considered in
   Subdomain class?
 
 * Check FETIDestroy()
 
+* Check out FETI1SetUpCoarseProblem_Private()
+  
 * CHANGE DOC: at the end vec1_global is built during the setup phase
   of the subdomain object.
 
@@ -21,8 +27,3 @@
 
 * Functions which are private declare them as static and add _Private
   
-* Coarse problem assembling: communicate only localnnz[0] for each processor.
-
-* Add a FETI1SetDefaultOptions() for setting for example MUMPS for
-  solving the dirchlet problem for the preconditioner and for setting
-  MUMPS for ksp_coarse.
