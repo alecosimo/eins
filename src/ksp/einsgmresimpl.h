@@ -63,10 +63,12 @@ typedef struct {
 #define __FUNCT__ "KSPSetProjection"
 PETSC_EXTERN PetscErrorCode KSPSetProjection(KSP ksp,PetscErrorCode (*project)(void*,Vec,Vec),void *ctx) {
   KSP_PROJECTION      *pj;
+  KSP_PJGMRES         *gmres;
   
   PetscFunctionBegin;
   PetscValidHeaderSpecific(ksp,KSP_CLASSID,1);
-  pj          = (KSP_PROJECTION*)(ksp->data);
+  gmres       = (KSP_PJGMRES*)(ksp->data);
+  pj          = &gmres->pj;
   pj->project = project;
   pj->ctxProj = (void*)ctx;
   PetscFunctionReturn(0);
@@ -77,10 +79,12 @@ PETSC_EXTERN PetscErrorCode KSPSetProjection(KSP ksp,PetscErrorCode (*project)(v
 #define __FUNCT__ "KSPSetReProjection"
 PETSC_EXTERN PetscErrorCode KSPSetReProjection(KSP ksp,PetscErrorCode (*reproject)(void*,Vec,Vec),void *ctx) {
   KSP_PROJECTION      *pj;
-  
+  KSP_PJGMRES         *gmres;
+    
   PetscFunctionBegin;
   PetscValidHeaderSpecific(ksp,KSP_CLASSID,1);
-  pj            = (KSP_PROJECTION*)(ksp->data);
+  gmres       = (KSP_PJGMRES*)(ksp->data);
+  pj          = &gmres->pj;
   pj->reproject = reproject;
   pj->ctxReProj = (void*)ctx;
   PetscFunctionReturn(0);

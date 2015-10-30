@@ -33,6 +33,7 @@
 #define GMRES_DEFAULT_MAXK     30
 static PetscErrorCode KSPPJGMRESUpdateHessenberg(KSP,PetscInt,PetscBool,PetscReal*);
 static PetscErrorCode KSPPJGMRESBuildSoln(PetscScalar*,Vec,Vec,KSP,PetscInt);
+static PetscErrorCode KSPGMRESGetNewVectors_PJGMRES(KSP,PetscInt);
 
 #undef __FUNCT__
 #define __FUNCT__ "KSPSetUp_PJGMRES"
@@ -120,10 +121,10 @@ PetscErrorCode KSPPJGMRESCycle(PetscInt *itcount,KSP ksp)
 {
   KSP_PJGMRES      *gmres = (KSP_PJGMRES*)(ksp->data);
   KSP_PROJECTION   *pj    = &gmres->pj;
-  PetscReal      res_norm,res,hapbnd,tt;
-  PetscErrorCode ierr;
-  PetscInt       it     = 0, max_k = gmres->max_k;
-  PetscBool      hapend = PETSC_FALSE;
+  PetscReal        res_norm,res,hapbnd,tt;
+  PetscErrorCode   ierr;
+  PetscInt         it     = 0, max_k = gmres->max_k;
+  PetscBool        hapend = PETSC_FALSE;
 
   PetscFunctionBegin;
   if (itcount) *itcount = 0;
@@ -447,7 +448,7 @@ static PetscErrorCode KSPPJGMRESUpdateHessenberg(KSP ksp,PetscInt it,PetscBool h
  */
 #undef __FUNCT__
 #define __FUNCT__ "KSPGMRESGetNewVectors_PJGMRES"
-PetscErrorCode KSPGMRESGetNewVectors_PJGMRES(KSP ksp,PetscInt it)
+static PetscErrorCode KSPGMRESGetNewVectors_PJGMRES(KSP ksp,PetscInt it)
 {
   KSP_PJGMRES      *gmres = (KSP_PJGMRES*)ksp->data;
   PetscErrorCode ierr;
