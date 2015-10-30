@@ -168,7 +168,7 @@ PetscErrorCode KSPGMRESCycle(PetscInt *itcount,KSP ksp)
     }
     gmres->it = (it - 1);
     if (gmres->vv_allocated <= it + VEC_OFFSET + 1) {
-      ierr = KSPGMRESGetNewVectors(ksp,it+1);CHKERRQ(ierr);
+      ierr = KSPGMRESGetNewVectors_PJGMRES(ksp,it+1);CHKERRQ(ierr);
     }
 
     ierr = KSP_PCApplyBAorAB(ksp,VEC_VV(it),VEC_VV(1+it),VEC_TEMP_MATOP);CHKERRQ(ierr);
@@ -446,8 +446,8 @@ static PetscErrorCode KSPGMRESUpdateHessenberg(KSP ksp,PetscInt it,PetscBool hap
    This routine allocates more work vectors, starting from VEC_VV(it).
  */
 #undef __FUNCT__
-#define __FUNCT__ "KSPGMRESGetNewVectors"
-PetscErrorCode KSPGMRESGetNewVectors(KSP ksp,PetscInt it)
+#define __FUNCT__ "KSPGMRESGetNewVectors_PJGMRES"
+PetscErrorCode KSPGMRESGetNewVectors_PJGMRES(KSP ksp,PetscInt it)
 {
   KSP_PJGMRES      *gmres = (KSP_PJGMRES*)ksp->data;
   PetscErrorCode ierr;

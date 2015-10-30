@@ -3,13 +3,13 @@
   must be identical to the beginning of the KSP_FGMRES data structure
   so if you CHANGE anything here you must also change it there.
 */
-#if !defined(__PJGMRES)
-#define __PJGMRES
+#if !defined(EINSPJGMRES_H)
+#define EINSPJGMRES_H
 
-#include <einsksp.h>
 #include <petsc/private/kspimpl.h>        /*I "petscksp.h" I*/
+#include <einsksp.h>
 
-#define KSPGMRESHEADER                                                  \
+#define KSPGMRESHEADERPJ                                                \
   /* Hessenberg matrix and orthogonalization information. */            \
   PetscScalar *hh_origin;   /* holds hessenburg matrix that has been multiplied by plane rotations (upper tri) */ \
   PetscScalar *hes_origin;  /* holds the original (unmodified) hessenberg matrix which may be used to estimate the Singular Values of the matrix */ \
@@ -56,7 +56,7 @@ typedef struct {
 
 typedef struct {
   KSP_PROJECTION pj; /* it must come first */
-  KSPGMRESHEADER
+  KSPGMRESHEADERPJ
 } KSP_PJGMRES;
 
 #undef __FUNCT__
@@ -87,25 +87,25 @@ PETSC_EXTERN PetscErrorCode KSPSetReProjection(KSP ksp,PetscErrorCode (*reprojec
 }
 
 
-PETSC_INTERN PetscErrorCode KSPView_PJGMRES(KSP,PetscViewer);
-PETSC_INTERN PetscErrorCode KSPSetUp_PJGMRES(KSP);
-PETSC_INTERN PetscErrorCode KSPSetFromOptions_PJGMRES(PetscOptions *PetscOptionsObject,KSP);
-PETSC_INTERN PetscErrorCode KSPComputeExtremeSingularValues_PJGMRES(KSP,PetscReal*,PetscReal*);
-PETSC_INTERN PetscErrorCode KSPComputeEigenvalues_PJGMRES(KSP,PetscInt,PetscReal*,PetscReal*,PetscInt*);
-PETSC_INTERN PetscErrorCode KSPReset_PJGMRES(KSP);
-PETSC_INTERN PetscErrorCode KSPDestroy_PJGMRES(KSP);
-PETSC_INTERN PetscErrorCode KSPGMRESGetNewVectors(KSP,PetscInt);
+/* PETSC_INTERN PetscErrorCode KSPView_PJGMRES(KSP,PetscViewer); */
+/* PETSC_INTERN PetscErrorCode KSPSetUp_PJGMRES(KSP); */
+/* PETSC_INTERN PetscErrorCode KSPSetFromOptions_PJGMRES(PetscOptions *PetscOptionsObject,KSP); */
+/* PETSC_INTERN PetscErrorCode KSPComputeExtremeSingularValues_PJGMRES(KSP,PetscReal*,PetscReal*); */
+/* PETSC_INTERN PetscErrorCode KSPComputeEigenvalues_PJGMRES(KSP,PetscInt,PetscReal*,PetscReal*,PetscInt*); */
+/* PETSC_INTERN PetscErrorCode KSPReset_PJGMRES(KSP); */
+/* PETSC_INTERN PetscErrorCode KSPDestroy_PJGMRES(KSP); */
+/* PETSC_INTERN PetscErrorCode KSPGMRESGetNewVectors_PJGMRES(KSP,PetscInt); */
 
-typedef PetscErrorCode (*FCN)(KSP,PetscInt); /* force argument to next function to not be extern C*/
+typedef PetscErrorCode (*FCN)(KSP,PetscInt); 
 
-PETSC_INTERN PetscErrorCode KSPGMRESSetHapTol_PJGMRES(KSP,PetscReal);
-PETSC_INTERN PetscErrorCode KSPGMRESSetPreAllocateVectors_PJGMRES(KSP);
-PETSC_INTERN PetscErrorCode KSPGMRESSetRestart_PJGMRES(KSP,PetscInt);
-PETSC_INTERN PetscErrorCode KSPGMRESGetRestart_PJGMRES(KSP,PetscInt*);
-PETSC_INTERN PetscErrorCode KSPGMRESSetOrthogonalization_PJGMRES(KSP,FCN);
-PETSC_INTERN PetscErrorCode KSPGMRESGetOrthogonalization_PJGMRES(KSP,FCN*);
-PETSC_INTERN PetscErrorCode KSPGMRESSetCGSRefinementType_PJGMRES(KSP,KSPGMRESCGSRefinementType);
-PETSC_INTERN PetscErrorCode KSPGMRESGetCGSRefinementType_PJGMRES(KSP,KSPGMRESCGSRefinementType*);
+/* PETSC_INTERN PetscErrorCode KSPGMRESSetHapTol_PJGMRES(KSP,PetscReal); */
+/* PETSC_INTERN PetscErrorCode KSPGMRESSetPreAllocateVectors_PJGMRES(KSP); */
+/* PETSC_INTERN PetscErrorCode KSPGMRESSetRestart_PJGMRES(KSP,PetscInt); */
+/* PETSC_INTERN PetscErrorCode KSPGMRESGetRestart_PJGMRES(KSP,PetscInt*); */
+/* PETSC_INTERN PetscErrorCode KSPGMRESSetOrthogonalization_PJGMRES(KSP,FCN); */
+/* PETSC_INTERN PetscErrorCode KSPGMRESGetOrthogonalization_PJGMRES(KSP,FCN*); */
+/* PETSC_INTERN PetscErrorCode KSPGMRESSetCGSRefinementType_PJGMRES(KSP,KSPGMRESCGSRefinementType); */
+/* PETSC_INTERN PetscErrorCode KSPGMRESGetCGSRefinementType_PJGMRES(KSP,KSPGMRESCGSRefinementType*); */
 
 /* These macros are guarded because they are redefined by derived implementations */
 #define HH(a,b)  (gmres->hh_origin + (b)*(gmres->max_k+2)+(a))
@@ -119,4 +119,6 @@ PETSC_INTERN PetscErrorCode KSPGMRESGetCGSRefinementType_PJGMRES(KSP,KSPGMRESCGS
 #define VEC_TEMP       gmres->vecs[0]
 #define VEC_TEMP_MATOP gmres->vecs[1]
 #define VEC_VV(i)      gmres->vecs[VEC_OFFSET+i]
-#endif
+
+
+#endif/* EINSPJGMRES_H */

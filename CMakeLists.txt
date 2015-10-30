@@ -74,7 +74,7 @@ list(APPEND Eins_libraries ${PETSC_LIBRARIES} ${MATH_LIB} ${MPI_LIBRARY} ${MPI_E
 # Set libraries for the compiling the tests using the Eins library, EinsTests_Libraries
 set(EINS_LIBRARY "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libeins.so")
 set(EinsTests_libraries)
-list(APPEND EinsTests_libraries ${EINS_LIBRARY} ${PETSC_LIBRARIES} ${MATH_LIB} ${MPI_LIBRARY} ${MPI_EXTRA_LIBRARY} ${LAPACK_LIBRARIES})
+list(APPEND EinsTests_libraries ${EINS_LIBRARY} ${PETSC_LIBRARIES} ${MATH_LIB} ${MPI_LIBRARY} ${MPI_EXTRA_LIBRARY} ${LAPACK_LIBRARIES}) 
 
 # Add tests. It must come after complete setting the libraries for linking
 enable_testing()
