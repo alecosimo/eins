@@ -1,6 +1,7 @@
 * Can FETI1ApplyCoarseProblem_Private() be improved by considering
   VecScatters when mapping from Total_rbm to n_rbm. Right now I'm
-  using VecGetSubVector().
+  using VecGetSubVector(). Take also a look to
+  PCBDDCScatterCoarseDataBegin() in bddcprivate.c
 
 * Consider a reset in class FETI. Should it also be considered in
   Subdomain class?
