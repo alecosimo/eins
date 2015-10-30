@@ -9,7 +9,7 @@
 #include <petsc/private/kspimpl.h>        /*I "petscksp.h" I*/
 #include <einsksp.h>
 
-#define KSPGMRESHEADERPJ                                                \
+#define KSPGMRESHEADER                                                \
   /* Hessenberg matrix and orthogonalization information. */            \
   PetscScalar *hh_origin;   /* holds hessenburg matrix that has been multiplied by plane rotations (upper tri) */ \
   PetscScalar *hes_origin;  /* holds the original (unmodified) hessenberg matrix which may be used to estimate the Singular Values of the matrix */ \
@@ -55,8 +55,8 @@ typedef struct {
 } KSP_PROJECTION;
 
 typedef struct {
+  KSPGMRESHEADER
   KSP_PROJECTION pj; /* it must come first */
-  KSPGMRESHEADERPJ
 } KSP_PJGMRES;
 
 #undef __FUNCT__

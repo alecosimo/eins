@@ -7,5 +7,6 @@
 
 PETSC_EXTERN PetscErrorCode KSPSetProjection(KSP,PetscErrorCode (*)(void*,Vec,Vec),void*);
 PETSC_EXTERN PetscErrorCode KSPSetReProjection(KSP,PetscErrorCode (*)(void*,Vec,Vec),void*);
+PETSC_EXTERN PetscErrorCode KSPPJGMRESMonitorKrylov(KSP,PETSC_UNUSED PetscInt,PETSC_UNUSED PetscReal,void*);
 
 #endif/* EINSKSP_H*/
