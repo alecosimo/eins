@@ -205,6 +205,7 @@ PetscErrorCode FETIBuildInterfaceKSP(FETI ft)
   ierr = KSPGetPC(ft->ksp_interface,&pc);CHKERRQ(ierr);
   ierr = PCSetType(pc,ft->pc_type_interface);CHKERRQ(ierr);
   ierr = KSPSetOperators(ft->ksp_interface,ft->F,ft->F);CHKERRQ(ierr);  
+  ierr = KSPSetInitialGuessNonzero(ft->ksp_interface,PETSC_TRUE);CHKERRQ(ierr);  
   ierr = KSPSetOptionsPrefix(ft->ksp_interface,"feti_interface_");CHKERRQ(ierr);
   ierr = KSPSetFromOptions(ft->ksp_interface);CHKERRQ(ierr);
   ierr = KSPSetUp(ft->ksp_interface);CHKERRQ(ierr);
@@ -346,9 +347,6 @@ PetscErrorCode FETIDestroy(FETI *_feti)
   }
   ierr = ISLocalToGlobalMappingDestroy(&feti->mapping_lambda);CHKERRQ(ierr);
 
-  /* destroying ComposedFunctions */
-  ierr = PetscObjectComposeFunction((PetscObject)feti,"FETIMatMult_C",NULL);CHKERRQ(ierr);
-  ierr = PetscObjectComposeFunction((PetscObject)feti,"FETIDestroyMatF_C",NULL);CHKERRQ(ierr);
   /* destroying ComposedObjects */
   if(feti->F){
     ierr = PetscObjectCompose((PetscObject)feti->F,"FETI",NULL);CHKERRQ(ierr);

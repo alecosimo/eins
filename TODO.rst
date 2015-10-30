@@ -1,3 +1,5 @@
+* NULL expressions pj->reproject, etc in gmres
+
 * Can FETI1ApplyCoarseProblem_Private() be improved by considering
   VecScatters when mapping from Total_rbm to n_rbm. Right now I'm
   using VecGetSubVector(). Take also a look to

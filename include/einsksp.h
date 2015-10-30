@@ -5,4 +5,7 @@
 
 #define KSPPJGMRES "pjgmres"
 
+PETSC_EXTERN PetscErrorCode KSPSetProjection(KSP,PetscErrorCode (*)(void*,Vec,Vec),void*);
+PETSC_EXTERN PetscErrorCode KSPSetReProjection(KSP,PetscErrorCode (*)(void*,Vec,Vec),void*);
+
 #endif/* EINSKSP_H*/

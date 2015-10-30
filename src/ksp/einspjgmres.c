@@ -119,6 +119,7 @@ PetscErrorCode KSPGMRESCycle(PetscInt *itcount,KSP ksp);
 PetscErrorCode KSPGMRESCycle(PetscInt *itcount,KSP ksp)
 {
   KSP_PJGMRES      *gmres = (KSP_PJGMRES*)(ksp->data);
+  KSP_PROJECTION   *pj    = (KSP_PROJECTION*)(ksp->data);
   PetscReal      res_norm,res,hapbnd,tt;
   PetscErrorCode ierr;
   PetscInt       it     = 0, max_k = gmres->max_k;
@@ -126,6 +127,15 @@ PetscErrorCode KSPGMRESCycle(PetscInt *itcount,KSP ksp)
 
   PetscFunctionBegin;
   if (itcount) *itcount = 0;
+  //PetscPrintf(PETSC_COMM_WORLD,"\n==================================================0\n"); 
+  //VecView(VEC_VV(0),PETSC_VIEWER_STDOUT_WORLD);
+   
+   if(pj->project) {ierr = (*pj->project)(pj->ctxProj,VEC_VV(0),VEC_VV(0));CHKERRQ(ierr);}
+  //PetscPrintf(PETSC_COMM_WORLD,"\n==================================================1\n");
+  //VecView(VEC_VV(0),PETSC_VIEWER_STDOUT_WORLD);
+  //MPI_Barrier(PetscObjectComm((PetscObject)ksp));
+  //PetscFunctionReturn(0);
+  
   ierr    = VecNormalize(VEC_VV(0),&res_norm);CHKERRQ(ierr);
   KSPCheckNorm(ksp,res_norm);
   res     = res_norm;
@@ -147,7 +157,7 @@ PetscErrorCode KSPGMRESCycle(PetscInt *itcount,KSP ksp)
 
   /************ checking convergence  ********************/
   /*
-    take a look to petsc/src/ksp/ksp/interface/iterative.c:KSPConvergedDefault()
+    take a look to petsc/src/ksp/ksp/interface/iterativ.c:KSPConvergedDefault()
 
    */
   ierr = (*ksp->converged)(ksp,ksp->its,res,&ksp->reason,ksp->cnvP);CHKERRQ(ierr);
@@ -161,14 +171,12 @@ PetscErrorCode KSPGMRESCycle(PetscInt *itcount,KSP ksp)
       ierr = KSPGMRESGetNewVectors(ksp,it+1);CHKERRQ(ierr);
     }
 
-    /******* Projection step ********/
-    
     ierr = KSP_PCApplyBAorAB(ksp,VEC_VV(it),VEC_VV(1+it),VEC_TEMP_MATOP);CHKERRQ(ierr);
+    if(pj->reproject) {ierr = (*pj->reproject)(pj->ctxReProj,VEC_VV(1+it),VEC_VV(1+it));CHKERRQ(ierr);}
 
-    /******* Re-Projection step ********/
-    
     /* update hessenberg matrix and do Gram-Schmidt */
     ierr = (*gmres->orthog)(ksp,it);CHKERRQ(ierr);
+
     if (ksp->reason) break;
 
     /* vv(i+1) . vv(i+1) */
@@ -188,6 +196,7 @@ PetscErrorCode KSPGMRESCycle(PetscInt *itcount,KSP ksp)
     ierr = KSPGMRESUpdateHessenberg(ksp,it,hapend,&res);CHKERRQ(ierr);
 
     it++;
+    if(pj->project) {ierr = (*pj->project)(pj->ctxProj,VEC_VV(it),VEC_VV(it));CHKERRQ(ierr);}
     gmres->it = (it-1);   /* For converged */
     ksp->its++;
     ksp->rnorm = res;
@@ -311,6 +320,9 @@ PetscErrorCode KSPDestroy_PJGMRES(KSP ksp)
   ierr = PetscObjectComposeFunction((PetscObject)ksp,"KSPGMRESSetHapTol_C",NULL);CHKERRQ(ierr);
   ierr = PetscObjectComposeFunction((PetscObject)ksp,"KSPGMRESSetCGSRefinementType_C",NULL);CHKERRQ(ierr);
   ierr = PetscObjectComposeFunction((PetscObject)ksp,"KSPGMRESGetCGSRefinementType_C",NULL);CHKERRQ(ierr);
+  /* destroying ComposedFunctions for projection */
+  ierr = PetscObjectComposeFunction((PetscObject)ksp,"KSPProject_C",NULL);CHKERRQ(ierr);
+  ierr = PetscObjectComposeFunction((PetscObject)ksp,"KSPReProject_C",NULL);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 /*

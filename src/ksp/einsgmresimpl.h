@@ -6,6 +6,7 @@
 #if !defined(__PJGMRES)
 #define __PJGMRES
 
+#include <einsksp.h>
 #include <petsc/private/kspimpl.h>        /*I "petscksp.h" I*/
 
 #define KSPGMRESHEADER                                                  \
@@ -45,9 +46,46 @@
   PetscScalar *nrs;            /* temp that holds the coefficients of the Krylov vectors that form the minimum residual solution */ \
   Vec         sol_temp;        /* used to hold temporary solution */
 
+
 typedef struct {
+  void            *ctxProj;                      /* context for projection */                            
+  void            *ctxReProj;                    /* context for re-projection */                         
+  PetscErrorCode (*project)(void*,Vec,Vec);      /* pointer function for performing the projection step */
+  PetscErrorCode (*reproject)(void*,Vec,Vec);    /* pointer function for performing the re-projection step */
+} KSP_PROJECTION;
+
+typedef struct {
+  KSP_PROJECTION pj; /* it must come first */
   KSPGMRESHEADER
 } KSP_PJGMRES;
+
+#undef __FUNCT__
+#define __FUNCT__ "KSPSetProjection"
+PETSC_EXTERN PetscErrorCode KSPSetProjection(KSP ksp,PetscErrorCode (*project)(void*,Vec,Vec),void *ctx) {
+  KSP_PROJECTION      *pj;
+  
+  PetscFunctionBegin;
+  PetscValidHeaderSpecific(ksp,KSP_CLASSID,1);
+  pj          = (KSP_PROJECTION*)(ksp->data);
+  pj->project = project;
+  pj->ctxProj = (void*)ctx;
+  PetscFunctionReturn(0);
+}
+
+
+#undef __FUNCT__
+#define __FUNCT__ "KSPSetReProjection"
+PETSC_EXTERN PetscErrorCode KSPSetReProjection(KSP ksp,PetscErrorCode (*reproject)(void*,Vec,Vec),void *ctx) {
+  KSP_PROJECTION      *pj;
+  
+  PetscFunctionBegin;
+  PetscValidHeaderSpecific(ksp,KSP_CLASSID,1);
+  pj            = (KSP_PROJECTION*)(ksp->data);
+  pj->reproject = reproject;
+  pj->ctxReProj = (void*)ctx;
+  PetscFunctionReturn(0);
+}
+
 
 PETSC_INTERN PetscErrorCode KSPView_PJGMRES(KSP,PetscViewer);
 PETSC_INTERN PetscErrorCode KSPSetUp_PJGMRES(KSP);

@@ -1,4 +1,5 @@
 #include <../src/feti/einsfeti1.h>
+#include <einsksp.h>
 #include <einssys.h>
 
 /* private functions*/
@@ -15,7 +16,7 @@ static PetscErrorCode FETI1SetUpCoarseProblem_Private(FETI);
 static PetscErrorCode FETI1FactorizeCoarseProblem_Private(FETI);
 static PetscErrorCode FETI1ApplyCoarseProblem_Private(FETI,Vec,Vec);
 static PetscErrorCode FETI1ComputeInitialCondition_Private(FETI);
-static PetscErrorCode FETI1Project_Private(FETI,Vec,Vec);
+PetscErrorCode FETI1Project_RBM(void*,Vec,Vec);
 
 #undef __FUNCT__
 #define __FUNCT__ "FETIDestroy_FETI1"
@@ -72,10 +73,15 @@ static PetscErrorCode FETISetUp_FETI1(FETI ft)
   ierr = FETI1ComputeMatrixGandRhsE_Private(ft);CHKERRQ(ierr);
   ierr = FETI1BuildInterfaceProblem_Private(ft);CHKERRQ(ierr);
   ierr = FETIBuildInterfaceKSP(ft);CHKERRQ(ierr);
+  /* set projection in ksp */
+  ierr = KSPSetProjection(ft->ksp_interface,FETI1Project_RBM,(void*)ft);CHKERRQ(ierr);
+  ierr = KSPSetReProjection(ft->ksp_interface,FETI1Project_RBM,(void*)ft);CHKERRQ(ierr);
   ierr = FETI1SetUpCoarseProblem_Private(ft);CHKERRQ(ierr);
   ierr = FETI1FactorizeCoarseProblem_Private(ft);CHKERRQ(ierr);
   ierr = FETI1ComputeInitialCondition_Private(ft);CHKERRQ(ierr);
-    
+
+  ierr = KSPSolve(ft->ksp_interface,ft->d,ft->lambda_global);CHKERRQ(ierr);
+  
   PetscFunctionReturn(0);
 }
 
@@ -1078,9 +1084,9 @@ static PetscErrorCode FETI1ComputeInitialCondition_Private(FETI ft)
 
 
 #undef __FUNCT__
-#define __FUNCT__ "FETI1Project_Private"
+#define __FUNCT__ "FETI1Project_RBM"
 /*@
-   FETI1Project_Private - Performs the projection step of FETI1.
+   FETI1Project_RBM - Performs the projection step of FETI1.
 
    Input Parameter:
 .  ft        - the FETI context
@@ -1092,9 +1098,10 @@ static PetscErrorCode FETI1ComputeInitialCondition_Private(FETI ft)
 .keywords: FETI1
 
 @*/
-static PetscErrorCode FETI1Project_Private(FETI ft, Vec g_global, Vec y)
+PetscErrorCode FETI1Project_RBM(void* ft_ctx, Vec g_global, Vec y)
 {
   PetscErrorCode    ierr;
+  FETI              ft   = (FETI)ft_ctx; 
   FETI_1            *ft1 = (FETI_1*)ft->data;
   Vec               asm_e;
   Vec               localv,y_local;
@@ -1103,6 +1110,7 @@ static PetscErrorCode FETI1Project_Private(FETI ft, Vec g_global, Vec y)
   MPI_Comm          comm;
   
   PetscFunctionBegin;
+  PetscValidHeaderSpecific(ft,FETI_CLASSID,1);
   ierr = PetscObjectGetComm((PetscObject)ft,&comm);CHKERRQ(ierr);
   ierr = VecCreateSeq(PETSC_COMM_SELF,ft1->total_rbm,&asm_e);CHKERRQ(ierr);
   ierr = VecScatterBegin(ft->l2g_lambda,g_global,ft->lambda_local,INSERT_VALUES,SCATTER_REVERSE);CHKERRQ(ierr);
@@ -1129,7 +1137,7 @@ static PetscErrorCode FETI1Project_Private(FETI ft, Vec g_global, Vec y)
   ierr = VecScatterBegin(ft->l2g_lambda,y_local,y,INSERT_VALUES,SCATTER_FORWARD_LOCAL);CHKERRQ(ierr);
   ierr = VecScatterEnd(ft->l2g_lambda,y_local,y,INSERT_VALUES,SCATTER_FORWARD_LOCAL);CHKERRQ(ierr);
 
-  VecView(y,PETSC_VIEWER_STDOUT_WORLD);
+  //  VecView(y,PETSC_VIEWER_STDOUT_WORLD);
   /* VecSeqViewSynchronized(ft1->floatingComm,ft1->local_e); */
   /* VecSeqViewSynchronized(ft1->floatingComm,asm_e); */
   
