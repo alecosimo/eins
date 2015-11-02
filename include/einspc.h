@@ -3,6 +3,6 @@
 
 #include <petscpc.h>
 
-#define PCFETI_DIRICHLET "pcft_dirichlet"
+#define PCFETI_DIRICHLET "pcfeti_dirichlet"
 
 #endif/* EINSPC_H*/

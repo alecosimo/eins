@@ -34,6 +34,7 @@
 static PetscErrorCode KSPPJGMRESUpdateHessenberg(KSP,PetscInt,PetscBool,PetscReal*);
 static PetscErrorCode KSPPJGMRESBuildSoln(PetscScalar*,Vec,Vec,KSP,PetscInt);
 static PetscErrorCode KSPGMRESGetNewVectors_PJGMRES(KSP,PetscInt);
+static PetscErrorCode KSPGetProjection_PJGMRES(KSP,KSP_PROJECTION**);
 
 #undef __FUNCT__
 #define __FUNCT__ "KSPSetUp_PJGMRES"
@@ -304,6 +305,19 @@ PetscErrorCode KSPReset_PJGMRES(KSP ksp)
 }
 
 #undef __FUNCT__
+#define __FUNCT__ "KSPGetProjection_PJGMRES"
+static PetscErrorCode KSPGetProjection_PJGMRES(KSP ksp,KSP_PROJECTION **pj)
+{
+  PetscErrorCode ierr;
+  KSP_PJGMRES   *gmres = (KSP_PJGMRES*)ksp->data;
+  
+  PetscFunctionBegin;
+  *pj = &gmres->pj;
+  PetscFunctionReturn(0);
+}
+
+
+#undef __FUNCT__
 #define __FUNCT__ "KSPDestroy_PJGMRES"
 PetscErrorCode KSPDestroy_PJGMRES(KSP ksp)
 {
@@ -321,9 +335,8 @@ PetscErrorCode KSPDestroy_PJGMRES(KSP ksp)
   ierr = PetscObjectComposeFunction((PetscObject)ksp,"KSPGMRESSetHapTol_C",NULL);CHKERRQ(ierr);
   ierr = PetscObjectComposeFunction((PetscObject)ksp,"KSPGMRESSetCGSRefinementType_C",NULL);CHKERRQ(ierr);
   ierr = PetscObjectComposeFunction((PetscObject)ksp,"KSPGMRESGetCGSRefinementType_C",NULL);CHKERRQ(ierr);
+  ierr = PetscObjectComposeFunction((PetscObject)ksp,"KSPGetProjecion_C",NULL);CHKERRQ(ierr);
   /* destroying ComposedFunctions for projection */
-  ierr = PetscObjectComposeFunction((PetscObject)ksp,"KSPProject_C",NULL);CHKERRQ(ierr);
-  ierr = PetscObjectComposeFunction((PetscObject)ksp,"KSPReProject_C",NULL);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 /*
@@ -788,6 +801,7 @@ PetscErrorCode KSPCreate_PJGMRES(KSP ksp)
   ierr = PetscObjectComposeFunction((PetscObject)ksp,"KSPGMRESSetHapTol_C",KSPGMRESSetHapTol_PJGMRES);CHKERRQ(ierr);
   ierr = PetscObjectComposeFunction((PetscObject)ksp,"KSPGMRESSetCGSRefinementType_C",KSPGMRESSetCGSRefinementType_PJGMRES);CHKERRQ(ierr);
   ierr = PetscObjectComposeFunction((PetscObject)ksp,"KSPGMRESGetCGSRefinementType_C",KSPGMRESGetCGSRefinementType_PJGMRES);CHKERRQ(ierr);
+  ierr = PetscObjectComposeFunction((PetscObject)ksp,"KSPGetProjecion_C",KSPGetProjection_PJGMRES);CHKERRQ(ierr);
 
   gmres->haptol         = 1.0e-30;
   gmres->q_preallocate  = 0;

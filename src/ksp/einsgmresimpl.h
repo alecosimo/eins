@@ -6,8 +6,7 @@
 #if !defined(EINSPJGMRES_H)
 #define EINSPJGMRES_H
 
-#include <petsc/private/kspimpl.h>        /*I "petscksp.h" I*/
-#include <einsksp.h>
+#include <private/einskspimpl.h>
 
 #define KSPGMRESHEADER                                                \
   /* Hessenberg matrix and orthogonalization information. */            \
@@ -48,47 +47,9 @@
 
 
 typedef struct {
-  void            *ctxProj;                      /* context for projection */                            
-  void            *ctxReProj;                    /* context for re-projection */                         
-  PetscErrorCode (*project)(void*,Vec,Vec);      /* pointer function for performing the projection step */
-  PetscErrorCode (*reproject)(void*,Vec,Vec);    /* pointer function for performing the re-projection step */
-} KSP_PROJECTION;
-
-typedef struct {
   KSPGMRESHEADER
-  KSP_PROJECTION pj; /* it must come first */
+  KSP_PROJECTION pj; 
 } KSP_PJGMRES;
-
-#undef __FUNCT__
-#define __FUNCT__ "KSPSetProjection"
-PETSC_EXTERN PetscErrorCode KSPSetProjection(KSP ksp,PetscErrorCode (*project)(void*,Vec,Vec),void *ctx) {
-  KSP_PROJECTION      *pj;
-  KSP_PJGMRES         *gmres;
-  
-  PetscFunctionBegin;
-  PetscValidHeaderSpecific(ksp,KSP_CLASSID,1);
-  gmres       = (KSP_PJGMRES*)(ksp->data);
-  pj          = &gmres->pj;
-  pj->project = project;
-  pj->ctxProj = (void*)ctx;
-  PetscFunctionReturn(0);
-}
-
-
-#undef __FUNCT__
-#define __FUNCT__ "KSPSetReProjection"
-PETSC_EXTERN PetscErrorCode KSPSetReProjection(KSP ksp,PetscErrorCode (*reproject)(void*,Vec,Vec),void *ctx) {
-  KSP_PROJECTION      *pj;
-  KSP_PJGMRES         *gmres;
-    
-  PetscFunctionBegin;
-  PetscValidHeaderSpecific(ksp,KSP_CLASSID,1);
-  gmres       = (KSP_PJGMRES*)(ksp->data);
-  pj          = &gmres->pj;
-  pj->reproject = reproject;
-  pj->ctxReProj = (void*)ctx;
-  PetscFunctionReturn(0);
-}
 
 
 /* PETSC_INTERN PetscErrorCode KSPView_PJGMRES(KSP,PetscViewer); */

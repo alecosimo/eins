@@ -8,3 +8,4 @@ M_ADD_COMMAND_TEST("${path}/fetiContextMatCreation.c" "2" "mpiexec -n 4 ./fetiCo
 
 
 #mpiexec -n 4 ./fetiContextMatCreation -p 1 -npx 2 -npy 2 -nex 4 -ney 4 -feti_interface_ksp_monitor_short
+#mpiexec -n 4 ./fetiContextMatCreation -p 1 -npx 4 -npy 1 -nex 8 -ney 2 -feti_interface_ksp_monitor_short

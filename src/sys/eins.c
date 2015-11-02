@@ -29,6 +29,7 @@ static PetscErrorCode EinsRegisterAll(void)
   ierr = FETIRegisterAll();CHKERRQ(ierr);
   /*Register KSP*/
   ierr = KSPRegisterAll();CHKERRQ(ierr);
+  ierr = KSPRegister(KSPPJCG,KSPCreate_PJCG);CHKERRQ(ierr);
   ierr = KSPRegister(KSPPJGMRES,KSPCreate_PJGMRES);CHKERRQ(ierr);
   /*Register PC*/
   ierr = PCRegisterAll();CHKERRQ(ierr);

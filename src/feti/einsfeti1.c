@@ -2,6 +2,8 @@
 #include <einsksp.h>
 #include <einssys.h>
 
+//#define FETI_DEBUG
+
 /* private functions*/
 static PetscErrorCode FETI1BuildLambdaAndB_Private(FETI);
 static PetscErrorCode FETI1SetUpNeumannSolver_Private(FETI);
@@ -35,6 +37,7 @@ static PetscErrorCode FETIDestroy_FETI1(FETI ft)
   PetscInt       i;
   
   PetscFunctionBegin;
+  ierr = MatDestroy(&ft1->rbm);CHKERRQ(ierr);
   ierr = MatDestroy(&ft1->localG);CHKERRQ(ierr);
   ierr = VecDestroy(&ft1->local_e);CHKERRQ(ierr);
   if(ft1->neigh_holder) {
@@ -51,6 +54,37 @@ static PetscErrorCode FETIDestroy_FETI1(FETI ft)
   ierr = PetscFree(ft->data);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
+
+
+/* #undef __FUNCT__ */
+/* #define __FUNCT__ "FETI1ConvergedProjectedResidual" */
+/* /\*@ */
+/*    FETI1ConvergedProjectedResidual - Checks convergence of the */
+/*    iterface problem by comparing the L2 norm of the projected */
+/*    residual. */
+
+/*    Input Parameter: */
+/* .  ksp    - the ksp context */
+/* .  n      - the iteration number */
+/* .  rnorm  - the L2 norm of the projected residual */
+/* .  reason - reason a Krylov method was said to have converged or diverged */
+/* .  ctx    - optional convergence context */
+ 
+/*    Level: intermediate */
+
+/* .keywords: FETI */
+
+/* @*\/ */
+/* PetscErrorCode  FETI1ConvergedProjectedResidual(KSP ksp,PetscInt n,PetscReal rnorm,KSPConvergedReason *reason,void *ctx) */
+/* { */
+/*   PetscErrorCode         ierr; */
+  
+/*   PetscFunctionBegin; */
+
+  
+  
+/*   PetscFunctionReturn(0); */
+/* } */
 
 
 #undef __FUNCT__
@@ -80,6 +114,73 @@ static PetscErrorCode FETISetUp_FETI1(FETI ft)
   ierr = FETI1FactorizeCoarseProblem_Private(ft);CHKERRQ(ierr);
   ierr = FETI1ComputeInitialCondition_Private(ft);CHKERRQ(ierr);
 
+#if defined(FETI_DEBUG)
+  {
+    FETI_1            *ft1 = (FETI_1*)ft->data;
+    Vec               g_global,y_g,y_g2,col,asm_e,localv;
+    PetscMPIInt       rank;
+    PetscScalar       *rbuff;
+    const PetscScalar *sbuff;
+    MPI_Comm          comm;
+    ierr = PetscObjectGetComm((PetscObject)ft,&comm);CHKERRQ(ierr);
+    ierr = MPI_Comm_rank(comm,&rank);CHKERRQ(ierr);
+
+    /* TEST A */
+    PetscPrintf(PETSC_COMM_WORLD,"\n==================================================\n");
+    PetscPrintf(PETSC_COMM_WORLD,"\n                    TEST A \n");
+    PetscPrintf(PETSC_COMM_WORLD,"==================================================\n");
+
+    ierr = VecCreateSeq(PETSC_COMM_SELF,ft->n_lambda_local,&col);CHKERRQ(ierr);
+    ierr = VecDuplicate(ft->lambda_global,&g_global);CHKERRQ(ierr);
+    ierr = VecDuplicate(ft->lambda_global,&y_g);CHKERRQ(ierr);
+    ierr = VecDuplicate(ft->lambda_global,&y_g2);CHKERRQ(ierr);
+    ierr = VecSet(g_global,0.0);CHKERRQ(ierr);
+    ierr = VecSet(col,0.0);CHKERRQ(ierr);
+    if(rank==1){
+      ierr = MatGetColumnVector(ft1->localG,col,0);CHKERRQ(ierr);
+      MatView(ft1->localG,PETSC_VIEWER_STDOUT_SELF);
+    }
+    ierr = MPI_Barrier(comm);CHKERRQ(ierr);   
+    ierr = VecScatterBegin(ft->l2g_lambda,col,g_global,ADD_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
+    ierr = VecScatterEnd(ft->l2g_lambda,col,g_global,ADD_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
+
+    ierr = VecCreateSeq(PETSC_COMM_SELF,ft1->total_rbm,&asm_e);CHKERRQ(ierr);
+    ierr = VecScatterBegin(ft->l2g_lambda,g_global,ft->lambda_local,INSERT_VALUES,SCATTER_REVERSE);CHKERRQ(ierr);
+    ierr = VecScatterEnd(ft->l2g_lambda,g_global,ft->lambda_local,INSERT_VALUES,SCATTER_REVERSE);CHKERRQ(ierr);
+    if (ft1->n_rbm) {
+      ierr = VecCreateSeq(PETSC_COMM_SELF,ft1->n_rbm,&localv);CHKERRQ(ierr);
+      ierr = MatMultTranspose(ft1->localG,ft->lambda_local,localv);CHKERRQ(ierr);   
+      ierr = VecGetArrayRead(localv,&sbuff);CHKERRQ(ierr);
+    }
+    ierr = VecGetArray(asm_e,&rbuff);CHKERRQ(ierr); 
+    ierr = MPI_Allgatherv(sbuff,ft1->n_rbm,MPIU_SCALAR,rbuff,ft1->count_rbm,ft1->displ,MPIU_SCALAR,comm);CHKERRQ(ierr);
+    ierr = VecRestoreArray(asm_e,&rbuff);CHKERRQ(ierr);
+    if (ft1->n_rbm) {
+      ierr = VecRestoreArrayRead(localv,&sbuff);CHKERRQ(ierr);
+      ierr = VecDestroy(&localv);CHKERRQ(ierr);
+    }
+
+    ierr = FETI1ApplyCoarseProblem_Private(ft,asm_e,y_g2);CHKERRQ(ierr);
+
+    PetscPrintf(PETSC_COMM_WORLD,"\n-------------------->>>>>       GLOBAL VECTOR \n");
+    VecView(g_global,PETSC_VIEWER_STDOUT_WORLD);
+    PetscPrintf(PETSC_COMM_WORLD,"\n-------------------->>>>>       FIRST PROY VECTOR \n");
+    VecView(y_g2,PETSC_VIEWER_STDOUT_WORLD);
+    
+    /* TEST B */
+    PetscPrintf(PETSC_COMM_WORLD,"\n==================================================\n");
+    PetscPrintf(PETSC_COMM_WORLD,"\n                    TEST B \n");
+    PetscPrintf(PETSC_COMM_WORLD,"==================================================\n");
+    ierr = FETI1Project_RBM(ft,g_global,y_g);CHKERRQ(ierr);
+    VecView(y_g,PETSC_VIEWER_STDOUT_WORLD);
+    ierr = VecDestroy(&g_global);CHKERRQ(ierr);
+    ierr = VecDestroy(&y_g);CHKERRQ(ierr);
+    ierr = VecDestroy(&y_g2);CHKERRQ(ierr);
+    ierr = VecDestroy(&col);CHKERRQ(ierr);
+  }
+#endif
+  
+  ierr = KSPSetTolerances(ft->ksp_interface,1e-8,0,PETSC_DEFAULT,1000);CHKERRQ(ierr);
   ierr = KSPSolve(ft->ksp_interface,ft->d,ft->lambda_global);CHKERRQ(ierr);
   
   PetscFunctionReturn(0);
@@ -145,6 +246,7 @@ PetscErrorCode FETICreate_FETI1(FETI ft)
   ierr      = PetscNewLog(ft,&feti1);CHKERRQ(ierr);
   ft->data  = (void*)feti1;
 
+  feti1->rbm                   = 0;
   feti1->localG                = 0;
   feti1->Gholder               = 0;
   feti1->neigh_holder          = 0;
@@ -512,7 +614,7 @@ static PetscErrorCode FETI1ComputeMatrixGandRhsE_Private(FETI ft)
   Subdomain      sd = ft->subdomain;
   PetscInt       rank;
   MPI_Comm       comm;
-  Mat            rbm,x; 
+  Mat            x; 
   FETI_1         *ft1 = (FETI_1*)ft->data;
   
   PetscFunctionBegin;
@@ -524,22 +626,22 @@ static PetscErrorCode FETI1ComputeMatrixGandRhsE_Private(FETI ft)
   ierr   = MatMumpsGetInfog(ft1->F_neumann,28,&ft1->n_rbm);CHKERRQ(ierr);
   if(ft1->n_rbm){
     /* Compute rigid body modes */
-    ierr = MatCreateSeqDense(PETSC_COMM_SELF,sd->n,ft1->n_rbm,NULL,&rbm);CHKERRQ(ierr);
-    ierr = MatDuplicate(rbm,MAT_DO_NOT_COPY_VALUES,&x);CHKERRQ(ierr);
-    ierr = MatAssemblyBegin(rbm,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
-    ierr = MatAssemblyEnd(rbm,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
+    ierr = MatCreateSeqDense(PETSC_COMM_SELF,sd->n,ft1->n_rbm,NULL,&ft1->rbm);CHKERRQ(ierr);
+    ierr = MatDuplicate(ft1->rbm,MAT_DO_NOT_COPY_VALUES,&x);CHKERRQ(ierr);
+    ierr = MatAssemblyBegin(ft1->rbm,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
+    ierr = MatAssemblyEnd(ft1->rbm,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
     ierr = MatMumpsSetIcntl(ft1->F_neumann,25,-1);CHKERRQ(ierr);
-    ierr = MatMatSolve(ft1->F_neumann,x,rbm);CHKERRQ(ierr);
+    ierr = MatMatSolve(ft1->F_neumann,x,ft1->rbm);CHKERRQ(ierr);
     ierr = MatDestroy(&x);CHKERRQ(ierr);
 
     /* compute matrix localG */
-    ierr = MatGetSubMatrix(rbm,sd->is_B_local,NULL,MAT_INITIAL_MATRIX,&x);CHKERRQ(ierr);
+    ierr = MatGetSubMatrix(ft1->rbm,sd->is_B_local,NULL,MAT_INITIAL_MATRIX,&x);CHKERRQ(ierr);
     ierr = MatCreateSeqDense(PETSC_COMM_SELF,ft->n_lambda_local,ft1->n_rbm,NULL,&ft1->localG);CHKERRQ(ierr);
     ierr = MatMatMult(ft->B_Ddelta,x,MAT_REUSE_MATRIX,PETSC_DEFAULT,&ft1->localG);CHKERRQ(ierr);    
 
     /* compute matrix local_e */
     ierr = VecCreateSeq(PETSC_COMM_SELF,ft1->n_rbm,&ft1->local_e);CHKERRQ(ierr);
-    ierr = MatMultTranspose(rbm,sd->localRHS,ft1->local_e);CHKERRQ(ierr);
+    ierr = MatMultTranspose(ft1->rbm,sd->localRHS,ft1->local_e);CHKERRQ(ierr);
     
     /* if(rank==3){ */
     /*   PetscPrintf(PETSC_COMM_SELF,"\n==================================================\n"); */
@@ -549,7 +651,6 @@ static PetscErrorCode FETI1ComputeMatrixGandRhsE_Private(FETI ft)
     /*   VecView(ft1->local_e,PETSC_VIEWER_STDOUT_SELF); */
     /* } */
     ierr = MatDestroy(&x);CHKERRQ(ierr);
-    ierr = MatDestroy(&rbm);CHKERRQ(ierr);
   }
   PetscFunctionReturn(0);
 }
@@ -815,6 +916,7 @@ static PetscErrorCode FETI1SetUpCoarseProblem_Private(FETI ft)
     ierr = MatAssemblyEnd(aux_mat,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
 
     ierr = MatCreateSeqDense(PETSC_COMM_SELF,ft1->n_rbm,localnnz,NULL,&result);CHKERRQ(ierr);
+    PetscPrintf(PETSC_COMM_SELF,"\n################# printing size, ft1->n_rbm: %d, localnnz: %d\n",ft1->n_rbm,localnnz);
     ierr = MatTransposeMatMult(ft1->localG,aux_mat,MAT_REUSE_MATRIX,PETSC_DEFAULT,&result);CHKERRQ(ierr);
     ierr = MatDestroy(&aux_mat);CHKERRQ(ierr);
     ierr = PetscFree(idxm);CHKERRQ(ierr);
@@ -957,7 +1059,7 @@ static PetscErrorCode FETI1FactorizeCoarseProblem_Private(FETI ft)
 
    Input Parameter:
 .  ft       - the FETI context
-.  v_local  - the input vector (in this case v is the local part of a distributed vector)
+.  v_local  - the input vector (in this case v is a local copy of the global assembled vector)
 
    Output Parameter:
 .  r_global  - the output vector. 
@@ -976,12 +1078,16 @@ static PetscErrorCode FETI1ApplyCoarseProblem_Private(FETI ft,Vec v_local,Vec r_
   Vec                v0;    /* vec of dimension n_rbm */
   Vec                r_local,vec_holder;
   IS                 subset;
+  PetscMPIInt        rank;
+  MPI_Comm           comm;
   PetscInt           i,j,idx0,idx1,*indices;
   const PetscScalar  *m_pointer; 
   
   PetscFunctionBegin;
   if(!ft1->F_coarse) SETERRQ(PetscObjectComm((PetscObject)ft),PETSC_ERR_ARG_WRONGSTATE,"Error: FETI1FactorizeCoarseProblem_Private() must be first called");
-
+  ierr = PetscObjectGetComm((PetscObject)ft,&comm);CHKERRQ(ierr);
+  ierr = MPI_Comm_rank(comm,&rank);CHKERRQ(ierr);
+  
   /* apply (G^T*G)^{-1}: compute v_rbm = (G^T*G)^{-1}*v */
   ierr = VecCreateSeq(PETSC_COMM_SELF,ft1->total_rbm,&v_rbm);CHKERRQ(ierr);
 #if defined(PETSC_HAVE_MUMPS)
@@ -994,7 +1100,7 @@ static PetscErrorCode FETI1ApplyCoarseProblem_Private(FETI ft,Vec v_local,Vec r_
   ierr = PetscMalloc1(ft1->max_n_rbm,&indices);CHKERRQ(ierr);
   /** mulplying by localG for the current processor */
   if(ft1->n_rbm) {
-    for (i=0;i<ft1->n_rbm;i++) indices[i] = ft1->displ[0] + i;
+    for (i=0;i<ft1->n_rbm;i++) indices[i] = ft1->displ[rank] + i;
     ierr = ISCreateGeneral(PETSC_COMM_SELF,ft1->n_rbm,indices,PETSC_USE_POINTER,&subset);CHKERRQ(ierr);
     ierr = VecGetSubVector(v_rbm,subset,&v0);CHKERRQ(ierr);
     ierr = MatMult(ft1->localG,v0,r_local);CHKERRQ(ierr);
@@ -1022,9 +1128,34 @@ static PetscErrorCode FETI1ApplyCoarseProblem_Private(FETI ft,Vec v_local,Vec r_
   
   ierr = VecAssemblyBegin(r_local);CHKERRQ(ierr);
   ierr = VecAssemblyEnd(r_local);CHKERRQ(ierr);
-  ierr = VecScatterBegin(ft->l2g_lambda,r_local,r_global,INSERT_VALUES,SCATTER_FORWARD_LOCAL);CHKERRQ(ierr);
-  ierr = VecScatterEnd(ft->l2g_lambda,r_local,r_global,INSERT_VALUES,SCATTER_FORWARD_LOCAL);CHKERRQ(ierr);
 
+  /* BEGIN ------ r_local to r_global portion that is local -------- */
+  {
+    PetscInt    low,high;
+    VecScatter  l2g_ownedLambda;
+    IS          is_owned_lambda_global;
+    IS          is_owned_lambda_local;
+    ierr = VecGetOwnershipRange(r_global,&low,&high);CHKERRQ(ierr);
+    ierr = ISCreateStride(PETSC_COMM_SELF,high-low,low,1,&is_owned_lambda_global);CHKERRQ(ierr);
+    ierr = ISGlobalToLocalMappingApplyIS(ft->mapping_lambda,IS_GTOLM_MASK,is_owned_lambda_global,&is_owned_lambda_local);CHKERRQ(ierr);
+    if(rank==1){
+    PetscPrintf(PETSC_COMM_SELF,"\n==================================================\n");
+    ISView(is_owned_lambda_global,PETSC_VIEWER_STDOUT_SELF);
+    PetscPrintf(PETSC_COMM_SELF,"\n==================================================\n");
+    ISView(is_owned_lambda_local,PETSC_VIEWER_STDOUT_SELF);
+    }
+    ierr = VecScatterCreate(r_local,is_owned_lambda_local,r_global,is_owned_lambda_global,&l2g_ownedLambda);CHKERRQ(ierr);
+    
+    ierr = ISDestroy(&is_owned_lambda_local);CHKERRQ(ierr);
+    ierr = ISDestroy(&is_owned_lambda_global);CHKERRQ(ierr);
+    
+    ierr = VecScatterBegin(l2g_ownedLambda,r_local,r_global,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);//_LOCAL
+    ierr = VecScatterEnd(l2g_ownedLambda,r_local,r_global,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);//_LOCAL
+
+    ierr = VecScatterDestroy(&l2g_ownedLambda);CHKERRQ(ierr);
+  }
+  /* END ------ r_local to r_global portion that is local -------- */
+  
   ierr = PetscFree(indices);CHKERRQ(ierr);
   ierr = VecDestroy(&v_rbm);CHKERRQ(ierr);
   ierr = VecDestroy(&r_local);CHKERRQ(ierr);
@@ -1104,14 +1235,18 @@ PetscErrorCode FETI1Project_RBM(void* ft_ctx, Vec g_global, Vec y)
   FETI              ft   = (FETI)ft_ctx; 
   FETI_1            *ft1 = (FETI_1*)ft->data;
   Vec               asm_e;
-  Vec               localv,y_local;
+  Vec               localv,y_local,y_local2;
   PetscScalar       *rbuff;
   const PetscScalar *sbuff;
   MPI_Comm          comm;
+  PetscInt          localsize;
+  PetscMPIInt       rank;
   
   PetscFunctionBegin;
   PetscValidHeaderSpecific(ft,FETI_CLASSID,1);
   ierr = PetscObjectGetComm((PetscObject)ft,&comm);CHKERRQ(ierr);
+  ierr = MPI_Comm_rank(comm,&rank);CHKERRQ(ierr);
+  
   ierr = VecCreateSeq(PETSC_COMM_SELF,ft1->total_rbm,&asm_e);CHKERRQ(ierr);
   ierr = VecScatterBegin(ft->l2g_lambda,g_global,ft->lambda_local,INSERT_VALUES,SCATTER_REVERSE);CHKERRQ(ierr);
   ierr = VecScatterEnd(ft->l2g_lambda,g_global,ft->lambda_local,INSERT_VALUES,SCATTER_REVERSE);CHKERRQ(ierr);
@@ -1129,20 +1264,29 @@ PetscErrorCode FETI1Project_RBM(void* ft_ctx, Vec g_global, Vec y)
   }
 
   ierr = FETI1ApplyCoarseProblem_Private(ft,asm_e,y);CHKERRQ(ierr);
-  ierr = VecDuplicate(ft->lambda_local,&y_local);CHKERRQ(ierr);
-  ierr = VecSet(y_local,0.0);CHKERRQ(ierr);
-  ierr = VecScatterBegin(ft->l2g_lambda,y,y_local,INSERT_VALUES,SCATTER_REVERSE_LOCAL);CHKERRQ(ierr);
-  ierr = VecScatterEnd(ft->l2g_lambda,y,y_local,INSERT_VALUES,SCATTER_REVERSE_LOCAL);CHKERRQ(ierr); 
-  ierr = VecAYPX(y_local,-1,ft->lambda_local);CHKERRQ(ierr);
-  ierr = VecScatterBegin(ft->l2g_lambda,y_local,y,INSERT_VALUES,SCATTER_FORWARD_LOCAL);CHKERRQ(ierr);
-  ierr = VecScatterEnd(ft->l2g_lambda,y_local,y,INSERT_VALUES,SCATTER_FORWARD_LOCAL);CHKERRQ(ierr);
 
+  ierr = VecGetLocalSize(g_global,&localsize);CHKERRQ(ierr);
+  ierr = VecCreateSeq(PETSC_COMM_SELF,localsize,&y_local);CHKERRQ(ierr);
+  ierr = VecDuplicate(y_local,&y_local2);CHKERRQ(ierr);
+  
+  ierr = VecGetLocalVector(g_global,y_local2);CHKERRQ(ierr);
+
+  VecSeqViewSynchronized(comm,y_local2);
+
+  ierr = VecGetLocalVector(y,y_local);CHKERRQ(ierr);
+  
+  ierr = VecAYPX(y_local,-1,y_local2);CHKERRQ(ierr);
+
+  VecRestoreLocalVector(g_global,y_local2);
+  VecRestoreLocalVector(y,y_local);
+  
   //  VecView(y,PETSC_VIEWER_STDOUT_WORLD);
   /* VecSeqViewSynchronized(ft1->floatingComm,ft1->local_e); */
   /* VecSeqViewSynchronized(ft1->floatingComm,asm_e); */
   
   ierr = VecDestroy(&asm_e);CHKERRQ(ierr);
   ierr = VecDestroy(&y_local);CHKERRQ(ierr);
+  ierr = VecDestroy(&y_local2);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 
