@@ -478,6 +478,101 @@ PetscErrorCode FETICreateGlobalWorkingVec(FETI ft,Vec vec)
 
 
 #undef  __FUNCT__
+#define __FUNCT__ "FETISetGlobalSolutionVector"
+/*@
+   FETISetGlobalSolutionVector - Sets the global (distributed)
+   solution vector. The global working vector must be set before
+   calling FETISetUp.
+
+   Input Parameter:
+.  ft  - The FETI context
+.  vec - The global vector
+
+   Level: intermediate
+
+.keywords: FETI, working global vector
+@*/
+PetscErrorCode FETISetGlobalSolutionVector(FETI ft,Vec vec)
+{
+  PetscErrorCode ierr;
+  
+  PetscFunctionBegin;
+  PetscValidHeaderSpecific(ft,FETI_CLASSID,1);
+  PetscValidHeaderSpecific(vec,VEC_CLASSID,2);
+  ft->subdomain->vec1_global = vec;
+  ierr = PetscObjectReference((PetscObject)vec);CHKERRQ(ierr);
+  PetscFunctionReturn(0);
+}
+
+
+#undef  __FUNCT__
+#define __FUNCT__ "FETIGetKSPInterface"
+/*@
+   FETIGetKSPInterface - Gets the KSP created for solving the interface problem. It increments the 
+   reference count of the KSP object, so the returned object must be destroyed.
+
+   Input: 
+.  ft - the FETI context
+
+   Output:
+.  ksp_interface  - the KSP for the interface problem
+
+   Level: basic
+
+.keywords: FETI
+
+.seealso: FETISetUp
+@*/
+PetscErrorCode FETIGetKSPInterface(FETI ft,KSP *ksp_interface)
+{
+  PetscErrorCode ierr;
+  
+  PetscFunctionBegin;
+  PetscValidHeaderSpecific(ft,FETI_CLASSID,1);
+  if (!ft->ksp_interface) SETERRQ(PetscObjectComm((PetscObject)ft),PETSC_ERR_ARG_WRONGSTATE,"Error: ksp_interface has not been yet created.");
+  *ksp_interface = ft->ksp_interface;
+  ierr = PetscObjectReference((PetscObject)ft->ksp_interface);CHKERRQ(ierr);
+  PetscFunctionReturn(0);
+}
+
+
+#undef  __FUNCT__
+#define __FUNCT__ "FETISolve"
+/*@
+   FETISolve - Computes the primal solution by using the FETI method.
+
+   Input: 
+.  ft - the FETI context
+
+   Output:
+.  u  - vector to store the solution
+
+   Level: basic
+
+.keywords: FETI
+
+.seealso: FETISetUp
+@*/
+PetscErrorCode FETISolve(FETI ft,Vec u)
+{
+  PetscErrorCode ierr;
+  
+  PetscFunctionBegin;
+  PetscValidHeaderSpecific(ft,FETI_CLASSID,1);
+  PetscValidHeaderSpecific(u,VEC_CLASSID,2);
+  if (!ft->setupcalled) SETERRQ(PetscObjectComm((PetscObject)ft),PETSC_ERR_ARG_WRONGSTATE,"Error: FETISetUp() must be first called.");
+  if (ft->ops->computesolution) {
+    ierr = (*ft->ops->computesolution)(ft,u);CHKERRQ(ierr);
+  } else {
+    SETERRQ(PetscObjectComm((PetscObject)ft),PETSC_ERR_ARG_WRONGSTATE,"Error: Compute Solution of specific FETI method not found.");
+  }
+  PetscFunctionReturn(0);
+}
+
+
+
+
+#undef  __FUNCT__
 #define __FUNCT__ "FETISetLocalMat"
 /*@
    FETISetLocalMat - Sets the local system matrix for the current process.

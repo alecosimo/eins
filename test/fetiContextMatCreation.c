@@ -1,5 +1,5 @@
 static char help[] = "Test the FETI context creation providing the RHS and the system matrix\n\n\
-Discrete system: 1D, 2D or 3D laplacian, discretized with spectral elements.\n\
+Discrete system: 1D, 2D or 3D poisson equation, discretized with spectral elements.\n\
 Spectral degree can be specified by passing values to -p option.\n\
 Global problem either with dirichlet boundary conditions on one side or in the pure neumann case (depending on runtime parameters).\n\
 Domain is [-nex,nex]x[-ney,ney]x[-nez,nez]: ne_ number of elements in _ direction.\n\
@@ -457,7 +457,7 @@ static PetscErrorCode ComputeDirichletLocalRows(DomainData dd,PetscInt **dirichl
 
 #undef __FUNCT__
 #define __FUNCT__ "ComputeMatrixAndRHS"
-static PetscErrorCode ComputeMatrixAndRHS(DomainData dd,Mat* localA,Vec* localRHS)
+static PetscErrorCode ComputeMatrixAndRHS(DomainData dd,Mat* localA,Vec* localRHS,PetscScalar bcond,PetscScalar source)
 {
   PetscErrorCode         ierr;
   GLLData                gll;
@@ -473,18 +473,19 @@ static PetscErrorCode ComputeMatrixAndRHS(DomainData dd,Mat* localA,Vec* localRH
   ComputeDirichletLocalRows(dd,&dirichlet,&n_dirichlet);
   localsize = dd.xm_l*dd.ym_l*dd.zm_l;
   ierr      = VecCreateSeq(PETSC_COMM_SELF,localsize,&tempRHS);CHKERRQ(ierr);
-  ierr      = VecSet(tempRHS,2);CHKERRQ(ierr);
+  ierr      = VecSet(tempRHS,source);CHKERRQ(ierr);
   ierr      = VecAssemblyBegin(tempRHS);CHKERRQ(ierr);
   ierr      = VecAssemblyEnd(tempRHS);CHKERRQ(ierr);
-
+  //MatSeqViewSynchronized(dd.gcomm,*localA);
   if (n_dirichlet) {
     ierr      = MatSetOption(*localA,MAT_SYMMETRIC,PETSC_TRUE);CHKERRQ(ierr);
     ierr      = MatSetOption(*localA,MAT_SPD,PETSC_TRUE);CHKERRQ(ierr);
     ierr      = VecDuplicate(tempRHS,&vfix);CHKERRQ(ierr);
-    ierr      = VecSet(vfix,-5);CHKERRQ(ierr);
+    ierr      = VecSet(vfix,bcond);CHKERRQ(ierr);
     ierr      = VecAssemblyBegin(vfix);CHKERRQ(ierr);
     ierr      = VecAssemblyEnd(vfix);CHKERRQ(ierr);
     ierr      = MatSetOption(*localA,MAT_KEEP_NONZERO_PATTERN,PETSC_TRUE);CHKERRQ(ierr);
+
     ierr      = MatZeroRowsColumns(*localA,n_dirichlet,dirichlet,1.0,vfix,tempRHS);CHKERRQ(ierr);
   } else {
     ierr = MatSetOption(*localA,MAT_SYMMETRIC,PETSC_TRUE);CHKERRQ(ierr);
@@ -498,6 +499,22 @@ static PetscErrorCode ComputeMatrixAndRHS(DomainData dd,Mat* localA,Vec* localRH
   ierr = PetscFree(gll.A);CHKERRQ(ierr);
   ierr = PetscFree(dirichlet);CHKERRQ(ierr);
   ierr = MatDestroy(&gll.elem_mat);CHKERRQ(ierr);
+  PetscFunctionReturn(0);
+}
+
+
+#undef __FUNCT__
+#define __FUNCT__ "ComputeLocalExactSolution"
+static PetscErrorCode ComputeLocalExactSolution(DomainData dd,Vec u,PetscScalar source,PetscScalar boundary)
+{
+  PetscErrorCode  ierr;
+  PetscInt        i,j,k,localsize;
+  
+  PetscFunctionBeginUser;
+
+  localsize = dd.xm_l*dd.ym_l*dd.zm_l;
+  /* for (i=0;i<) */
+
   PetscFunctionReturn(0);
 }
 
@@ -569,11 +586,13 @@ int main(int argc,char **args)
   PetscErrorCode           ierr;
   DomainData               dd;
   /* PetscReal                norm,maxeig,mineig;*/
-  Mat                      localA   = 0;
-  Vec                      localRHS = 0, u_B = 0, global_sol = 0;
-  ISLocalToGlobalMapping   mapping  = 0;
+  Mat                      localA=0;
+  Vec                      localRHS=0,u_local=0,global_sol=0,u_exact_local=0;
+  ISLocalToGlobalMapping   mapping=0;
   FETI                     feti;
-
+  KSP                      ksp_interface;
+  PetscScalar              boundary=-5,source=0;
+  
   /* Init EINS */
   EinsInitialize(&argc,&args,(char*)0,help);
   /* Initialize DomainData */
@@ -590,16 +609,18 @@ int main(int argc,char **args)
   printf("STARTS: %d %d %d\n",dd.startx,dd.starty,dd.startz);
 #endif
   /* assemble global matrix */
-  ierr = ComputeMatrixAndRHS(dd,&localA,&localRHS);CHKERRQ(ierr);
-  /* ierr = MatSeqViewSynchronized(localA);CHKERRQ(ierr); */
-  /* ierr = VecSeqViewSynchronized(localRHS);CHKERRQ(ierr); */
+  ierr = PetscOptionsGetScalar (NULL,"-boundary",&boundary,NULL);CHKERRQ(ierr);
+  ierr = PetscOptionsGetScalar (NULL,"-source",&source,NULL);CHKERRQ(ierr);
+  ierr = ComputeMatrixAndRHS(dd,&localA,&localRHS,boundary,source);CHKERRQ(ierr);
   /* Compute global mapping of local dofs */
   ierr = ComputeMapping(dd,&mapping);CHKERRQ(ierr);
-
+  
+  ierr = VecDuplicate(localRHS,&u_local);CHKERRQ(ierr);
+  ierr = VecDuplicate(localRHS,&u_exact_local);CHKERRQ(ierr);
+  ierr = ComputeLocalExactSolution(dd,u_exact_local,source,boundary);CHKERRQ(ierr);
   /* Setting FETI */
   ierr = FETICreate(dd.gcomm,&feti);CHKERRQ(ierr);
   ierr = FETISetType(feti,FETI1);CHKERRQ(ierr);
-  /* Set default options */
   ierr = FETI1SetDefaultOptions(&argc,&args,NULL);CHKERRQ(ierr);
   ierr = FETISetFromOptions(feti);CHKERRQ(ierr);
   ierr = FETISetLocalMat(feti,localA);CHKERRQ(ierr);
@@ -607,24 +628,19 @@ int main(int argc,char **args)
   ierr = FETISetInterfaceSolver(feti,KSPPJCG,PCFETI_DIRICHLET);CHKERRQ(ierr);//
   ierr = FETISetMapping(feti,mapping);CHKERRQ(ierr);
   ierr = ISCreateMPIVec(dd.gcomm,dd.xm*dd.ym*dd.zm,mapping,&global_sol);CHKERRQ(ierr);
-  ierr = FETICreateGlobalWorkingVec(feti,global_sol);CHKERRQ(ierr);
+  ierr = FETISetGlobalSolutionVector(feti,global_sol);CHKERRQ(ierr);
   ierr = FETISetUp(feti);CHKERRQ(ierr);
+  ierr = FETIGetKSPInterface(feti,&ksp_interface);CHKERRQ(ierr);
+  ierr = KSPSetTolerances(ksp_interface,1e-10,0,PETSC_DEFAULT,1000);CHKERRQ(ierr);
+  ierr = FETISolve(feti,u_local);CHKERRQ(ierr);
 
-  /* Testing the VecScatters: the user will never deal explictly with these VecScatters. It is just a test. */
-  /* --->>>> accessing private members: this is illegal in this part of the code */
-  /* ierr  = VecDuplicate(feti->subdomain->vec1_B,&u_B);CHKERRQ(ierr); */
-  /* ierr  = VecScatterBegin(feti->subdomain->N_to_B,localRHS,u_B,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr); */
-  /* ierr  = VecScatterEnd(feti->subdomain->N_to_B,localRHS,u_B,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr); */
-  /* PetscPrintf(PETSC_COMM_WORLD,"\n==================================================\n"); */
-  /* PetscPrintf(PETSC_COMM_WORLD,"Printing result of VecScatter to the boundary\n"); */
-  /* PetscPrintf(PETSC_COMM_WORLD,"==================================================\n"); */
-  /* ierr  = VecSeqViewSynchronized(u_B);CHKERRQ(ierr); */
-  /* ---<<<< accessing private members: this is illegal in this part of the code */
+  ierr = VecSeqViewSynchronized(dd.gcomm,u_local);CHKERRQ(ierr);
   
   ierr = FETIDestroy(&feti);CHKERRQ(ierr);
   ierr = MatDestroy(&localA);CHKERRQ(ierr);
+  ierr = KSPDestroy(&ksp_interface);CHKERRQ(ierr);
+  ierr = VecDestroy(&u_local);CHKERRQ(ierr);
   ierr = VecDestroy(&localRHS);CHKERRQ(ierr);
-  ierr = VecDestroy(&u_B);CHKERRQ(ierr);
   ierr = VecDestroy(&global_sol);CHKERRQ(ierr);
   ierr = ISLocalToGlobalMappingDestroy(&mapping);CHKERRQ(ierr);
   ierr = EinsFinalize();CHKERRQ(ierr);

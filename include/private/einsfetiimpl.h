@@ -17,7 +17,7 @@ struct _FETIOps {
   PetscErrorCode (*setfromoptions)(PetscOptions*,FETI);
   PetscErrorCode (*destroy)(FETI);
   PetscErrorCode (*view)(FETI,PetscViewer);
-  PetscErrorCode (*buildsolution)(FETI,Vec,Vec*);
+  PetscErrorCode (*computesolution)(FETI,Vec);
 };
 
 struct _FETIMat_ctx {

@@ -8,13 +8,14 @@ static PetscErrorCode KSPSolve_PJCG(KSP);
 static PetscErrorCode KSPDestroy_PJCG(KSP);
 static PetscErrorCode KSPView_PJCG(KSP,PetscViewer);
 static PetscErrorCode KSPSetFromOptions_PJCG(PetscOptions*,KSP);
+static PetscErrorCode KSPGetResidual_PJCG(KSP,Vec*);
 
 const char *const KSPPJCGTruncationTypes[]     = {"STANDARD","NOTAY","KSPPJCGTrunctionTypes","KSP_PJCG_TRUNC_TYPE_",0};
 
-#define KSPPJCG_DEFAULT_MMAX 500          /* maximum number of search directions to keep */
-#define KSPPJCG_DEFAULT_NPREALLOC 50     /* number of search directions to preallocate */
+#define KSPPJCG_DEFAULT_MMAX 30          /* maximum number of search directions to keep */
+#define KSPPJCG_DEFAULT_NPREALLOC 10     /* number of search directions to preallocate */
 #define KSPPJCG_DEFAULT_VECB 5           /* number of search directions to allocate each time new direction vectors are needed */
-#define KSPPJCG_DEFAULT_TRUNCSTRAT KSP_PJCG_TRUNC_TYPE_STANDARD /* KSP_PJCG_TRUNC_TYPE_NOTAY */
+#define KSPPJCG_DEFAULT_TRUNCSTRAT KSP_PJCG_TRUNC_TYPE_NOTAY
 
 #undef __FUNCT__
 #define __FUNCT__ "KSPGetProjection_PJCG"
@@ -23,6 +24,20 @@ static PetscErrorCode KSPGetProjection_PJCG(KSP ksp,KSP_PROJECTION **pj)
   KSP_PJCG       *cg = (KSP_PJCG*)ksp->data; 
   PetscFunctionBegin;
   *pj = &cg->pj;
+  PetscFunctionReturn(0);
+}
+
+
+#undef __FUNCT__
+#define __FUNCT__ "KSPGetResidual_PJCG"
+static PetscErrorCode KSPGetResidual_PJCG(KSP ksp,Vec *res)
+{
+  PetscErrorCode  ierr;
+  
+  PetscFunctionBegin;
+  if (!ksp->work) SETERRQ(PetscObjectComm((PetscObject)ksp),1,"The residual vector is not yet allocated (=NULL).");
+  *res = ksp->work[0];
+  ierr = PetscObjectReference((PetscObject)ksp->work[0]);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 
@@ -255,6 +270,7 @@ static PetscErrorCode KSPDestroy_PJCG(KSP ksp)
   VecDestroyVecs(ksp->nwork,&ksp->work);
 
   ierr = PetscObjectComposeFunction((PetscObject)ksp,"KSPGetProjecion_C",NULL);CHKERRQ(ierr);
+  ierr = PetscObjectComposeFunction((PetscObject)ksp,"KSPGetResidual_C",NULL);CHKERRQ(ierr);
   
   /* Destroy P and C vectors and the arrays that manage pointers to them */
   if (cg->nvecs){
@@ -557,11 +573,11 @@ PETSC_EXTERN PetscErrorCode KSPCreate_PJCG(KSP ksp)
   cg->pj.project                      = 0;
   cg->pj.reproject                    = 0;
 
-  //#if !defined(PETSC_USE_COMPLEX)
+#if !defined(PETSC_USE_COMPLEX)
   cg->type       = KSP_CG_SYMMETRIC;
-/* #else */
-/*   cg->type       = KSP_CG_HERMITIAN; */
-/* #endif */
+#else
+  cg->type       = KSP_CG_HERMITIAN;
+#endif
   cg->mmax       = KSPPJCG_DEFAULT_MMAX;
   cg->nprealloc  = KSPPJCG_DEFAULT_NPREALLOC;
   cg->nvecs      = 0;
@@ -569,12 +585,10 @@ PETSC_EXTERN PetscErrorCode KSPCreate_PJCG(KSP ksp)
   cg->nchunks    = 0;
   cg->truncstrat = KSPPJCG_DEFAULT_TRUNCSTRAT;
 
-  ierr = KSPSetSupportedNorm(ksp,KSP_NORM_PRECONDITIONED,PC_LEFT,2);CHKERRQ(ierr);
   ierr = KSPSetSupportedNorm(ksp,KSP_NORM_UNPRECONDITIONED,PC_LEFT,1);CHKERRQ(ierr);
-  ierr = KSPSetSupportedNorm(ksp,KSP_NORM_NATURAL,PC_LEFT,1);CHKERRQ(ierr);
-  ierr = KSPSetSupportedNorm(ksp,KSP_NORM_NONE,PC_LEFT,1);CHKERRQ(ierr);
 
   ierr = PetscObjectComposeFunction((PetscObject)ksp,"KSPGetProjecion_C",KSPGetProjection_PJCG);CHKERRQ(ierr);
+  ierr = PetscObjectComposeFunction((PetscObject)ksp,"KSPGetResidual_C",KSPGetResidual_PJCG);CHKERRQ(ierr);
   
   ksp->ops->setup          = KSPSetUp_PJCG;
   ksp->ops->solve          = KSPSolve_PJCG;

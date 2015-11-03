@@ -69,6 +69,9 @@ PETSC_EXTERN PetscErrorCode FETISetLocalMat(FETI,Mat);
 PETSC_EXTERN PetscErrorCode FETICreateGlobalWorkingVec(FETI,Vec);
 PETSC_EXTERN PetscErrorCode FETIFinalizePackage(void);
 PETSC_EXTERN PetscErrorCode FETIInitializePackage(void);
+PETSC_EXTERN PetscErrorCode FETISetGlobalSolutionVector(FETI,Vec);
+PETSC_EXTERN PetscErrorCode FETIGetKSPInterface(FETI,KSP*);
+PETSC_EXTERN PetscErrorCode FETISolve(FETI,Vec);
 /* FETI1 stuff */
 PETSC_EXTERN PetscErrorCode FETI1SetDefaultOptions(int*,char***,const char[]);
 /* scaling */
