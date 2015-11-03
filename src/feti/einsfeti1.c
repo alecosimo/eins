@@ -1129,65 +1129,8 @@ static PetscErrorCode FETI1ApplyCoarseProblem_Private(FETI ft,Vec v_local,Vec r_
   ierr = VecAssemblyBegin(r_local);CHKERRQ(ierr);
   ierr = VecAssemblyEnd(r_local);CHKERRQ(ierr);
 
-  /* BEGIN ------ r_local to r_global portion that is local -------- */
-  {
-    PetscInt    low,high;
-    VecScatter  l2g_ownedLambda;
-    IS          is_owned_lambda_global;
-    IS          is_owned_lambda_local;
-
-    ierr = VecGetOwnershipRange(r_global,&low,&high);CHKERRQ(ierr);
-    ierr = ISCreateStride(PETSC_COMM_SELF,high-low,low,1,&is_owned_lambda_global);CHKERRQ(ierr);
-
-    ierr = ISGlobalToLocalMappingApplyIS(ft->mapping_lambda,IS_GTOLM_DROP,is_owned_lambda_global,&is_owned_lambda_local);CHKERRQ(ierr);
-    ierr = ISDestroy(&is_owned_lambda_global);CHKERRQ(ierr);
-    ierr = ISLocalToGlobalMappingApplyIS(ft->mapping_lambda,is_owned_lambda_local,&is_owned_lambda_global);CHKERRQ(ierr);   
-
-    /*------------->>>>>>>>>>>>>>>>>>*/
-    if(rank==0){
-      PetscPrintf(PETSC_COMM_SELF,"\n==================================================\n");
-      ISView(is_owned_lambda_global,PETSC_VIEWER_STDOUT_SELF);
-      PetscPrintf(PETSC_COMM_SELF,"\n==================================================\n");
-      ISView(is_owned_lambda_local,PETSC_VIEWER_STDOUT_SELF);
-    }
-    MPI_Barrier(comm);
-    if(rank==1){
-      PetscPrintf(PETSC_COMM_SELF,"\n==================================================\n");
-      ISView(is_owned_lambda_global,PETSC_VIEWER_STDOUT_SELF);
-      PetscPrintf(PETSC_COMM_SELF,"\n==================================================\n");
-      ISView(is_owned_lambda_local,PETSC_VIEWER_STDOUT_SELF);
-    }
-    MPI_Barrier(comm);
-    if(rank==2){
-      PetscPrintf(PETSC_COMM_SELF,"\n==================================================\n");
-      ISView(is_owned_lambda_global,PETSC_VIEWER_STDOUT_SELF);
-      PetscPrintf(PETSC_COMM_SELF,"\n==================================================\n");
-      ISView(is_owned_lambda_local,PETSC_VIEWER_STDOUT_SELF);
-    }
-    MPI_Barrier(comm);
-        if(rank==3){
-      PetscPrintf(PETSC_COMM_SELF,"\n==================================================\n");
-      ISView(is_owned_lambda_global,PETSC_VIEWER_STDOUT_SELF);
-      PetscPrintf(PETSC_COMM_SELF,"\n==================================================\n");
-      ISView(is_owned_lambda_local,PETSC_VIEWER_STDOUT_SELF);
-    }
-    MPI_Barrier(comm);
-    /*------------->>>>>>>>>>>>>>>>>>*/
-
-    ierr = VecScatterCreate(r_local,is_owned_lambda_local,r_global,is_owned_lambda_global,&l2g_ownedLambda);CHKERRQ(ierr);
-    
-    ierr = ISDestroy(&is_owned_lambda_local);CHKERRQ(ierr);
-    ierr = ISDestroy(&is_owned_lambda_global);CHKERRQ(ierr);
-    
-    ierr = VecScatterBegin(l2g_ownedLambda,r_local,r_global,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);//_LOCAL
-    ierr = VecScatterEnd(l2g_ownedLambda,r_local,r_global,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);//_LOCAL
-
-    //ierr = VecScatterBegin(ft->l2g_lambda,r_local,r_global,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);//_LOCAL
-    //ierr = VecScatterEnd(ft->l2g_lambda,r_local,r_global,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);//_LOCAL
-
-    ierr = VecScatterDestroy(&l2g_ownedLambda);CHKERRQ(ierr);
-  }
-  /* END ------ r_local to r_global portion that is local -------- */
+  ierr = VecScatterBegin(ft->l2g_lambda,r_local,r_global,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
+  ierr = VecScatterEnd(ft->l2g_lambda,r_local,r_global,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
   
   ierr = PetscFree(indices);CHKERRQ(ierr);
   ierr = VecDestroy(&v_rbm);CHKERRQ(ierr);
