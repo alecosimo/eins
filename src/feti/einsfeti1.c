@@ -1287,7 +1287,6 @@ static PetscErrorCode FETIComputeSolution_FETI1(FETI ft, Vec u){
   ierr = KSPSolve(ft->ksp_interface,ft->d,ft->lambda_global);CHKERRQ(ierr);
   /* Get residual of the interface problem */
   ierr = KSPGetResidual(ft->ksp_interface,&ft1->res_interface);CHKERRQ(ierr);
-  VecView(ft1->res_interface,PETSC_VIEWER_STDOUT_WORLD);
   /* compute alpha_local */
   ierr = FETI1ComputeAlpha_Private(ft);CHKERRQ(ierr);
   /* computing B_delta^T*lambda */
@@ -1353,7 +1352,7 @@ static PetscErrorCode FETI1ComputeAlpha_Private(FETI ft){
 
   ierr = VecGetArrayRead(alpha_g,&sbuff);CHKERRQ(ierr);
   ierr = VecGetArray(ft1->alpha_local,&rbuff);CHKERRQ(ierr);
-  ierr = PetscMemcpy(rbuff,sbuff+ft1->displ_f[rank],ft1->count_f_rbm[rank]);CHKERRQ(ierr);
+  ierr = PetscMemcpy(rbuff,sbuff+ft1->displ_f[rank],sizeof(PetscScalar)*ft1->count_f_rbm[rank]);CHKERRQ(ierr);
   ierr = VecRestoreArray(ft1->alpha_local,&rbuff);CHKERRQ(ierr);
   ierr = VecRestoreArrayRead(alpha_g,&sbuff);CHKERRQ(ierr);
   ierr = VecDestroy(&asm_g);CHKERRQ(ierr);

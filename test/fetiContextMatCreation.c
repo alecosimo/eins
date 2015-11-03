@@ -591,7 +591,7 @@ int main(int argc,char **args)
   ISLocalToGlobalMapping   mapping=0;
   FETI                     feti;
   KSP                      ksp_interface;
-  PetscScalar              boundary=-5,source=0;
+  PetscScalar              boundary=-5,source=-2;
   
   /* Init EINS */
   EinsInitialize(&argc,&args,(char*)0,help);
