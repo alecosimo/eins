@@ -183,11 +183,13 @@ PetscErrorCode  FETIScalingSetUp(FETI ft)
   const char*    def="scrho";
   const char*    scltype;
   PetscBool      flg;
-
+  MPI_Comm       comm;
+  
   PetscFunctionBegin;
   PetscValidHeaderSpecific(ft,FETI_CLASSID,1);
-  if(!sd->N_to_B) SETERRQ(PetscObjectComm((PetscObject)ft),PETSC_ERR_ARG_WRONGSTATE,"Error: SubdomainSetUp must be first called");
-  ierr = PetscOptionsBegin(PETSC_COMM_WORLD,NULL,"FETI Scaling Options","");CHKERRQ(ierr);
+  ierr  = PetscObjectGetComm((PetscObject)ft,&comm);CHKERRQ(ierr);
+  if(!sd->N_to_B) SETERRQ(comm,PETSC_ERR_ARG_WRONGSTATE,"Error: SubdomainSetUp must be first called");
+  ierr = PetscOptionsBegin(comm,NULL,"FETI Scaling Options","");CHKERRQ(ierr);
   {
   ierr = PetscOptionsFList("-feti_scaling_type","FETIScaling","FETIScalingSetUp",FETIScalingList,def,type,256,&flg);CHKERRQ(ierr);
   ierr = PetscOptionsGetReal(NULL,"-feti_scaling_factor",&ft->scaling_factor,NULL);CHKERRQ(ierr);
@@ -200,7 +202,7 @@ PetscErrorCode  FETIScalingSetUp(FETI ft)
     scltype = flg ? def : ft->scaling_type;
   }
   ierr = PetscFunctionListFind(FETIScalingList,scltype,&func);CHKERRQ(ierr);    
-  if (!func) SETERRQ1(PetscObjectComm((PetscObject)ft),PETSC_ERR_ARG_UNKNOWN_TYPE,"Unable to find requested FETIScaling type %s",scltype);
+  if (!func) SETERRQ1(comm,PETSC_ERR_ARG_UNKNOWN_TYPE,"Unable to find requested FETIScaling type %s",scltype);
   /* destroy previous scaling vector */
   ierr = VecDestroy(&ft->Wscaling);CHKERRQ(ierr);
   ierr = (*func)(ft);CHKERRQ(ierr);

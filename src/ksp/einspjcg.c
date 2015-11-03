@@ -3,6 +3,11 @@ extern PetscErrorCode KSPComputeExtremeSingularValues_CG(KSP,PetscReal*,PetscRea
 extern PetscErrorCode KSPComputeEigenvalues_CG(KSP,PetscInt,PetscReal*,PetscReal*,PetscInt*);
 
 static PetscErrorCode KSPGetProjection_PJCG(KSP,KSP_PROJECTION**);
+static PetscErrorCode KSPSetUp_PJCG(KSP);
+static PetscErrorCode KSPSolve_PJCG(KSP);
+static PetscErrorCode KSPDestroy_PJCG(KSP);
+static PetscErrorCode KSPView_PJCG(KSP,PetscViewer);
+static PetscErrorCode KSPSetFromOptions_PJCG(PetscOptions*,KSP);
 
 const char *const KSPPJCGTruncationTypes[]     = {"STANDARD","NOTAY","KSPPJCGTrunctionTypes","KSP_PJCG_TRUNC_TYPE_",0};
 
@@ -15,9 +20,7 @@ const char *const KSPPJCGTruncationTypes[]     = {"STANDARD","NOTAY","KSPPJCGTru
 #define __FUNCT__ "KSPGetProjection_PJCG"
 static PetscErrorCode KSPGetProjection_PJCG(KSP ksp,KSP_PROJECTION **pj)
 {
-  PetscErrorCode ierr;
-  KSP_PJCG       *cg = (KSP_PJCG*)ksp->data;
-  
+  KSP_PJCG       *cg = (KSP_PJCG*)ksp->data; 
   PetscFunctionBegin;
   *pj = &cg->pj;
   PetscFunctionReturn(0);
@@ -55,7 +58,7 @@ static PetscErrorCode KSPAllocateVectors_PJCG(KSP ksp, PetscInt nvecsneeded, Pet
 
 #undef __FUNCT__
 #define __FUNCT__ "KSPSetUp_PJCG"
-PetscErrorCode    KSPSetUp_PJCG(KSP ksp)
+static PetscErrorCode KSPSetUp_PJCG(KSP ksp)
 {
   PetscErrorCode ierr;
   KSP_PJCG        *cg = (KSP_PJCG*)ksp->data;
@@ -71,7 +74,7 @@ PetscErrorCode    KSPSetUp_PJCG(KSP ksp)
    note that mmax is the number of previous directions, so we add 1 for the current direction,
    and an extra 1 for the prealloc (which might be empty) */
   ierr = PetscMalloc5(cg->mmax+1,&cg->Pvecs,cg->mmax+1,&cg->Cvecs,cg->mmax+1,&cg->pPvecs,cg->mmax+1,&cg->pCvecs,cg->mmax+2,&cg->chunksizes);CHKERRQ(ierr);
-  ierr = PetscLogObjectMemory((PetscObject)ksp,2*(cg->mmax+1)*sizeof(Vec*) + 2*(cg->mmax + 1)*sizeof(Vec**) + (cg->mmax + 2)*sizeof(PetscInt));CHKERRQ(ierr);
+  ierr = PetscLogObjectMemory((PetscObject)ksp,(PetscLogDouble)(2*(cg->mmax+1)*sizeof(Vec*) + 2*(cg->mmax + 1)*sizeof(Vec**) + (cg->mmax + 2)*sizeof(PetscInt)));CHKERRQ(ierr);
 
   /* Preallocate additional work vectors */
   ierr = KSPAllocateVectors_PJCG(ksp,cg->nprealloc,cg->nprealloc);CHKERRQ(ierr);
@@ -82,7 +85,7 @@ PetscErrorCode    KSPSetUp_PJCG(KSP ksp)
   if (ksp->calc_sings) {
     /* get space to store tridiagonal matrix for Lanczos */
     ierr = PetscMalloc4(maxit,&cg->e,maxit,&cg->d,maxit,&cg->ee,maxit,&cg->dd);CHKERRQ(ierr);
-    ierr = PetscLogObjectMemory((PetscObject)ksp,2*(maxit+1)*(sizeof(PetscScalar)+sizeof(PetscReal)));CHKERRQ(ierr);
+    ierr = PetscLogObjectMemory((PetscObject)ksp,(PetscLogDouble)(2*(maxit+1)*(sizeof(PetscScalar)+sizeof(PetscReal))));CHKERRQ(ierr);
 
     ksp->ops->computeextremesingularvalues = KSPComputeExtremeSingularValues_CG;
     ksp->ops->computeeigenvalues           = KSPComputeEigenvalues_CG;
@@ -92,12 +95,12 @@ PetscErrorCode    KSPSetUp_PJCG(KSP ksp)
 
 #undef __FUNCT__
 #define __FUNCT__ "KSPSolve_PJCG"
-PetscErrorCode KSPSolve_PJCG(KSP ksp)
+static PetscErrorCode KSPSolve_PJCG(KSP ksp)
 {
   PetscErrorCode ierr;
   PetscInt       i,k,idx,mi;
   KSP_PJCG        *cg = (KSP_PJCG*)ksp->data;
-  PetscScalar    alpha=0.0,beta = 0.0,dpi,s;
+  PetscScalar    alpha=0.0,beta = 0.0,dpi;
   PetscReal      dp=0.0;
   Vec            B,R,W,Z,Zp,X,Pcurr,Ccurr;
   Mat            Amat,Pmat;
@@ -219,6 +222,18 @@ PetscErrorCode KSPSolve_PJCG(KSP ksp)
     /* Compute current C (which is W/dpi) */
     ierr = VecScale(Ccurr,1.0/dpi);CHKERRQ(ierr);              /*   w <- ci/dpi   */
 
+    /* --->>> Begin eigen values computation */
+    if (eigs) {
+      if (i > 0) {
+        if (ksp->max_it != stored_max_it) SETERRQ(PetscObjectComm((PetscObject)ksp),PETSC_ERR_SUP,"Can not change maxit AND calculate eigenvalues");
+        e[i] = PetscSqrtReal(PetscAbsScalar(beta/betaold))/alphaold;
+        d[i] = PetscSqrtReal(PetscAbsScalar(beta/betaold))*e[i] + 1.0/alpha;
+      } else {
+        d[i] = PetscSqrtReal(PetscAbsScalar(beta))*e[i] + 1.0/alpha;
+      }
+    }
+    /* ---<<< End eigen values computation */
+    
     ++i;
   } while (i<ksp->max_it);
   if (i >= ksp->max_it) ksp->reason = KSP_DIVERGED_ITS;
@@ -228,7 +243,7 @@ PetscErrorCode KSPSolve_PJCG(KSP ksp)
 
 #undef __FUNCT__
 #define __FUNCT__ "KSPDestroy_PJCG"
-PetscErrorCode KSPDestroy_PJCG(KSP ksp)
+static PetscErrorCode KSPDestroy_PJCG(KSP ksp)
 {
   PetscErrorCode ierr;
   PetscInt       i;
@@ -259,7 +274,7 @@ PetscErrorCode KSPDestroy_PJCG(KSP ksp)
 
 #undef __FUNCT__
 #define __FUNCT__ "KSPView_PJCG"
-PetscErrorCode KSPView_PJCG(KSP ksp,PetscViewer viewer)
+static PetscErrorCode KSPView_PJCG(KSP ksp,PetscViewer viewer)
 {
   KSP_PJCG        *cg = (KSP_PJCG*)ksp->data;
   PetscErrorCode ierr;
@@ -480,7 +495,7 @@ PetscErrorCode KSPPJCGGetTruncationType(KSP ksp,KSPPJCGTruncationType *truncstra
 
 #undef __FUNCT__
 #define __FUNCT__ "KSPSetFromOptions_PJCG"
-PetscErrorCode KSPSetFromOptions_PJCG(PetscOptions *PetscOptionsObject,KSP ksp)
+static PetscErrorCode KSPSetFromOptions_PJCG(PetscOptions *PetscOptionsObject,KSP ksp)
 {
   PetscErrorCode ierr;
   KSP_PJCG        *cg=(KSP_PJCG*)ksp->data;

@@ -2,6 +2,7 @@
 #define EINSSYS_H
 
 #include <petsc.h>
+#include <einsConfig.h>
 
 /* ---------------------------------------------------------------- */
 /*   Initialization of EINS */

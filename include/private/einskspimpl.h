@@ -15,7 +15,4 @@ typedef struct {
 } KSP_PROJECTION;
 
 
-PETSC_EXTERN PetscErrorCode KSPSetProjection(KSP ksp,PetscErrorCode (*project)(void*,Vec,Vec),void *ctx);
-PETSC_EXTERN PetscErrorCode KSPSetReProjection(KSP ksp,PetscErrorCode (*reproject)(void*,Vec,Vec),void *ctx);
-
 #endif/* KSPIMPL_H*/

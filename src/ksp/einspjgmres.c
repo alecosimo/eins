@@ -35,10 +35,26 @@ static PetscErrorCode KSPPJGMRESUpdateHessenberg(KSP,PetscInt,PetscBool,PetscRea
 static PetscErrorCode KSPPJGMRESBuildSoln(PetscScalar*,Vec,Vec,KSP,PetscInt);
 static PetscErrorCode KSPGMRESGetNewVectors_PJGMRES(KSP,PetscInt);
 static PetscErrorCode KSPGetProjection_PJGMRES(KSP,KSP_PROJECTION**);
+static PetscErrorCode KSPSetUp_PJGMRES(KSP);
+static PetscErrorCode KSPPJGMRESCycle(PetscInt*,KSP);
+static PetscErrorCode KSPSolve_PJGMRES(KSP);
+static PetscErrorCode KSPReset_PJGMRES(KSP);
+static PetscErrorCode KSPDestroy_PJGMRES(KSP);
+static PetscErrorCode KSPBuildSolution_PJGMRES(KSP,Vec,Vec*);
+static PetscErrorCode KSPView_PJGMRES(KSP,PetscViewer);
+static PetscErrorCode KSPSetFromOptions_PJGMRES(PetscOptions*,KSP);
+static PetscErrorCode KSPGMRESSetHapTol_PJGMRES(KSP,PetscReal);
+static PetscErrorCode KSPGMRESGetRestart_PJGMRES(KSP,PetscInt*);
+static PetscErrorCode KSPGMRESSetRestart_PJGMRES(KSP,PetscInt);
+static PetscErrorCode KSPGMRESSetOrthogonalization_PJGMRES(KSP,FCN);
+static PetscErrorCode KSPGMRESGetOrthogonalization_PJGMRES(KSP,FCN*);
+static PetscErrorCode KSPGMRESSetPreAllocateVectors_PJGMRES(KSP);
+static PetscErrorCode KSPGMRESSetCGSRefinementType_PJGMRES(KSP,KSPGMRESCGSRefinementType);
+static PetscErrorCode KSPGMRESGetCGSRefinementType_PJGMRES(KSP,KSPGMRESCGSRefinementType*);
 
 #undef __FUNCT__
 #define __FUNCT__ "KSPSetUp_PJGMRES"
-PetscErrorCode    KSPSetUp_PJGMRES(KSP ksp)
+static PetscErrorCode    KSPSetUp_PJGMRES(KSP ksp)
 {
   PetscInt       hh,hes,rs,cc;
   PetscErrorCode ierr;
@@ -117,8 +133,7 @@ PetscErrorCode    KSPSetUp_PJGMRES(KSP ksp)
  */
 #undef __FUNCT__
 #define __FUNCT__ "KSPPJGMRESCycle"
-PetscErrorCode KSPPJGMRESCycle(PetscInt *itcount,KSP ksp);
-PetscErrorCode KSPPJGMRESCycle(PetscInt *itcount,KSP ksp)
+static PetscErrorCode KSPPJGMRESCycle(PetscInt *itcount,KSP ksp)
 {
   KSP_PJGMRES      *gmres = (KSP_PJGMRES*)(ksp->data);
   KSP_PROJECTION   *pj    = &gmres->pj;
@@ -239,8 +254,7 @@ PetscErrorCode KSPPJGMRESCycle(PetscInt *itcount,KSP ksp)
 
 #undef __FUNCT__
 #define __FUNCT__ "KSPSolve_PJGMRES"
-PetscErrorCode KSPSolve_PJGMRES(KSP ksp);
-PetscErrorCode KSPSolve_PJGMRES(KSP ksp)
+static PetscErrorCode KSPSolve_PJGMRES(KSP ksp)
 {
   PetscErrorCode ierr;
   PetscInt       its,itcount;
@@ -272,7 +286,7 @@ PetscErrorCode KSPSolve_PJGMRES(KSP ksp)
 
 #undef __FUNCT__
 #define __FUNCT__ "KSPReset_PJGMRES"
-PetscErrorCode KSPReset_PJGMRES(KSP ksp)
+static PetscErrorCode KSPReset_PJGMRES(KSP ksp)
 {
   KSP_PJGMRES      *gmres = (KSP_PJGMRES*)ksp->data;
   PetscErrorCode ierr;
@@ -308,9 +322,7 @@ PetscErrorCode KSPReset_PJGMRES(KSP ksp)
 #define __FUNCT__ "KSPGetProjection_PJGMRES"
 static PetscErrorCode KSPGetProjection_PJGMRES(KSP ksp,KSP_PROJECTION **pj)
 {
-  PetscErrorCode ierr;
   KSP_PJGMRES   *gmres = (KSP_PJGMRES*)ksp->data;
-  
   PetscFunctionBegin;
   *pj = &gmres->pj;
   PetscFunctionReturn(0);
@@ -319,7 +331,7 @@ static PetscErrorCode KSPGetProjection_PJGMRES(KSP ksp,KSP_PROJECTION **pj)
 
 #undef __FUNCT__
 #define __FUNCT__ "KSPDestroy_PJGMRES"
-PetscErrorCode KSPDestroy_PJGMRES(KSP ksp)
+static PetscErrorCode KSPDestroy_PJGMRES(KSP ksp)
 {
   PetscErrorCode ierr;
 
@@ -491,8 +503,7 @@ static PetscErrorCode KSPGMRESGetNewVectors_PJGMRES(KSP ksp,PetscInt it)
 
 #undef __FUNCT__
 #define __FUNCT__ "KSPBuildSolution_PJGMRES"
-PetscErrorCode KSPBuildSolution_PJGMRES(KSP ksp,Vec ptr,Vec *result);
-PetscErrorCode KSPBuildSolution_PJGMRES(KSP ksp,Vec ptr,Vec *result)
+static PetscErrorCode KSPBuildSolution_PJGMRES(KSP ksp,Vec ptr,Vec *result)
 {
   KSP_PJGMRES      *gmres = (KSP_PJGMRES*)ksp->data;
   PetscErrorCode ierr;
@@ -518,7 +529,7 @@ PetscErrorCode KSPBuildSolution_PJGMRES(KSP ksp,Vec ptr,Vec *result)
 
 #undef __FUNCT__
 #define __FUNCT__ "KSPView_PJGMRES"
-PetscErrorCode KSPView_PJGMRES(KSP ksp,PetscViewer viewer)
+static PetscErrorCode KSPView_PJGMRES(KSP ksp,PetscViewer viewer)
 {
   KSP_PJGMRES      *gmres = (KSP_PJGMRES*)ksp->data;
   const char     *cstr;
@@ -602,7 +613,7 @@ PetscErrorCode  KSPPJGMRESMonitorKrylov(KSP ksp,PETSC_UNUSED PetscInt its,PETSC_
 
 #undef __FUNCT__
 #define __FUNCT__ "KSPSetFromOptions_PJGMRES"
-PetscErrorCode KSPSetFromOptions_PJGMRES(PetscOptions *PetscOptionsObject,KSP ksp)
+static PetscErrorCode KSPSetFromOptions_PJGMRES(PetscOptions *PetscOptionsObject,KSP ksp)
 {
   PetscErrorCode ierr;
   PetscInt       restart;
@@ -638,7 +649,7 @@ PetscErrorCode KSPSetFromOptions_PJGMRES(PetscOptions *PetscOptionsObject,KSP ks
 
 #undef __FUNCT__
 #define __FUNCT__ "KSPGMRESSetHapTol_PJGMRES"
-PetscErrorCode  KSPGMRESSetHapTol_PJGMRES(KSP ksp,PetscReal tol)
+static PetscErrorCode  KSPGMRESSetHapTol_PJGMRES(KSP ksp,PetscReal tol)
 {
   KSP_PJGMRES *gmres = (KSP_PJGMRES*)ksp->data;
 
@@ -650,7 +661,7 @@ PetscErrorCode  KSPGMRESSetHapTol_PJGMRES(KSP ksp,PetscReal tol)
 
 #undef __FUNCT__
 #define __FUNCT__ "KSPGMRESGetRestart_PJGMRES"
-PetscErrorCode  KSPGMRESGetRestart_PJGMRES(KSP ksp,PetscInt *max_k)
+static PetscErrorCode  KSPGMRESGetRestart_PJGMRES(KSP ksp,PetscInt *max_k)
 {
   KSP_PJGMRES *gmres = (KSP_PJGMRES*)ksp->data;
 
@@ -661,7 +672,7 @@ PetscErrorCode  KSPGMRESGetRestart_PJGMRES(KSP ksp,PetscInt *max_k)
 
 #undef __FUNCT__
 #define __FUNCT__ "KSPGMRESSetRestart_PJGMRES"
-PetscErrorCode  KSPGMRESSetRestart_PJGMRES(KSP ksp,PetscInt max_k)
+static PetscErrorCode  KSPGMRESSetRestart_PJGMRES(KSP ksp,PetscInt max_k)
 {
   KSP_PJGMRES      *gmres = (KSP_PJGMRES*)ksp->data;
   PetscErrorCode ierr;
@@ -681,7 +692,7 @@ PetscErrorCode  KSPGMRESSetRestart_PJGMRES(KSP ksp,PetscInt max_k)
 
 #undef __FUNCT__
 #define __FUNCT__ "KSPGMRESSetOrthogonalization_PJGMRES"
-PetscErrorCode  KSPGMRESSetOrthogonalization_PJGMRES(KSP ksp,FCN fcn)
+static PetscErrorCode  KSPGMRESSetOrthogonalization_PJGMRES(KSP ksp,FCN fcn)
 {
   PetscFunctionBegin;
   ((KSP_PJGMRES*)ksp->data)->orthog = fcn;
@@ -690,7 +701,7 @@ PetscErrorCode  KSPGMRESSetOrthogonalization_PJGMRES(KSP ksp,FCN fcn)
 
 #undef __FUNCT__
 #define __FUNCT__ "KSPGMRESGetOrthogonalization_PJGMRES"
-PetscErrorCode  KSPGMRESGetOrthogonalization_PJGMRES(KSP ksp,FCN *fcn)
+static PetscErrorCode  KSPGMRESGetOrthogonalization_PJGMRES(KSP ksp,FCN *fcn)
 {
   PetscFunctionBegin;
   *fcn = ((KSP_PJGMRES*)ksp->data)->orthog;
@@ -699,7 +710,7 @@ PetscErrorCode  KSPGMRESGetOrthogonalization_PJGMRES(KSP ksp,FCN *fcn)
 
 #undef __FUNCT__
 #define __FUNCT__ "KSPGMRESSetPreAllocateVectors_PJGMRES"
-PetscErrorCode  KSPGMRESSetPreAllocateVectors_PJGMRES(KSP ksp)
+static PetscErrorCode  KSPGMRESSetPreAllocateVectors_PJGMRES(KSP ksp)
 {
   KSP_PJGMRES *gmres;
 
@@ -711,7 +722,7 @@ PetscErrorCode  KSPGMRESSetPreAllocateVectors_PJGMRES(KSP ksp)
 
 #undef __FUNCT__
 #define __FUNCT__ "KSPGMRESSetCGSRefinementType_PJGMRES"
-PetscErrorCode  KSPGMRESSetCGSRefinementType_PJGMRES(KSP ksp,KSPGMRESCGSRefinementType type)
+static PetscErrorCode  KSPGMRESSetCGSRefinementType_PJGMRES(KSP ksp,KSPGMRESCGSRefinementType type)
 {
   KSP_PJGMRES *gmres = (KSP_PJGMRES*)ksp->data;
 
@@ -722,7 +733,7 @@ PetscErrorCode  KSPGMRESSetCGSRefinementType_PJGMRES(KSP ksp,KSPGMRESCGSRefineme
 
 #undef __FUNCT__
 #define __FUNCT__ "KSPGMRESGetCGSRefinementType_PJGMRES"
-PetscErrorCode  KSPGMRESGetCGSRefinementType_PJGMRES(KSP ksp,KSPGMRESCGSRefinementType *type)
+static PetscErrorCode  KSPGMRESGetCGSRefinementType_PJGMRES(KSP ksp,KSPGMRESCGSRefinementType *type)
 {
   KSP_PJGMRES *gmres = (KSP_PJGMRES*)ksp->data;
 
@@ -767,7 +778,6 @@ M*/
 EXTERN_C_BEGIN
 #undef __FUNCT__
 #define __FUNCT__ "KSPCreate_PJGMRES"
-PetscErrorCode KSPCreate_PJGMRES(KSP ksp);
 PetscErrorCode KSPCreate_PJGMRES(KSP ksp)
 {
   KSP_PJGMRES      *gmres;

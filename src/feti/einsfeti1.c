@@ -2,7 +2,6 @@
 #include <einsksp.h>
 #include <einssys.h>
 
-#define FETI_DEBUG
 
 /* private functions*/
 static PetscErrorCode FETI1BuildLambdaAndB_Private(FETI);
@@ -162,15 +161,15 @@ static PetscErrorCode FETISetUp_FETI1(FETI ft)
 
     ierr = FETI1ApplyCoarseProblem_Private(ft,asm_e,y_g2);CHKERRQ(ierr);
 
-    PetscPrintf(PETSC_COMM_WORLD,"\n-------------------->>>>>       GLOBAL VECTOR \n");
+    PetscPrintf(PETSC_COMM_WORLD,"\n-------------------->>>>>       GLOBAL_VECTOR \n");
     VecView(g_global,PETSC_VIEWER_STDOUT_WORLD);
-    PetscPrintf(PETSC_COMM_WORLD,"\n-------------------->>>>>       FIRST PROY VECTOR \n");
+    PetscPrintf(PETSC_COMM_WORLD,"\n-------------------->>>>>       Result of G*(G^T*G)^-1*G^T*(GLOBAL_VECTOR) \n");
     VecView(y_g2,PETSC_VIEWER_STDOUT_WORLD);
     
     /* TEST B */
-    PetscPrintf(PETSC_COMM_WORLD,"\n==================================================\n");
-    PetscPrintf(PETSC_COMM_WORLD,"\n                    TEST B \n");
-    PetscPrintf(PETSC_COMM_WORLD,"==================================================\n");
+    PetscPrintf(PETSC_COMM_WORLD,"\n=================================================================================\n");
+    PetscPrintf(PETSC_COMM_WORLD,"\n                    TEST B: Result of ( I - G*(G^T*G)^-1*G^T ) * GLOBAL_VECTOR \n");
+    PetscPrintf(PETSC_COMM_WORLD,"===================================================================================\n");
     ierr = FETI1Project_RBM(ft,g_global,y_g);CHKERRQ(ierr);
     VecView(y_g,PETSC_VIEWER_STDOUT_WORLD);
     ierr = VecDestroy(&g_global);CHKERRQ(ierr);
@@ -181,7 +180,7 @@ static PetscErrorCode FETISetUp_FETI1(FETI ft)
 #endif
   
   ierr = KSPSetTolerances(ft->ksp_interface,1e-8,0,PETSC_DEFAULT,1000);CHKERRQ(ierr);
-  //ierr = KSPSolve(ft->ksp_interface,ft->d,ft->lambda_global);CHKERRQ(ierr);
+  ierr = KSPSolve(ft->ksp_interface,ft->d,ft->lambda_global);CHKERRQ(ierr);
   
   PetscFunctionReturn(0);
 }
@@ -308,8 +307,8 @@ static PetscErrorCode FETI1BuildLambdaAndB_Private(FETI ft)
   const PetscScalar *Warray;
   
   PetscFunctionBegin;
-  if(!ft->Wscaling) SETERRQ(PetscObjectComm((PetscObject)ft),PETSC_ERR_ARG_WRONGSTATE,"Error: FETIScalingSetUp must be first called");
   ierr = PetscObjectGetComm((PetscObject)ft,&comm);CHKERRQ(ierr);
+  if(!ft->Wscaling) SETERRQ(comm,PETSC_ERR_ARG_WRONGSTATE,"Error: FETIScalingSetUp must be first called");
   ierr = MPI_Comm_rank(comm,&rank);CHKERRQ(ierr);
 
   /* Default type of lagrange multipliers is non-redundant */
@@ -365,7 +364,7 @@ static PetscErrorCode FETI1BuildLambdaAndB_Private(FETI ft)
   ierr = ISSubsetNumbering(subset,subset_mult,&i,&subset_n);CHKERRQ(ierr);
   ierr = ISDestroy(&subset);CHKERRQ(ierr);
   if (i != ft->n_lambda) {
-    SETERRQ3(PETSC_COMM_WORLD,PETSC_ERR_PLIB,"Error in %s: global number of multipliers mismatch! (%d!=%d)\n",__FUNCT__,ft->n_lambda,i);
+    SETERRQ3(comm,PETSC_ERR_PLIB,"Error in %s: global number of multipliers mismatch! (%d!=%d)\n",__FUNCT__,ft->n_lambda,i);
   }
   ft->n_lambda_local = n_lambda_local;
   /* Compute B_delta (local actions) */
@@ -474,10 +473,6 @@ static PetscErrorCode FETI1BuildLambdaAndB_Private(FETI ft)
   ierr = PetscFree(vals_B_delta);CHKERRQ(ierr);
   ierr = PetscFree(vals_B_Ddelta);CHKERRQ(ierr);
   ierr = PetscFree(cols_B_delta);CHKERRQ(ierr);
-
-  /* compute scaled version of B_delta, that is B_Ddelta */
-  MatSeqViewSynchronized(comm,ft->B_Ddelta);
-  
   PetscFunctionReturn(0);
 }
 
@@ -642,14 +637,6 @@ static PetscErrorCode FETI1ComputeMatrixGandRhsE_Private(FETI ft)
     /* compute matrix local_e */
     ierr = VecCreateSeq(PETSC_COMM_SELF,ft1->n_rbm,&ft1->local_e);CHKERRQ(ierr);
     ierr = MatMultTranspose(ft1->rbm,sd->localRHS,ft1->local_e);CHKERRQ(ierr);
-    
-    /* if(rank==3){ */
-    /*   PetscPrintf(PETSC_COMM_SELF,"\n==================================================\n"); */
-    /*   PetscPrintf(PETSC_COMM_SELF,"Printing local_e, rank %d\n", rank); */
-    /*   PetscPrintf(PETSC_COMM_SELF,"==================================================\n"); */
-
-    /*   VecView(ft1->local_e,PETSC_VIEWER_STDOUT_SELF); */
-    /* } */
     ierr = MatDestroy(&x);CHKERRQ(ierr);
   }
   PetscFunctionReturn(0);
@@ -683,7 +670,7 @@ static PetscErrorCode FETI1SetUpNeumannSolver_Private(FETI ft)
   
   PetscFunctionBegin;
 #if !defined(PETSC_HAVE_MUMPS)
-    SETERRQ(PETSC_COMM_WORLD,1,"EINS only supports MUMPS for the solution of the Neumann problem");
+    SETERRQ(PetscObjectComm((PetscObject)ft),1,"EINS only supports MUMPS for the solution of the Neumann problem");
 #endif
   if (!ft->ksp_neumann) {
     ierr = KSPCreate(PETSC_COMM_SELF,&ft->ksp_neumann);CHKERRQ(ierr);
@@ -916,7 +903,6 @@ static PetscErrorCode FETI1SetUpCoarseProblem_Private(FETI ft)
     ierr = MatAssemblyEnd(aux_mat,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
 
     ierr = MatCreateSeqDense(PETSC_COMM_SELF,ft1->n_rbm,localnnz,NULL,&result);CHKERRQ(ierr);
-    PetscPrintf(PETSC_COMM_SELF,"\n################# printing size, ft1->n_rbm: %d, localnnz: %d\n",ft1->n_rbm,localnnz);
     ierr = MatTransposeMatMult(ft1->localG,aux_mat,MAT_REUSE_MATRIX,PETSC_DEFAULT,&result);CHKERRQ(ierr);
     ierr = MatDestroy(&aux_mat);CHKERRQ(ierr);
     ierr = PetscFree(idxm);CHKERRQ(ierr);
@@ -980,17 +966,6 @@ static PetscErrorCode FETI1SetUpCoarseProblem_Private(FETI ft)
   }
   ierr = MatAssemblyBegin(ft1->coarse_problem,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
   ierr = MatAssemblyEnd(ft1->coarse_problem,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
-    
-  if(rankG==2){
-    PetscPrintf(PETSC_COMM_SELF,"\n################# Printing Coarse Problem, rank %d\n",rankG);
-    MatView(ft1->coarse_problem,PETSC_VIEWER_STDOUT_SELF);
-    //PetscPrintf(PETSC_COMM_SELF,"\n################# Total RBM number %d\n",total_rbm);
-    //      PetscIntView(total_rbm,(const PetscInt*)r_coarse,PETSC_VIEWER_STDOUT_SELF);
-    /* PetscIntView(size,(const PetscInt*)c_displ,PETSC_VIEWER_STDOUT_SELF); */
-    /* PetscIntView(size,(const PetscInt*)c_count,PETSC_VIEWER_STDOUT_SELF); */
-    // PetscIntView(total_c_coarse,(const PetscInt*)c_coarse,PETSC_VIEWER_STDOUT_SELF);
-  }
-
   ierr = PetscFree(idxm);CHKERRQ(ierr);
   ierr = PetscFree(idxn);CHKERRQ(ierr);
   ierr = PetscFree(nnz);CHKERRQ(ierr);
@@ -1084,8 +1059,8 @@ static PetscErrorCode FETI1ApplyCoarseProblem_Private(FETI ft,Vec v_local,Vec r_
   const PetscScalar  *m_pointer; 
   
   PetscFunctionBegin;
-  if(!ft1->F_coarse) SETERRQ(PetscObjectComm((PetscObject)ft),PETSC_ERR_ARG_WRONGSTATE,"Error: FETI1FactorizeCoarseProblem_Private() must be first called");
   ierr = PetscObjectGetComm((PetscObject)ft,&comm);CHKERRQ(ierr);
+  if(!ft1->F_coarse) SETERRQ(comm,PETSC_ERR_ARG_WRONGSTATE,"Error: FETI1FactorizeCoarseProblem_Private() must be first called");
   ierr = MPI_Comm_rank(comm,&rank);CHKERRQ(ierr);
   
   /* apply (G^T*G)^{-1}: compute v_rbm = (G^T*G)^{-1}*v */
@@ -1173,17 +1148,6 @@ static PetscErrorCode FETI1ComputeInitialCondition_Private(FETI ft)
   if (ft1->n_rbm) { ierr = VecRestoreArrayRead(ft1->local_e,&sbuff);CHKERRQ(ierr);}
 
   ierr = FETI1ApplyCoarseProblem_Private(ft,asm_e,ft->lambda_global);CHKERRQ(ierr);
-
-  VecView(ft->lambda_global,PETSC_VIEWER_STDOUT_WORLD);
-  /* VecSeqViewSynchronized(ft1->floatingComm,ft1->local_e); */
-  /* VecSeqViewSynchronized(ft1->floatingComm,asm_e); */
-  /* { */
-  /* Vec               testing; */
-  /* ierr = VecDuplicate(ft->lambda_global,&testing);CHKERRQ(ierr); */
-  /* ierr = FETI1Project_Private(ft,ft->lambda_global,testing);CHKERRQ(ierr); */
-  /* ierr = VecDestroy(&testing);CHKERRQ(ierr); */
-  /* } */
-  
   if (ft1->n_rbm) { ierr = VecDestroy(&ft1->local_e);CHKERRQ(ierr);}
   ierr = VecDestroy(&asm_e);CHKERRQ(ierr);
   PetscFunctionReturn(0);
@@ -1220,7 +1184,10 @@ PetscErrorCode FETI1Project_RBM(void* ft_ctx, Vec g_global, Vec y)
   
   PetscFunctionBegin;
   PetscValidHeaderSpecific(ft,FETI_CLASSID,1);
-  ierr = PetscObjectGetComm((PetscObject)ft,&comm);CHKERRQ(ierr);
+  PetscValidHeaderSpecific(g_global,VEC_CLASSID,2);
+  PetscValidHeaderSpecific(y,VEC_CLASSID,3);
+  comm = PetscObjectComm((PetscObject)ft);
+  if (y == g_global) SETERRQ(comm,PETSC_ERR_ARG_INCOMP,"Cannot use g_global == y");
   ierr = MPI_Comm_rank(comm,&rank);CHKERRQ(ierr);
   
   ierr = VecCreateSeq(PETSC_COMM_SELF,ft1->total_rbm,&asm_e);CHKERRQ(ierr);
@@ -1246,8 +1213,6 @@ PetscErrorCode FETI1Project_RBM(void* ft_ctx, Vec g_global, Vec y)
   ierr = VecDuplicate(y_local,&y_local2);CHKERRQ(ierr);
   
   ierr = VecGetLocalVector(g_global,y_local2);CHKERRQ(ierr);
-
-  VecSeqViewSynchronized(comm,y_local2);
 
   ierr = VecGetLocalVector(y,y_local);CHKERRQ(ierr);
   

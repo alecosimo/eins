@@ -197,9 +197,9 @@ PetscErrorCode FETIBuildInterfaceKSP(FETI ft)
   PetscFunctionBegin;
   PetscValidHeaderSpecific(ft,FETI_CLASSID,1);
   ierr  = PetscObjectGetComm((PetscObject)ft,&comm);CHKERRQ(ierr);
-  if(!ft->F) SETERRQ(PetscObjectComm((PetscObject)ft),PETSC_ERR_ARG_WRONGSTATE,"Error: Matrix F for the interface problem must be first defined");
-  if(!ft->ksp_type_interface) SETERRQ(PetscObjectComm((PetscObject)ft),PETSC_ERR_ARG_WRONGSTATE,"Error: KSP type for the interface problem must be first defined");
-  if(!ft->pc_type_interface) SETERRQ(PetscObjectComm((PetscObject)ft),PETSC_ERR_ARG_WRONGSTATE,"Error: PC type for the interface problem must be first defined");
+  if(!ft->F) SETERRQ(comm,PETSC_ERR_ARG_WRONGSTATE,"Error: Matrix F for the interface problem must be first defined");
+  if(!ft->ksp_type_interface) SETERRQ(comm,PETSC_ERR_ARG_WRONGSTATE,"Error: KSP type for the interface problem must be first defined");
+  if(!ft->pc_type_interface) SETERRQ(comm,PETSC_ERR_ARG_WRONGSTATE,"Error: PC type for the interface problem must be first defined");
   ierr = KSPCreate(comm,&ft->ksp_interface);CHKERRQ(ierr);
   ierr = KSPSetType(ft->ksp_interface,ft->ksp_type_interface);CHKERRQ(ierr);
   ierr = KSPGetPC(ft->ksp_interface,&pc);CHKERRQ(ierr);
