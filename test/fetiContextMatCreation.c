@@ -504,22 +504,6 @@ static PetscErrorCode ComputeMatrixAndRHS(DomainData dd,Mat* localA,Vec* localRH
 
 
 #undef __FUNCT__
-#define __FUNCT__ "ComputeLocalExactSolution"
-static PetscErrorCode ComputeLocalExactSolution(DomainData dd,Vec u,PetscScalar source,PetscScalar boundary)
-{
-  PetscErrorCode  ierr;
-  PetscInt        i,j,k,localsize;
-  
-  PetscFunctionBeginUser;
-
-  localsize = dd.xm_l*dd.ym_l*dd.zm_l;
-  /* for (i=0;i<) */
-
-  PetscFunctionReturn(0);
-}
-
-
-#undef __FUNCT__
 #define __FUNCT__ "InitializeDomainData"
 static PetscErrorCode InitializeDomainData(DomainData *dd)
 {
@@ -587,7 +571,7 @@ int main(int argc,char **args)
   DomainData               dd;
   /* PetscReal                norm,maxeig,mineig;*/
   Mat                      localA=0;
-  Vec                      localRHS=0,u_local=0,global_sol=0,u_exact_local=0;
+  Vec                      localRHS=0,u_local=0,global_sol=0;
   ISLocalToGlobalMapping   mapping=0;
   FETI                     feti;
   KSP                      ksp_interface;
@@ -616,8 +600,6 @@ int main(int argc,char **args)
   ierr = ComputeMapping(dd,&mapping);CHKERRQ(ierr);
   
   ierr = VecDuplicate(localRHS,&u_local);CHKERRQ(ierr);
-  ierr = VecDuplicate(localRHS,&u_exact_local);CHKERRQ(ierr);
-  ierr = ComputeLocalExactSolution(dd,u_exact_local,source,boundary);CHKERRQ(ierr);
   /* Setting FETI */
   ierr = FETICreate(dd.gcomm,&feti);CHKERRQ(ierr);
   ierr = FETISetType(feti,FETI1);CHKERRQ(ierr);
