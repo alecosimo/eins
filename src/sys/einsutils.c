@@ -28,6 +28,7 @@ PetscErrorCode MatSeqViewSynchronized(MPI_Comm comm,Mat mat)
 
   if(rank) { ierr = MPI_Recv(&buff,1,MPI_INT,rank-1,0,comm,&status);CHKERRQ(ierr); }
   PetscPrintf(PETSC_COMM_SELF,"\nMatView process number %d\n",rank);
+  PetscViewerSetFormat(PETSC_VIEWER_STDOUT_SELF,PETSC_VIEWER_ASCII_MATLAB);
   MatView(mat,PETSC_VIEWER_STDOUT_SELF);
   ierr = MPI_Send(&buff,1,MPI_INT,(rank+1)%size,0,comm);CHKERRQ(ierr);
   if(!rank) { ierr = MPI_Recv(&buff,1,MPI_INT,size-1,0,comm,&status);CHKERRQ(ierr); }
