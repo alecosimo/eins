@@ -9,10 +9,6 @@ Dirichlet boundaries on x=0 side by default. Options:\n\
 -lx,ly: length of the cavity in the x and y directions\n\n";
 
 #include <eins.h>
-#include <private/einsfetiimpl.h> /* Users should never call include private includes. In this case we do it to access
-				     members of the FETI object and test it correct behaviour*/
-#include <petscblaslapack.h>
-#define DEBUG 0
 
 /* structure holding domain data */
 typedef struct {
@@ -46,10 +42,10 @@ static PetscErrorCode ComputeMapping(DomainData dd,ISLocalToGlobalMapping *isg2l
   PetscErrorCode         ierr;
   DM                     da;
   AO                     ao;
-  DMBoundaryType         bx = DM_BOUNDARY_NONE,by = DM_BOUNDARY_NONE, bz = DM_BOUNDARY_NONE;
+  DMBoundaryType         bx = DM_BOUNDARY_NONE,by = DM_BOUNDARY_NONE;
   DMDAStencilType        stype = DMDA_STENCIL_BOX;
   ISLocalToGlobalMapping temp_isg2lmap;
-  PetscInt               i,j,k,ig,jg,kg,lindex,gindex,localsize;
+  PetscInt               i,j,ig,jg,lindex,gindex,localsize;
   PetscInt               *global_indices;
 
   PetscFunctionBeginUser;
@@ -126,7 +122,7 @@ static PetscErrorCode DomainDecomposition(DomainData *dd)
 static PetscErrorCode ComputeDirichletLocalRows(DomainData dd,PetscInt **dirichlet,PetscInt *n_dirichlet)
 {
   PetscErrorCode ierr;
-  PetscInt       localsize=0,i,j,*indices=0;
+  PetscInt       localsize=0,j,*indices=0;
 
   PetscFunctionBeginUser; 
   if (dd.ipx == 0) {    /* west boundary */
@@ -149,7 +145,7 @@ static PetscErrorCode ComputeMatrixAndRHS(DomainData dd,Mat* localA,Vec* localRH
   PetscInt               localsize,*dirichlet,n_dirichlet;
   Vec                    tempRHS,vfix;
   PetscInt               n,m,i,j,Ii,Jj;
-  PetscScalar            v,hx,hy;
+  PetscScalar            hx,hy;
   Mat                    temp_local_mat;
   
   PetscFunctionBeginUser;
