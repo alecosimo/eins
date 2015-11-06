@@ -34,6 +34,7 @@ static PetscErrorCode EinsRegisterAll(void)
   /*Register PC*/
   ierr = PCRegisterAll();CHKERRQ(ierr);
   ierr = PCRegister(PCFETI_DIRICHLET,PCCreate_DIRICHLET);CHKERRQ(ierr);
+  ierr = PCRegister(PCFETI_LUMPED,PCCreate_LUMPED);CHKERRQ(ierr);
   /*Register TS*/
   /*Register SNES*/
   PetscFunctionReturn(0);

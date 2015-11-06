@@ -9,5 +9,6 @@
   FETI ft; 
 
 PETSC_EXTERN PetscErrorCode PCCreate_DIRICHLET(PC);
+PETSC_EXTERN PetscErrorCode PCCreate_LUMPED(PC);
 
 #endif/* EINSPCIMPL_H*/

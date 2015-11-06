@@ -615,7 +615,7 @@ int main(int argc,char **args)
   ierr = KSPSetTolerances(ksp_interface,1e-10,0,PETSC_DEFAULT,1000);CHKERRQ(ierr);
   ierr = FETISolve(feti,u_local);CHKERRQ(ierr);
 
-  ierr = VecSeqViewSynchronized(dd.gcomm,u_local);CHKERRQ(ierr);
+  if (dd.nex<10) { ierr = VecSeqViewSynchronized(dd.gcomm,u_local);CHKERRQ(ierr);}
   
   ierr = FETIDestroy(&feti);CHKERRQ(ierr);
   ierr = MatDestroy(&localA);CHKERRQ(ierr);
