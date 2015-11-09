@@ -1,5 +1,6 @@
 set(path "${PROJECT_SOURCE_DIR}/test")
 
+M_ADD_TEST("${path}/testVecUAsm.c"  "mpiexec -n 3 ./testVecUAsm" "${EinsTests_libraries}")
 M_ADD_TEST("${path}/fetiContextCreation.c"  "mpiexec -n 4 ./fetiContextCreation" "${EinsTests_libraries}")
 M_ADD_TEST("${path}/ex7.c"  "mpiexec -n 2 ./ex7 -ksp_monitor_short -ksp_gmres_cgs_refinement_type refine_always -ksp_type pjgmres" "${EinsTests_libraries}")#
 

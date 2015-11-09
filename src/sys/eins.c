@@ -2,6 +2,7 @@
 #include <private/einsfetiimpl.h>
 #include <private/einskspimpl.h>
 #include <private/einspcimpl.h>
+#include <private/einsvecimpl.h>
 
 
 PETSC_EXTERN PetscBool EinsInitializeCalled;
@@ -27,6 +28,9 @@ static PetscErrorCode EinsRegisterAll(void)
   EinsRegisterAllCalled = PETSC_TRUE;
   /*Register FETI*/
   ierr = FETIRegisterAll();CHKERRQ(ierr);
+  /*Register Vec*/
+  ierr = VecRegisterAll();CHKERRQ(ierr);
+  ierr = VecRegister(VECMPIUNASM,VecCreate_UNASM);CHKERRQ(ierr);
   /*Register KSP*/
   ierr = KSPRegisterAll();CHKERRQ(ierr);
   ierr = KSPRegister(KSPPJCG,KSPCreate_PJCG);CHKERRQ(ierr);

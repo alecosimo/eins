@@ -5,5 +5,6 @@
 #include "einsksp.h"
 #include "einspc.h"
 #include "einsfeti.h" 
+#include "einsvec.h"
 
 #endif/* EINS_H*/
