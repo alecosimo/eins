@@ -1,6 +1,7 @@
 #include <../src/vec/einsvecunasm.h>
 #include <petscblaslapack.h>
 
+static PetscErrorCode VecView_UNASM(Vec,PetscViewer);
 static PetscErrorCode VecDuplicate_UNASM(Vec,Vec*);
 static PetscErrorCode VecDestroy_UNASM(Vec);
 static PetscErrorCode VecDot_UNASM(Vec,Vec,PetscScalar*);
@@ -62,6 +63,7 @@ PETSC_EXTERN PetscErrorCode VecCreate_UNASM(Vec v)
   v->ops->assemblybegin = VecAssemblyBegin_UNASM;
   v->ops->assemblyend   = VecAssemblyEnd_UNASM;
   v->ops->destroy       = VecDestroy_UNASM;
+  v->ops->view          = VecView_UNASM;
   
   ierr = PetscObjectChangeTypeName((PetscObject)v,VECMPIUNASM);CHKERRQ(ierr);
   PetscFunctionReturn(0);
@@ -462,26 +464,79 @@ PetscErrorCode VecDestroy_UNASM(Vec v)
    VecUnAsmCreateMPIVec - Creates an MPI distributed vector by assembling the given globally unassembled vector.
 
    Input Parameter:
-.  v           - The globally unassembled vector
-.  mapping     - The local to global mapping for the vector entries
+.  v           - The globally unassembled vector.
+.  compat      - Rule to use in order to impose compatibility of shared DOFs.
+.  mapping     - The local to global mapping for the vector entries.
 
    Output Parameter:
-.  _vec         - The created distributed vector
+.  _vec         - The created distributed vector.
 
    Level: intermediate
 
+.seealso CompatibilityRule
 @*/
-PetscErrorCode VecUnAsmCreateMPIVec(Vec v, ISLocalToGlobalMapping mapping,Vec *_vec)
+PetscErrorCode VecUnAsmCreateMPIVec(Vec v,ISLocalToGlobalMapping mapping,CompatibilityRule compat,Vec *_vec)
 {
-  Vec            vec;
+  Vec            mpivec;
   PetscErrorCode ierr;
+  Vec_UNASM      *xi = (Vec_UNASM*)v->data;
   
   PetscFunctionBeginUser;
   PetscValidHeaderSpecific(mapping,IS_LTOGM_CLASSID,3);
-  ierr  = VecCreate(PetscObjectComm((PetscObject)v),&vec);CHKERRQ(ierr);
-  ierr  = VecSetType(vec,VECMPI);CHKERRQ(ierr);
-  ierr  = VecSetSizes(vec,PETSC_DECIDE,v->map->N);CHKERRQ(ierr);
-  ierr  = VecSetLocalToGlobalMapping(vec,mapping);CHKERRQ(ierr);
-  *_vec = vec;
+  ierr  = VecCreate(PetscObjectComm((PetscObject)v),&mpivec);CHKERRQ(ierr);
+  ierr  = VecSetType(mpivec,VECMPI);CHKERRQ(ierr);
+  ierr  = VecSetSizes(mpivec,PETSC_DECIDE,v->map->N);CHKERRQ(ierr);
+  ierr  = VecSetLocalToGlobalMapping(mpivec,mapping);CHKERRQ(ierr);
+
+  if (compat == COMPAT_RULE_AVG) {
+    if (!xi->multiplicity) SETERRQ(PetscObjectComm((PetscObject)v),PETSC_ERR_SUP,"You should first call VecUnAsmSetMultiplicity");
+    PetscInt          *idx,i;
+    const PetscScalar *xx;
+    Vec               mp;
+    ierr = VecDuplicate(xi->vlocal,&mp);CHKERRQ(ierr);
+    ierr = VecPointwiseDivide(mp,xi->vlocal,xi->multiplicity);CHKERRQ(ierr);
+    ierr = PetscMalloc1(v->map->n,&idx);CHKERRQ(ierr);
+    for(i=0;i<v->map->n;i++) idx[i] = i;
+    ierr = VecGetArrayRead(mp,&xx);CHKERRQ(ierr);
+    ierr = VecSet(mpivec,0.0);CHKERRQ(ierr);
+    ierr = VecSetValuesLocal(mpivec,v->map->n,idx,xx,ADD_VALUES);CHKERRQ(ierr);
+    ierr = VecAssemblyBegin(mpivec);CHKERRQ(ierr);
+    ierr = VecAssemblyEnd(mpivec);CHKERRQ(ierr);
+    ierr = VecRestoreArrayRead(mp,&xx);CHKERRQ(ierr);
+    ierr = VecDestroy(&mp);CHKERRQ(ierr);
+  }
+  *_vec = mpivec;
+  PetscFunctionReturn(0);
+}
+
+
+#undef __FUNCT__
+#define __FUNCT__ "VecView_UNASM"
+static PetscErrorCode VecView_UNASM(Vec xin,PetscViewer viewer)
+{
+  PetscErrorCode ierr;
+  Vec_UNASM      *xi = (Vec_UNASM*)xin->data;
+  PetscMPIInt    size,rank,buff=1;
+  MPI_Status     status;
+  MPI_Comm       comm;
+  PetscBool      iascii;
+  
+  PetscFunctionBeginUser;
+  ierr = PetscObjectGetComm((PetscObject)xin,&comm);CHKERRQ(ierr);
+  ierr = MPI_Comm_size(comm,&size);
+  ierr = MPI_Comm_rank(comm,&rank);
+
+  ierr = PetscObjectTypeCompare((PetscObject)viewer,PETSCVIEWERASCII,&iascii);CHKERRQ(ierr);
+
+  if(iascii){
+    if(rank) { ierr = MPI_Recv(&buff,1,MPI_INT,rank-1,0,comm,&status);CHKERRQ(ierr); }
+    PetscPrintf(PETSC_COMM_SELF, "Processor # %d, size %d \n",rank,size);
+    ierr = VecView(xi->vlocal,PETSC_VIEWER_STDOUT_SELF);CHKERRQ(ierr);
+    ierr = MPI_Send(&buff,1,MPI_INT,(rank+1)%size,0,comm);CHKERRQ(ierr);
+    if(!rank) { ierr = MPI_Recv(&buff,1,MPI_INT,size-1,0,comm,&status);CHKERRQ(ierr); }
+  } else {
+    SETERRQ(comm,PETSC_ERR_ARG_WRONG,"Error: only ascii viewer implemented");
+  }
+  
   PetscFunctionReturn(0);
 }

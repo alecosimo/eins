@@ -9,8 +9,8 @@ int main(int argc,char **argv)
   MPI_Comm               comm;
   PetscInt               rank,idx[5]={0,1,2,3,4},global_indices[5];
   PetscErrorCode         ierr;
-  Vec                    v,mpivec,multiplicity;
-  PetscScalar            dval,vals[5];
+  Vec                    v,mpivec,multiplicity,v2;
+  PetscScalar            dval,dval2[2],vals[5];
   ISLocalToGlobalMapping mapping;
     
   ierr = EinsInitialize(&argc,&argv,0,help);CHKERRQ(ierr);
@@ -56,13 +56,55 @@ int main(int argc,char **argv)
   ierr = VecUnAsmSetMultiplicity(v,multiplicity);CHKERRQ(ierr);
   ierr = VecDestroy(&multiplicity);CHKERRQ(ierr);
   
-  ierr = ISLocalToGlobalMappingCreate(comm,1,5,global_indices,PETSC_COPY_VALUES,&mapping);
-  ierr = VecUnAsmCreateMPIVec(v,mapping,&mpivec);CHKERRQ(ierr);
+  ierr = ISLocalToGlobalMappingCreate(comm,1,5,global_indices,PETSC_OWN_POINTER,&mapping);
+  ierr = VecUnAsmCreateMPIVec(v,mapping,COMPAT_RULE_AVG,&mpivec);CHKERRQ(ierr);
   ierr = ISLocalToGlobalMappingDestroy(&mapping);CHKERRQ(ierr);
+  VecView(mpivec,PETSC_VIEWER_STDOUT_WORLD);
   /* check vecdot */
   ierr = VecDot(v,v,&dval);CHKERRQ(ierr);
-  PetscPrintf(PETSC_COMM_WORLD,"\n VecDot .......................................... %g \n",dval);
-  VecView(mpivec,PETSC_VIEWER_STDOUT_WORLD);
+  PetscPrintf(PETSC_COMM_WORLD,"\nVecDot .......................................... %g \n",dval);
+  ierr = VecDot(mpivec,mpivec,&dval);CHKERRQ(ierr);
+  PetscPrintf(PETSC_COMM_WORLD,  "VecDot mpiVec ................................... %g \n",dval);
+  /* check norm L2 */
+  ierr = VecNorm(v,NORM_2,&dval);CHKERRQ(ierr);
+  PetscPrintf(PETSC_COMM_WORLD,"\nNORM_2 .......................................... %g \n",dval);
+  ierr = VecNorm(mpivec,NORM_2,&dval);CHKERRQ(ierr);
+  PetscPrintf(PETSC_COMM_WORLD,  "NORM_2 mpiVec ................................... %g \n",dval);
+  /* check norm L1 */
+  ierr = VecNorm(v,NORM_1,&dval);CHKERRQ(ierr);
+  PetscPrintf(PETSC_COMM_WORLD,"\nNORM_1 .......................................... %g \n",dval);
+  ierr = VecNorm(mpivec,NORM_1,&dval);CHKERRQ(ierr);
+  PetscPrintf(PETSC_COMM_WORLD,  "NORM_1 mpiVec ................................... %g \n",dval);
+  /* check norm inf */
+  ierr = VecNorm(v,NORM_INFINITY,&dval);CHKERRQ(ierr);
+  PetscPrintf(PETSC_COMM_WORLD,"\nNORM_inf .......................................... %g \n",dval);
+  ierr = VecNorm(mpivec,NORM_INFINITY,&dval);CHKERRQ(ierr);
+  PetscPrintf(PETSC_COMM_WORLD,  "NORM_inf mpiVec ................................... %g \n",dval);
+  /* check norm l1 and l2 */
+  ierr = VecNorm(v,NORM_1_AND_2,dval2);CHKERRQ(ierr);
+  PetscPrintf(PETSC_COMM_WORLD,"\nNORM_1_2 .......................................... %g, %g \n",dval2[0],dval2[1]);
+  ierr = VecNorm(mpivec,NORM_1_AND_2,dval2);CHKERRQ(ierr);
+  PetscPrintf(PETSC_COMM_WORLD,  "NORM_1_2 mpiVec ................................... %g, %g \n",dval2[0],dval2[1]);
+  /* VecDuplicate, VecCopy and VecView */
+  ierr = VecDuplicate(v,&v2);CHKERRQ(ierr);
+  ierr = VecCopy(v,v2);CHKERRQ(ierr);
+  PetscPrintf(PETSC_COMM_WORLD,  "\nPrinting v ................................... \n");
+  ierr = VecView(v,PETSC_VIEWER_STDOUT_WORLD);CHKERRQ(ierr);
+  ierr = MPI_Barrier(PETSC_COMM_WORLD);CHKERRQ(ierr);
+  PetscPrintf(PETSC_COMM_WORLD,  "\nPrinting v2 ................................... \n");
+  ierr = VecView(v2,PETSC_VIEWER_STDOUT_WORLD);CHKERRQ(ierr);
+  ierr = MPI_Barrier(PETSC_COMM_WORLD);CHKERRQ(ierr);
+  /* VecScale */
+  ierr = VecScale(v2,3);CHKERRQ(ierr);
+  PetscPrintf(PETSC_COMM_WORLD,  "\nPrinting v2 scaled by 3 ..................... \n");
+  ierr = VecView(v2,PETSC_VIEWER_STDOUT_WORLD);CHKERRQ(ierr);
+  ierr = MPI_Barrier(PETSC_COMM_WORLD);CHKERRQ(ierr);
+  /* VecAXPY */
+  ierr = VecAXPY(v2,-3,v);CHKERRQ(ierr);
+  PetscPrintf(PETSC_COMM_WORLD,  "\nPrinting v2 AXPY, must be zero .............. \n");
+  ierr = VecView(v2,PETSC_VIEWER_STDOUT_WORLD);CHKERRQ(ierr);
+  ierr = MPI_Barrier(PETSC_COMM_WORLD);CHKERRQ(ierr);
+  
   ierr = VecDestroy(&v);CHKERRQ(ierr);
   ierr = EinsFinalize();
   return 0;
