@@ -12,7 +12,10 @@ int main(int argc,char **argv)
   Vec                    v,mpivec,multiplicity,v2;
   PetscScalar            dval,dval2[2],vals[5];
   ISLocalToGlobalMapping mapping;
-    
+  VecExchange            ve;
+  PetscInt               n_neigh;
+  PetscInt               *neigh, *n_shared, **shared;
+  
   ierr = EinsInitialize(&argc,&argv,0,help);CHKERRQ(ierr);
   comm = MPI_COMM_WORLD;
   ierr = MPI_Comm_rank(comm,&rank);CHKERRQ(ierr);
@@ -58,7 +61,6 @@ int main(int argc,char **argv)
   
   ierr = ISLocalToGlobalMappingCreate(comm,1,5,global_indices,PETSC_OWN_POINTER,&mapping);
   ierr = VecUnAsmCreateMPIVec(v,mapping,COMPAT_RULE_AVG,&mpivec);CHKERRQ(ierr);
-  ierr = ISLocalToGlobalMappingDestroy(&mapping);CHKERRQ(ierr);
   VecView(mpivec,PETSC_VIEWER_STDOUT_WORLD);
   /* check vecdot */
   ierr = VecDot(v,v,&dval);CHKERRQ(ierr);
@@ -104,8 +106,20 @@ int main(int argc,char **argv)
   PetscPrintf(PETSC_COMM_WORLD,  "\nPrinting v2 AXPY, must be zero .............. \n");
   ierr = VecView(v2,PETSC_VIEWER_STDOUT_WORLD);CHKERRQ(ierr);
   ierr = MPI_Barrier(PETSC_COMM_WORLD);CHKERRQ(ierr);
+  /* VecExchange */
+  ierr = ISLocalToGlobalMappingGetInfo(mapping,&n_neigh,&neigh,&n_shared,&shared);CHKERRQ(ierr); 
+  ierr = VecExchangeCreate(v,n_neigh,neigh,n_shared,shared,PETSC_USE_POINTER,&ve);CHKERRQ(ierr);
+  ierr = VecExchangeBegin(ve,v,ADD_VALUES);CHKERRQ(ierr);
+  ierr = VecExchangeEnd(ve,v,ADD_VALUES);CHKERRQ(ierr);
   
+  PetscPrintf(PETSC_COMM_WORLD,  "\nPrinting VecExchange .............. \n");
+  ierr = VecView(v,PETSC_VIEWER_STDOUT_WORLD);CHKERRQ(ierr);
+  
+  ierr = ISLocalToGlobalMappingRestoreInfo(mapping,&n_neigh,&neigh,&n_shared,&shared);CHKERRQ(ierr);
+  ierr = ISLocalToGlobalMappingDestroy(&mapping);CHKERRQ(ierr);
+  ierr = VecExchangeDestroy(&ve);CHKERRQ(ierr);
+  ierr = VecDestroy(&v2);CHKERRQ(ierr);
   ierr = VecDestroy(&v);CHKERRQ(ierr);
-  ierr = EinsFinalize();
+  ierr = EinsFinalize();CHKERRQ(ierr);
   return 0;
 }

@@ -490,20 +490,22 @@ PetscErrorCode VecUnAsmCreateMPIVec(Vec v,ISLocalToGlobalMapping mapping,Compati
 
   if (compat == COMPAT_RULE_AVG) {
     if (!xi->multiplicity) SETERRQ(PetscObjectComm((PetscObject)v),PETSC_ERR_SUP,"You should first call VecUnAsmSetMultiplicity");
-    PetscInt          *idx,i;
-    const PetscScalar *xx;
-    Vec               mp;
-    ierr = VecDuplicate(xi->vlocal,&mp);CHKERRQ(ierr);
-    ierr = VecPointwiseDivide(mp,xi->vlocal,xi->multiplicity);CHKERRQ(ierr);
-    ierr = PetscMalloc1(v->map->n,&idx);CHKERRQ(ierr);
-    for(i=0;i<v->map->n;i++) idx[i] = i;
-    ierr = VecGetArrayRead(mp,&xx);CHKERRQ(ierr);
-    ierr = VecSet(mpivec,0.0);CHKERRQ(ierr);
-    ierr = VecSetValuesLocal(mpivec,v->map->n,idx,xx,ADD_VALUES);CHKERRQ(ierr);
-    ierr = VecAssemblyBegin(mpivec);CHKERRQ(ierr);
-    ierr = VecAssemblyEnd(mpivec);CHKERRQ(ierr);
-    ierr = VecRestoreArrayRead(mp,&xx);CHKERRQ(ierr);
-    ierr = VecDestroy(&mp);CHKERRQ(ierr);
+    {
+      PetscInt          *idx,i;
+      const PetscScalar *xx;
+      Vec               mp;
+      ierr = VecDuplicate(xi->vlocal,&mp);CHKERRQ(ierr);
+      ierr = VecPointwiseDivide(mp,xi->vlocal,xi->multiplicity);CHKERRQ(ierr);
+      ierr = PetscMalloc1(v->map->n,&idx);CHKERRQ(ierr);
+      for(i=0;i<v->map->n;i++) idx[i] = i;
+      ierr = VecGetArrayRead(mp,&xx);CHKERRQ(ierr);
+      ierr = VecSet(mpivec,0.0);CHKERRQ(ierr);
+      ierr = VecSetValuesLocal(mpivec,v->map->n,idx,xx,ADD_VALUES);CHKERRQ(ierr);
+      ierr = VecAssemblyBegin(mpivec);CHKERRQ(ierr);
+      ierr = VecAssemblyEnd(mpivec);CHKERRQ(ierr);
+      ierr = VecRestoreArrayRead(mp,&xx);CHKERRQ(ierr);
+      ierr = VecDestroy(&mp);CHKERRQ(ierr);
+    }
   }
   *_vec = mpivec;
   PetscFunctionReturn(0);

@@ -12,6 +12,26 @@ typedef enum {
 } CompatibilityRule;
 
 
+/*S
+     VecExchange - Object used to exchange data between neighboring
+     processors in globally unassebled vectors.
+
+   Level: beginner
+
+  Concepts: exchange
+
+.seealso:  VecExchangeCreate(), VecExchangeBegin(), VecExchangeEnd()
+S*/
+typedef struct _p_VecExchange*  VecExchange;
+
+PETSC_EXTERN PetscClassId VEC_EXCHANGE_CLASSID;
+
+/* VecExchange functions */
+PETSC_EXTERN PetscErrorCode VecExchangeCreate(Vec,PetscInt,PetscInt*,PetscInt*,PetscInt**,PetscCopyMode,VecExchange*);
+PETSC_EXTERN PetscErrorCode VecExchangeDestroy(VecExchange*);
+PETSC_EXTERN PetscErrorCode VecExchangeBegin(VecExchange,Vec,InsertMode);
+PETSC_EXTERN PetscErrorCode VecExchangeEnd(VecExchange,Vec,InsertMode);
+/* VECUNASM functions */
 PETSC_EXTERN PetscErrorCode VecUnAsmSetMultiplicity(Vec,Vec);
 PETSC_EXTERN PetscErrorCode VecUnAsmCreateMPIVec(Vec,ISLocalToGlobalMapping,CompatibilityRule,Vec*);
 

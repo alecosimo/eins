@@ -79,6 +79,7 @@ PetscErrorCode  EinsInitialize(int *argc,char ***args,const char file[],const ch
   ierr = PetscInitialized(&petscCalled);CHKERRQ(ierr);
   if(!petscCalled)  {ierr = PetscInitialize(argc,args,file,help);CHKERRQ(ierr);}
   /* Register Classes */
+  ierr = PetscClassIdRegister("Vector Exchange",&VEC_EXCHANGE_CLASSID);CHKERRQ(ierr);
   /*-- */
   /* Register Constructors */
   ierr = EinsRegisterAll();CHKERRQ(ierr);
