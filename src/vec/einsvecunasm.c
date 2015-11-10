@@ -115,6 +115,35 @@ static PetscErrorCode VecSetValues_UNASM(Vec xin,PetscInt ni,const PetscInt ix[]
 
 
 #undef __FUNCT__
+#define __FUNCT__ "VecUnAsmGetLocalVector"
+/*@ VecUnAsmGetLocalVector - Gets a reference to the local vector of
+  the given globally unassembled vector WITHOUT incrementing the
+  reference count of the object, so the obtained reference to the
+  vector must not be destroyed by the user.
+
+  Input Parameter:
+.  xin - the globally unassembled vector.
+
+  Output Parameter:
+.  vec - reference to the local vector.
+
+  Level: intermediate
+
+@*/
+PETSC_EXTERN PetscErrorCode VecUnAsmGetLocalVector(Vec xin,Vec *vec)
+{
+  PetscErrorCode ierr;
+  Vec_UNASM      *xi; 
+  
+  PetscFunctionBegin;
+  PetscValidHeaderSpecific(xin,VEC_CLASSID,1);
+  xi = (Vec_UNASM*)xin->data;
+  *vec = xi->vlocal;
+  PetscFunctionReturn(0);
+}
+
+
+#undef __FUNCT__
 #define __FUNCT__ "VecMAXPY_UNASM"
 static PetscErrorCode VecMAXPY_UNASM(Vec xin, PetscInt nv,const PetscScalar *alpha,Vec *y)
 {

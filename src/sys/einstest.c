@@ -30,8 +30,8 @@ PETSC_EXTERN PetscErrorCode TestAssertScalars(PetscScalar a,PetscScalar b,PetscS
    TestAssertVectors - Asserts if two vectors have point-wise equal entries up to a given tolerance.
 
    Input: 
-.  a   -  Scalar to compare
-.  b   -  Scalar to compare
+.  a   -  Vector to compare
+.  b   -  Vector to compare
 .  tol -  Tolerance
 
    Level: developer
@@ -54,5 +54,35 @@ PETSC_EXTERN PetscErrorCode TestAssertVectors(Vec a,Vec b,PetscScalar tol)
       SETERRQ4(PETSC_COMM_WORLD,PETSC_ERR_SIG,"Error: vector local entry %d is not equal: a=%g, b=%g, tol=%g",i,v1[i],v2[i],tol); 
   ierr = VecRestoreArrayRead(a,&v1);CHKERRQ(ierr);
   ierr = VecRestoreArrayRead(b,&v2);CHKERRQ(ierr);
+  PetscFunctionReturn(0);
+}
+
+
+#undef __FUNCT__
+#define __FUNCT__ "TestAssertVectorLeTol"
+/*@
+   TestAssertVectorLeTol - Asserts if the absolute value of the
+   entries of a vector are less or equal to a given tolerance.
+
+   Input: 
+.  a   -  Vector to compare
+.  tol -  Tolerance
+
+   Level: developer
+
+.keywords: Unit test
+@*/
+PETSC_EXTERN PetscErrorCode TestAssertVectorLeTol(Vec a,PetscScalar tol)
+{
+  PetscErrorCode      ierr;
+  const PetscScalar   *v1;
+  PetscInt            i;
+  
+  PetscFunctionBegin;
+  ierr = VecGetArrayRead(a,&v1);CHKERRQ(ierr);
+  for (i=0;i<a->map->n;i++)
+    if (PetscAbs(v1[i])>tol)
+      SETERRQ3(PETSC_COMM_WORLD,PETSC_ERR_SIG,"Error: vector local entry %d is not equal: a=%g, tol=%g",i,v1[i],tol); 
+  ierr = VecRestoreArrayRead(a,&v1);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }

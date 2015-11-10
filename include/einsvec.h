@@ -34,5 +34,6 @@ PETSC_EXTERN PetscErrorCode VecExchangeEnd(VecExchange,Vec,InsertMode);
 /* VECUNASM functions */
 PETSC_EXTERN PetscErrorCode VecUnAsmSetMultiplicity(Vec,Vec);
 PETSC_EXTERN PetscErrorCode VecUnAsmCreateMPIVec(Vec,ISLocalToGlobalMapping,CompatibilityRule,Vec*);
+PETSC_EXTERN PetscErrorCode VecUnAsmGetLocalVector(Vec,Vec*);
 
 #endif/* EINSVEC_H*/
