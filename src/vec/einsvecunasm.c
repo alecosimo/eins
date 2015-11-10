@@ -18,8 +18,11 @@ static PetscErrorCode VecSetValues_UNASM(Vec,PetscInt,const PetscInt [],const Pe
 static PetscErrorCode VecMTDot_UNASM(Vec,PetscInt,const Vec [],PetscScalar*);
 static PetscErrorCode VecAssemblyBegin_UNASM(Vec);
 static PetscErrorCode VecAssemblyEnd_UNASM(Vec);
-
-
+static PetscErrorCode VecGetArrayRead_UNASM(Vec,const PetscScalar**);
+static PetscErrorCode VecRestoreArrayRead_UNASM(Vec,const PetscScalar**);
+static PetscErrorCode VecGetArray_UNASM(Vec,PetscScalar**);
+static PetscErrorCode VecRestoreArray_UNASM(Vec,PetscScalar**);
+  
 #undef __FUNCT__
 #define __FUNCT__ "VecCreate_UNASM"
 /*@ VECMPIUNASM = "mpiunasm" - Globally unassembled mpi vector for
@@ -44,27 +47,31 @@ PETSC_EXTERN PetscErrorCode VecCreate_UNASM(Vec v)
   v->data = (void*)b;
   /* create local vec */
   ierr = VecCreateSeq(PETSC_COMM_SELF,v->map->n,&b->vlocal);CHKERRQ(ierr);
-  b->multiplicity       = 0;
+  b->multiplicity          = 0;
   /* vector ops */
-  ierr                  = PetscMemzero(v->ops,sizeof(struct _VecOps));CHKERRQ(ierr);
-  v->ops->duplicate     = VecDuplicate_UNASM;
-  v->ops->dot           = VecDot_UNASM;
-  v->ops->scale         = VecScale_UNASM;
-  v->ops->mdot          = VecMDot_UNASM;
-  v->ops->norm          = VecNorm_UNASM;
-  v->ops->tdot          = VecTDot_UNASM;
-  v->ops->mtdot         = VecMTDot_UNASM;
-  v->ops->copy          = VecCopy_UNASM;
-  v->ops->set           = VecSet_UNASM;
-  v->ops->axpy          = VecAXPY_UNASM;
-  v->ops->maxpy         = VecMAXPY_UNASM;
-  v->ops->aypx          = VecAYPX_UNASM;
-  v->ops->setvalues     = VecSetValues_UNASM;
-  v->ops->assemblybegin = VecAssemblyBegin_UNASM;
-  v->ops->assemblyend   = VecAssemblyEnd_UNASM;
-  v->ops->destroy       = VecDestroy_UNASM;
-  v->ops->view          = VecView_UNASM;
-  
+  ierr                     = PetscMemzero(v->ops,sizeof(struct _VecOps));CHKERRQ(ierr);
+  v->ops->duplicate        = VecDuplicate_UNASM;
+  v->ops->dot              = VecDot_UNASM;
+  v->ops->scale            = VecScale_UNASM;
+  v->ops->mdot             = VecMDot_UNASM;
+  v->ops->norm             = VecNorm_UNASM;
+  v->ops->tdot             = VecTDot_UNASM;
+  v->ops->mtdot            = VecMTDot_UNASM;
+  v->ops->copy             = VecCopy_UNASM;
+  v->ops->set              = VecSet_UNASM;
+  v->ops->axpy             = VecAXPY_UNASM;
+  v->ops->maxpy            = VecMAXPY_UNASM;
+  v->ops->aypx             = VecAYPX_UNASM;
+  v->ops->setvalues        = VecSetValues_UNASM;
+  v->ops->assemblybegin    = VecAssemblyBegin_UNASM;
+  v->ops->assemblyend      = VecAssemblyEnd_UNASM;
+  v->ops->destroy          = VecDestroy_UNASM;
+  v->ops->view             = VecView_UNASM;
+  v->ops->getarrayread     = VecGetArrayRead_UNASM;
+  v->ops->getarray         = VecGetArray_UNASM;
+  v->ops->restorearrayread = VecRestoreArrayRead_UNASM;
+  v->ops->restorearray     = VecRestoreArray_UNASM;
+    
   ierr = PetscObjectChangeTypeName((PetscObject)v,VECMPIUNASM);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
@@ -124,6 +131,58 @@ static PetscErrorCode VecMAXPY_UNASM(Vec xin, PetscInt nv,const PetscScalar *alp
   } 
   ierr = VecMAXPY_Seq(xi->vlocal,nv,alpha,y_aux);CHKERRQ(ierr);
   ierr = PetscFree(y_aux);CHKERRQ(ierr);
+  PetscFunctionReturn(0);
+}
+
+
+#undef __FUNCT__
+#define __FUNCT__ "VecGetArrayRead_UNASM"
+static PetscErrorCode VecGetArrayRead_UNASM(Vec x,const PetscScalar **a)
+{
+  PetscErrorCode ierr;
+  Vec_UNASM      *xi = (Vec_UNASM*)x->data;
+  
+  PetscFunctionBegin;
+  ierr = VecGetArrayRead(xi->vlocal,a);CHKERRQ(ierr);
+  PetscFunctionReturn(0);
+}
+
+
+#undef __FUNCT__
+#define __FUNCT__ "VecRestoreArrayRead_UNASM"
+static PetscErrorCode VecRestoreArrayRead_UNASM(Vec x,const PetscScalar **a)
+{
+  PetscErrorCode ierr;
+  Vec_UNASM      *xi = (Vec_UNASM*)x->data;
+  
+  PetscFunctionBegin;
+  ierr = VecRestoreArrayRead(xi->vlocal,a);CHKERRQ(ierr);
+  PetscFunctionReturn(0);
+}
+
+
+#undef __FUNCT__
+#define __FUNCT__ "VecGetArray_UNASM"
+static PetscErrorCode VecGetArray_UNASM(Vec x,PetscScalar **a)
+{
+  PetscErrorCode ierr;
+  Vec_UNASM      *xi = (Vec_UNASM*)x->data;
+  
+  PetscFunctionBegin;
+  ierr = VecGetArray(xi->vlocal,a);CHKERRQ(ierr);
+  PetscFunctionReturn(0);
+}
+
+
+#undef __FUNCT__
+#define __FUNCT__ "VecRestoreArray_UNASM"
+static PetscErrorCode VecRestoreArray_UNASM(Vec x,PetscScalar **a)
+{
+  PetscErrorCode ierr;
+  Vec_UNASM      *xi = (Vec_UNASM*)x->data;
+  
+  PetscFunctionBegin;
+  ierr = VecRestoreArray(xi->vlocal,a);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 

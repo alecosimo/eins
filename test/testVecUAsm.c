@@ -1,6 +1,7 @@
 static char help[] = "Test the creation of globally unassembled vector\n\n";
 
 #include <eins.h>
+#include <einstest.h>
 
 #undef __FUNCT__
 #define __FUNCT__ "main"
@@ -10,7 +11,7 @@ int main(int argc,char **argv)
   PetscInt               rank,idx[5]={0,1,2,3,4},global_indices[5];
   PetscErrorCode         ierr;
   Vec                    v,mpivec,multiplicity,v2;
-  PetscScalar            dval,dval2[2],vals[5];
+  PetscScalar            dval0,dval1,dval2_0[2],dval2_1[2],vals[5];
   ISLocalToGlobalMapping mapping;
   VecExchange            ve;
   PetscInt               n_neigh;
@@ -63,30 +64,36 @@ int main(int argc,char **argv)
   ierr = VecUnAsmCreateMPIVec(v,mapping,COMPAT_RULE_AVG,&mpivec);CHKERRQ(ierr);
   VecView(mpivec,PETSC_VIEWER_STDOUT_WORLD);
   /* check vecdot */
-  ierr = VecDot(v,v,&dval);CHKERRQ(ierr);
-  PetscPrintf(PETSC_COMM_WORLD,"\nVecDot .......................................... %g \n",dval);
-  ierr = VecDot(mpivec,mpivec,&dval);CHKERRQ(ierr);
-  PetscPrintf(PETSC_COMM_WORLD,  "VecDot mpiVec ................................... %g \n",dval);
+  ierr = VecDot(v,v,&dval0);CHKERRQ(ierr);
+  PetscPrintf(PETSC_COMM_WORLD,"\nVecDot .......................................... %g \n",dval0);
+  ierr = VecDot(mpivec,mpivec,&dval1);CHKERRQ(ierr);
+  PetscPrintf(PETSC_COMM_WORLD,  "VecDot mpiVec ................................... %g \n",dval1);
+  ierr = TestAssertScalars(dval0,dval1,1e-8);CHKERRQ(ierr);   
   /* check norm L2 */
-  ierr = VecNorm(v,NORM_2,&dval);CHKERRQ(ierr);
-  PetscPrintf(PETSC_COMM_WORLD,"\nNORM_2 .......................................... %g \n",dval);
-  ierr = VecNorm(mpivec,NORM_2,&dval);CHKERRQ(ierr);
-  PetscPrintf(PETSC_COMM_WORLD,  "NORM_2 mpiVec ................................... %g \n",dval);
+  ierr = VecNorm(v,NORM_2,&dval0);CHKERRQ(ierr);
+  PetscPrintf(PETSC_COMM_WORLD,"\nNORM_2 .......................................... %g \n",dval0);
+  ierr = VecNorm(mpivec,NORM_2,&dval1);CHKERRQ(ierr);
+  PetscPrintf(PETSC_COMM_WORLD,  "NORM_2 mpiVec ................................... %g \n",dval1);
+  ierr = TestAssertScalars(dval0,dval1,1e-8);CHKERRQ(ierr);   
   /* check norm L1 */
-  ierr = VecNorm(v,NORM_1,&dval);CHKERRQ(ierr);
-  PetscPrintf(PETSC_COMM_WORLD,"\nNORM_1 .......................................... %g \n",dval);
-  ierr = VecNorm(mpivec,NORM_1,&dval);CHKERRQ(ierr);
-  PetscPrintf(PETSC_COMM_WORLD,  "NORM_1 mpiVec ................................... %g \n",dval);
+  ierr = VecNorm(v,NORM_1,&dval1);CHKERRQ(ierr);
+  PetscPrintf(PETSC_COMM_WORLD,"\nNORM_1 .......................................... %g \n",dval1);
+  ierr = VecNorm(mpivec,NORM_1,&dval0);CHKERRQ(ierr);
+  PetscPrintf(PETSC_COMM_WORLD,  "NORM_1 mpiVec ................................... %g \n",dval0);
+  ierr = TestAssertScalars(dval0,dval1,1e-8);CHKERRQ(ierr);   
   /* check norm inf */
-  ierr = VecNorm(v,NORM_INFINITY,&dval);CHKERRQ(ierr);
-  PetscPrintf(PETSC_COMM_WORLD,"\nNORM_inf .......................................... %g \n",dval);
-  ierr = VecNorm(mpivec,NORM_INFINITY,&dval);CHKERRQ(ierr);
-  PetscPrintf(PETSC_COMM_WORLD,  "NORM_inf mpiVec ................................... %g \n",dval);
+  ierr = VecNorm(v,NORM_INFINITY,&dval0);CHKERRQ(ierr);
+  PetscPrintf(PETSC_COMM_WORLD,"\nNORM_inf .......................................... %g \n",dval0);
+  ierr = VecNorm(mpivec,NORM_INFINITY,&dval1);CHKERRQ(ierr);
+  PetscPrintf(PETSC_COMM_WORLD,  "NORM_inf mpiVec ................................... %g \n",dval1);
+  ierr = TestAssertScalars(dval0,dval1,1e-8);CHKERRQ(ierr);   
   /* check norm l1 and l2 */
-  ierr = VecNorm(v,NORM_1_AND_2,dval2);CHKERRQ(ierr);
-  PetscPrintf(PETSC_COMM_WORLD,"\nNORM_1_2 .......................................... %g, %g \n",dval2[0],dval2[1]);
-  ierr = VecNorm(mpivec,NORM_1_AND_2,dval2);CHKERRQ(ierr);
-  PetscPrintf(PETSC_COMM_WORLD,  "NORM_1_2 mpiVec ................................... %g, %g \n",dval2[0],dval2[1]);
+  ierr = VecNorm(v,NORM_1_AND_2,dval2_0);CHKERRQ(ierr);
+  PetscPrintf(PETSC_COMM_WORLD,"\nNORM_1_2 .......................................... %g, %g \n",dval2_0[0],dval2_0[1]);
+  ierr = VecNorm(mpivec,NORM_1_AND_2,dval2_1);CHKERRQ(ierr);
+  PetscPrintf(PETSC_COMM_WORLD,  "NORM_1_2 mpiVec ................................... %g, %g \n",dval2_1[0],dval2_1[1]);
+  ierr = TestAssertScalars(dval2_0[0],dval2_1[0],1e-8);CHKERRQ(ierr);
+  ierr = TestAssertScalars(dval2_0[1],dval2_1[1],1e-8);CHKERRQ(ierr);
   /* VecDuplicate, VecCopy and VecView */
   ierr = VecDuplicate(v,&v2);CHKERRQ(ierr);
   ierr = VecCopy(v,v2);CHKERRQ(ierr);
@@ -96,6 +103,7 @@ int main(int argc,char **argv)
   PetscPrintf(PETSC_COMM_WORLD,  "\nPrinting v2 ................................... \n");
   ierr = VecView(v2,PETSC_VIEWER_STDOUT_WORLD);CHKERRQ(ierr);
   ierr = MPI_Barrier(PETSC_COMM_WORLD);CHKERRQ(ierr);
+  ierr = TestAssertVectors(v,v2,1e-8);CHKERRQ(ierr);
   /* VecScale */
   ierr = VecScale(v2,3);CHKERRQ(ierr);
   PetscPrintf(PETSC_COMM_WORLD,  "\nPrinting v2 scaled by 3 ..................... \n");
