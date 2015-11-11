@@ -61,37 +61,6 @@ static PetscErrorCode FETIDestroy_FETI1(FETI ft)
 }
 
 
-/* #undef __FUNCT__ */
-/* #define __FUNCT__ "FETI1ConvergedProjectedResidual" */
-/* /\*@ */
-/*    FETI1ConvergedProjectedResidual - Checks convergence of the */
-/*    iterface problem by comparing the L2 norm of the projected */
-/*    residual. */
-
-/*    Input Parameter: */
-/* .  ksp    - the ksp context */
-/* .  n      - the iteration number */
-/* .  rnorm  - the L2 norm of the projected residual */
-/* .  reason - reason a Krylov method was said to have converged or diverged */
-/* .  ctx    - optional convergence context */
- 
-/*    Level: intermediate */
-
-/* .keywords: FETI */
-
-/* @*\/ */
-/* PetscErrorCode  FETI1ConvergedProjectedResidual(KSP ksp,PetscInt n,PetscReal rnorm,KSPConvergedReason *reason,void *ctx) */
-/* { */
-/*   PetscErrorCode         ierr; */
-  
-/*   PetscFunctionBegin; */
-
-  
-  
-/*   PetscFunctionReturn(0); */
-/* } */
-
-
 #undef __FUNCT__
 #define __FUNCT__ "FETISetUp_FETI1"
 /*@
@@ -444,18 +413,12 @@ static PetscErrorCode FETI1BuildLambdaAndB_Private(FETI ft)
   ierr = PetscFree(dual_dofs_boundary_indices);CHKERRQ(ierr);
 
   /* Local to global mapping for lagrange multipliers */
-  ierr = VecCreate(PETSC_COMM_SELF,&ft->lambda_local);CHKERRQ(ierr);
-  ierr = VecSetSizes(ft->lambda_local,n_lambda_local,n_lambda_local);CHKERRQ(ierr);
-  ierr = VecSetType(ft->lambda_local,VECSEQ);CHKERRQ(ierr);
   ierr = VecCreate(comm,&ft->lambda_global);CHKERRQ(ierr);
-  ierr = VecSetSizes(ft->lambda_global,PETSC_DECIDE,ft->n_lambda);CHKERRQ(ierr);
-  ierr = VecSetType(ft->lambda_global,VECMPI);CHKERRQ(ierr);
-  ierr = ISCreateGeneral(comm,n_lambda_local,l2g_indices,PETSC_OWN_POINTER,&IS_l2g_lambda);CHKERRQ(ierr);
-  ierr = VecScatterCreate(ft->lambda_local,(IS)0,ft->lambda_global,IS_l2g_lambda,&ft->l2g_lambda);CHKERRQ(ierr);
+  ierr = VecSetSizes(ft->lambda_global,n_lambda_local,ft->n_lambda);CHKERRQ(ierr);
+  ierr = VecSetType(ft->lambda_global,VECMPIUNASM);CHKERRQ(ierr);
   /* create local to global mapping and neighboring information for lambda */
   ierr = ISLocalToGlobalMappingCreate(comm,1,n_lambda_local,l2g_indices,PETSC_COPY_VALUES,&ft->mapping_lambda);
   ierr = ISLocalToGlobalMappingGetInfo(ft->mapping_lambda,&(ft->n_neigh_lb),&(ft->neigh_lb),&(ft->n_shared_lb),&(ft->shared_lb));CHKERRQ(ierr);
-  ierr = ISDestroy(&IS_l2g_lambda);CHKERRQ(ierr);
   /* Create local part of B_delta */
   ierr = MatCreate(PETSC_COMM_SELF,&ft->B_delta);CHKERRQ(ierr);
   ierr = MatCreate(PETSC_COMM_SELF,&ft->B_Ddelta);CHKERRQ(ierr);
