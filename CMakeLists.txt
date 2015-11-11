@@ -10,7 +10,7 @@ include("${CMAKE_SOURCE_DIR}/cmake/cmakeSys/mainMacrosAndFunctions.cmake")
 
 # Options for this project. Try to specify every option here
 option(BUILD_DOCUMENTATION "Build the documentation"  ON)
-option(ENABLE_PEDANTIC     "Enable pedantic warnings" OFF)
+option(ENABLE_PEDANTIC     "Enable pedantic warnings" ON)
 option(FETI_DEBUG "Enable debug tests for FETI formulations" OFF)
 
 # Declare and define every CMake variable in what follows
@@ -66,7 +66,7 @@ find_library(MATH_LIB m)
 find_package(MPI REQUIRED)
 find_package(LAPACK REQUIRED)
 find_package(PETSc REQUIRED)
-include_directories(${PETSC_INCLUDES})
+include_directories(SYSTEM ${PETSC_INCLUDES})
 
 # Set libraries for the Eins project, Eins_Libraries
 set(Eins_libraries)
