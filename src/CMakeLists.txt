@@ -4,4 +4,5 @@ M_SOURCES_FOR_TARGET(Eins "${extensionsCXX}" "${PROJECT_SOURCE_DIR}/src/ksp")
 M_SOURCES_FOR_TARGET(Eins "${extensionsCXX}" "${PROJECT_SOURCE_DIR}/src/pc")
 M_SOURCES_FOR_TARGET(Eins "${extensionsCXX}" "${PROJECT_SOURCE_DIR}/src/sys")
 M_SOURCES_FOR_TARGET(Eins "${extensionsCXX}" "${PROJECT_SOURCE_DIR}/src/vec")
+M_SOURCES_FOR_TARGET(Eins "${extensionsCXX}" "${PROJECT_SOURCE_DIR}/src/mat")
 

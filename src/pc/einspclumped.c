@@ -68,20 +68,19 @@ static PetscErrorCode PCApply_LUMPED(PC pc,Vec x,Vec y)
   PetscErrorCode   ierr;
   FETI             ft   = pcl->ft;
   Subdomain        sd   = ft->subdomain;
-
+  Vec              lambda_local,y_local;
+  
   PetscFunctionBegin;
+  ierr = VecUnAsmGetLocalVector(x,&lambda_local);CHKERRQ(ierr);
+  ierr = VecUnAsmGetLocalVector(y,&y_local);CHKERRQ(ierr);
   /* Application of B_Ddelta^T */
-  ierr = VecScatterBegin(ft->l2g_lambda,x,ft->lambda_local,INSERT_VALUES,SCATTER_REVERSE);CHKERRQ(ierr);
-  ierr = VecScatterEnd(ft->l2g_lambda,x,ft->lambda_local,INSERT_VALUES,SCATTER_REVERSE);CHKERRQ(ierr);
-  ierr = VecSet(sd->vec1_B,0.0);CHKERRQ(ierr);
-  ierr = MatMultTranspose(ft->B_Ddelta,ft->lambda_local,sd->vec1_B);CHKERRQ(ierr);
+  ierr = MatMultTranspose(ft->B_Ddelta,lambda_local,sd->vec1_B);CHKERRQ(ierr);
   /* Application of local Schur complement */
   ierr = MatMult(pcl->A_BB,sd->vec1_B,sd->vec2_B);CHKERRQ(ierr);
   /* Application of B_Ddelta */
-  ierr = MatMult(ft->B_Ddelta,sd->vec2_B,ft->lambda_local);CHKERRQ(ierr);
-  ierr = VecSet(y,0.0);CHKERRQ(ierr);
-  ierr = VecScatterBegin(ft->l2g_lambda,ft->lambda_local,y,ADD_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
-  ierr = VecScatterEnd(ft->l2g_lambda,ft->lambda_local,y,ADD_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
+  ierr = MatMult(ft->B_Ddelta,sd->vec2_B,y_local);CHKERRQ(ierr);
+  ierr = VecExchangeBegin(ft->exchange_lambda,y,ADD_VALUES);CHKERRQ(ierr);
+  ierr = VecExchangeEnd(ft->exchange_lambda,y,ADD_VALUES);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 

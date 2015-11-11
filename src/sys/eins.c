@@ -1,9 +1,10 @@
 #include <eins.h>
+#include <einsmat.h>
 #include <private/einsfetiimpl.h>
 #include <private/einskspimpl.h>
 #include <private/einspcimpl.h>
 #include <private/einsvecimpl.h>
-
+#include <petsc/private/matimpl.h>
 
 PETSC_EXTERN PetscBool EinsInitializeCalled;
 PETSC_EXTERN PetscBool EinsFinalizeCalled;
@@ -31,6 +32,9 @@ static PetscErrorCode EinsRegisterAll(void)
   /*Register Vec*/
   ierr = VecRegisterAll();CHKERRQ(ierr);
   ierr = VecRegister(VECMPIUNASM,VecCreate_UNASM);CHKERRQ(ierr);
+  /*Register Mat*/
+  ierr = MatRegisterAll();CHKERRQ(ierr);
+  ierr = MatRegister(MATSHELLUNASM,MatCreate_ShellUnAsm);CHKERRQ(ierr);
   /*Register KSP*/
   ierr = KSPRegisterAll();CHKERRQ(ierr);
   ierr = KSPRegister(KSPPJCG,KSPCreate_PJCG);CHKERRQ(ierr);

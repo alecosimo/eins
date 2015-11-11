@@ -2,13 +2,15 @@
 #define FETIIMPL_H
 
 #include <einsfeti.h>
+#include <einsvec.h>
+#include <einsmat.h>
 #include <petscksp.h>
 #include <private/einssubdomain.h>
 #include <petsc/private/petscimpl.h>
 
 PETSC_EXTERN PetscBool FETIRegisterAllCalled;
 PETSC_EXTERN PetscErrorCode FETIRegisterAll(void);
-PETSC_EXTERN PetscErrorCode FETICreateFMat(FETI,void (*)(void),void (*)(void));
+PETSC_EXTERN PetscErrorCode FETICreateFMat(FETI,void (*)(void),void (*)(void),void (*)(void));
 PETSC_EXTERN PetscErrorCode FETIBuildInterfaceKSP(FETI);
 
 typedef struct _FETIOps *FETIOps;
@@ -46,7 +48,8 @@ struct _p_FETI {
   KSPType                ksp_type_interface;
   PCType                 pc_type_interface;
   /* mapping information for interface problem */
-  VecScatter             l2g_lambda;
+  VecExchange            exchange_lambda;
+  Vec                    multiplicity; /* multiplicity of lambdas */
   ISLocalToGlobalMapping mapping_lambda;
   PetscInt               n_neigh_lb;
   PetscInt               *neigh_lb;  

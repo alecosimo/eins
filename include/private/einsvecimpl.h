@@ -3,7 +3,7 @@
 
 #include <einsvec.h>
 #include <petsc/private/vecimpl.h>
-
+#include <petscmat.h>
 
 typedef struct _VecExchangeOps *VecExchangeOps;
 struct _VecExchangeOps {

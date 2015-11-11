@@ -1,9 +1,12 @@
 #include <../src/vec/einsvecunasm.h>
+#include <petsc/private/matimpl.h>
 #include <petscblaslapack.h>
 
 static PetscErrorCode VecView_UNASM(Vec,PetscViewer);
 static PetscErrorCode VecDuplicate_UNASM(Vec,Vec*);
 static PetscErrorCode VecDestroy_UNASM(Vec);
+static PetscErrorCode VecGetLocalSize_UNASM(Vec,PetscInt*);
+static PetscErrorCode VecGetSize_UNASM(Vec,PetscInt*);
 static PetscErrorCode VecDot_UNASM(Vec,Vec,PetscScalar*);
 static PetscErrorCode VecMDot_UNASM(Vec,PetscInt,const Vec[],PetscScalar*);
 static PetscErrorCode VecNorm_UNASM(Vec,NormType,PetscReal*);
@@ -51,6 +54,9 @@ PETSC_EXTERN PetscErrorCode VecCreate_UNASM(Vec v)
   /* vector ops */
   ierr                     = PetscMemzero(v->ops,sizeof(struct _VecOps));CHKERRQ(ierr);
   v->ops->duplicate        = VecDuplicate_UNASM;
+  v->ops->duplicatevecs    = VecDuplicateVecs_Default;      
+  v->ops->getlocalsize     = VecGetLocalSize_UNASM;
+  v->ops->getsize          = VecGetSize_UNASM;
   v->ops->dot              = VecDot_UNASM;
   v->ops->scale            = VecScale_UNASM;
   v->ops->mdot             = VecMDot_UNASM;
@@ -132,7 +138,6 @@ static PetscErrorCode VecSetValues_UNASM(Vec xin,PetscInt ni,const PetscInt ix[]
 @*/
 PETSC_EXTERN PetscErrorCode VecUnAsmGetLocalVector(Vec xin,Vec *vec)
 {
-  PetscErrorCode ierr;
   Vec_UNASM      *xi; 
   
   PetscFunctionBegin;
@@ -501,7 +506,8 @@ static PetscErrorCode VecNorm_UNASM(Vec xin,NormType type,PetscReal *z)
 static PetscErrorCode VecDuplicate_UNASM(Vec win,Vec *V)
 {
   PetscErrorCode ierr;
-
+  Vec_UNASM      *xi;
+  
   PetscFunctionBegin;
   ierr = VecCreate(PetscObjectComm((PetscObject)win),V);CHKERRQ(ierr);
   ierr = PetscObjectSetPrecision((PetscObject)*V,((PetscObject)win)->precision);CHKERRQ(ierr);
@@ -510,7 +516,9 @@ static PetscErrorCode VecDuplicate_UNASM(Vec win,Vec *V)
   ierr = PetscLayoutReference(win->map,&(*V)->map);CHKERRQ(ierr);
   ierr = PetscObjectListDuplicate(((PetscObject)win)->olist,&((PetscObject)(*V))->olist);CHKERRQ(ierr);
   ierr = PetscFunctionListDuplicate(((PetscObject)win)->qlist,&((PetscObject)(*V))->qlist);CHKERRQ(ierr);
-  
+  xi   = (Vec_UNASM*)win->data;
+  if(xi->multiplicity) {ierr = VecUnAsmSetMultiplicity(*V,xi->multiplicity);CHKERRQ(ierr);}
+    
   (*V)->ops->view          = win->ops->view;
   (*V)->stash.ignorenegidx = win->stash.ignorenegidx; 
   PetscFunctionReturn(0);
@@ -532,16 +540,37 @@ static PetscErrorCode VecCopy_UNASM(Vec xin,Vec yin)
 
 
 #undef __FUNCT__
+#define __FUNCT__ "VecGetSize_UNASM"
+static PetscErrorCode VecGetSize_UNASM(Vec v,PetscInt* s)
+{
+  PetscFunctionBegin;
+  *s = v->map->N;
+  PetscFunctionReturn(0);
+}
+
+#undef __FUNCT__
 #define __FUNCT__ "VecDestroy_UNASM"
-PetscErrorCode VecDestroy_UNASM(Vec v)
+static PetscErrorCode VecDestroy_UNASM(Vec v)
 {
   PetscErrorCode ierr;
   Vec_UNASM      *b = (Vec_UNASM*)v->data;
-
+ 
   PetscFunctionBegin;
   ierr = VecDestroy(&b->vlocal);CHKERRQ(ierr);
   ierr = VecDestroy(&b->multiplicity);CHKERRQ(ierr);
   ierr = PetscFree(v->data);CHKERRQ(ierr);
+  PetscFunctionReturn(0);
+}
+
+
+#undef __FUNCT__
+#define __FUNCT__ "VecGetLocalSize_UNASM"
+static PetscErrorCode VecGetLocalSize_UNASM(Vec v,PetscInt* s)
+{
+  Vec_UNASM      *b = (Vec_UNASM*)v->data;
+
+  PetscFunctionBegin;
+  *s = (b->vlocal)->map->n;
   PetscFunctionReturn(0);
 }
 
@@ -630,3 +659,5 @@ static PetscErrorCode VecView_UNASM(Vec xin,PetscViewer viewer)
   
   PetscFunctionReturn(0);
 }
+
+

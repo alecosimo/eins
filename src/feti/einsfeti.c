@@ -229,7 +229,7 @@ PetscErrorCode FETIBuildInterfaceKSP(FETI ft)
 .keywords: FETI
 
 @*/
-PetscErrorCode FETICreateFMat(FETI ft,void (*FETIMatMult)(void),void (*FETIDestroyMatF)(void))
+PetscErrorCode FETICreateFMat(FETI ft,void (*FETIMatMult)(void),void (*FETIDestroyMatF)(void),void (*FETIMatGetVecs)(void))
 {
   PetscErrorCode   ierr;
   FETIMat_ctx      matctx;
@@ -243,9 +243,10 @@ PetscErrorCode FETICreateFMat(FETI ft,void (*FETIMatMult)(void),void (*FETIDestr
   matctx->ft = ft;
   ierr = PetscObjectReference((PetscObject)ft);CHKERRQ(ierr);
   /* creating the MatShell */
-  ierr = MatCreateShell(comm,PETSC_DECIDE,PETSC_DECIDE,ft->n_lambda,ft->n_lambda,matctx,&ft->F);CHKERRQ(ierr);
-  ierr = MatShellSetOperation(ft->F,MATOP_MULT,FETIMatMult);CHKERRQ(ierr);
-  ierr = MatShellSetOperation(ft->F,MATOP_DESTROY,FETIDestroyMatF);CHKERRQ(ierr);
+  ierr = MatCreateShellUnAsm(comm,ft->n_lambda_local,ft->n_lambda_local,ft->n_lambda,ft->n_lambda,matctx,&ft->F);CHKERRQ(ierr);
+  ierr = MatShellUnAsmSetOperation(ft->F,MATOP_MULT,FETIMatMult);CHKERRQ(ierr);
+  ierr = MatShellUnAsmSetOperation(ft->F,MATOP_DESTROY,FETIDestroyMatF);CHKERRQ(ierr);
+  ierr = MatShellUnAsmSetOperation(ft->F,MATOP_GET_VECS,FETIMatGetVecs);CHKERRQ(ierr);
   ierr = PetscObjectCompose((PetscObject)ft->F,"FETI",(PetscObject)ft);CHKERRQ(ierr);
   ierr = MatSetUp(ft->F);CHKERRQ(ierr);
   PetscFunctionReturn(0);
@@ -340,9 +341,10 @@ PetscErrorCode FETIDestroy(FETI *_feti)
   ierr = MatDestroy(&feti->B_Ddelta);CHKERRQ(ierr);
   ierr = FETIScalingDestroy(feti);CHKERRQ(ierr);
   ierr = VecDestroy(&feti->d);CHKERRQ(ierr);
+  ierr = VecDestroy(&feti->multiplicity);CHKERRQ(ierr);
   ierr = VecDestroy(&feti->lambda_local);CHKERRQ(ierr);
   ierr = VecDestroy(&feti->lambda_global);CHKERRQ(ierr);
-  ierr = VecScatterDestroy(&feti->l2g_lambda);CHKERRQ(ierr);
+  ierr = VecExchangeDestroy(&feti->exchange_lambda);CHKERRQ(ierr);
   if (feti->n_neigh_lb > -1) {
     ierr = ISLocalToGlobalMappingRestoreInfo(feti->mapping_lambda,&(feti->n_neigh_lb),&(feti->neigh_lb),&(feti->n_shared_lb),&(feti->shared_lb));CHKERRQ(ierr);
   }
@@ -698,12 +700,13 @@ PetscErrorCode  FETICreate(MPI_Comm comm,FETI *newfeti)
 
   feti->setupcalled          = 0;
   feti->setfromoptionscalled = 0;
+  feti->multiplicity         = 0;
   feti->data                 = 0;
   feti->lambda_local         = 0;
   feti->lambda_global        = 0;
   feti->mapping_lambda       = 0;
   feti->n_lambda_local       = 0;
-  feti->l2g_lambda           = 0;
+  feti->exchange_lambda      = 0;
   feti->n_lambda             = -1;
   feti->F                    = 0;
   feti->d                    = 0;
