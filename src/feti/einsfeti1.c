@@ -413,7 +413,7 @@ static PetscErrorCode FETI1BuildLambdaAndB_Private(FETI ft)
   ierr = PetscFree(aux_sums);CHKERRQ(ierr);
   ierr = PetscFree(dual_dofs_boundary_indices);CHKERRQ(ierr);
 
-  /* Local to global mapping for lagrange multipliers */
+  /* Create global_lambda */
   ierr = VecCreate(comm,&ft->lambda_global);CHKERRQ(ierr);
   ierr = VecSetSizes(ft->lambda_global,n_lambda_local,ft->n_lambda);CHKERRQ(ierr);
   ierr = VecSetType(ft->lambda_global,VECMPIUNASM);CHKERRQ(ierr);
@@ -421,9 +421,8 @@ static PetscErrorCode FETI1BuildLambdaAndB_Private(FETI ft)
   ierr = ISLocalToGlobalMappingCreate(comm,1,n_lambda_local,l2g_indices,PETSC_COPY_VALUES,&ft->mapping_lambda);
   ierr = ISLocalToGlobalMappingGetInfo(ft->mapping_lambda,&(ft->n_neigh_lb),&(ft->neigh_lb),&(ft->n_shared_lb),&(ft->shared_lb));CHKERRQ(ierr);
   ierr = VecExchangeCreate(ft->lambda_global,ft->n_neigh_lb,ft->neigh_lb,ft->n_shared_lb,ft->shared_lb,PETSC_USE_POINTER,&ft->exchange_lambda);CHKERRQ(ierr);
-  /* set muliplicity for lambdas */
+  /* set multiplicity for lambdas */
   ierr = VecCreateSeq(PETSC_COMM_SELF,n_lambda_local,&ft->multiplicity);CHKERRQ(ierr);
-  /* Count total number of neigh per node */
   ierr = PetscMalloc1(n_lambda_local,&aux_local_numbering_2);CHKERRQ(ierr);
   ierr = PetscCalloc1(n_lambda_local,&array);CHKERRQ(ierr);
   for (i=0;i<ft->n_lambda_local;i++) aux_local_numbering_2[i] = i;
