@@ -139,9 +139,13 @@ static PetscErrorCode VecSetValues_UNASM(Vec xin,PetscInt ni,const PetscInt ix[]
 PETSC_EXTERN PetscErrorCode VecUnAsmGetLocalVector(Vec xin,Vec *vec)
 {
   Vec_UNASM      *xi; 
+  PetscBool      flg;
+  PetscErrorCode ierr;
   
   PetscFunctionBegin;
   PetscValidHeaderSpecific(xin,VEC_CLASSID,1);
+  ierr = PetscObjectTypeCompare((PetscObject)xin,VECMPIUNASM,&flg);CHKERRQ(ierr);
+  if(!flg) SETERRQ(PetscObjectComm((PetscObject)xin),PETSC_ERR_SUP,"Cannot get local vector from non globally unassembled vector");
   xi = (Vec_UNASM*)xin->data;
   *vec = xi->vlocal;
   PetscFunctionReturn(0);
@@ -330,9 +334,16 @@ static PetscErrorCode VecDot_UNASM(Vec xin,Vec yin,PetscScalar *z)
 PETSC_EXTERN PetscErrorCode VecUnAsmSetMultiplicity(Vec x,Vec multiplicity)
 {
   PetscErrorCode ierr;
-  Vec_UNASM      *xi = (Vec_UNASM*)x->data;
-
+  Vec_UNASM      *xi;
+  PetscBool      flg;
+  
   PetscFunctionBegin;
+  PetscValidHeaderSpecific(x,VEC_CLASSID,1);
+  PetscValidHeaderSpecific(multiplicity,VEC_CLASSID,2);
+  ierr = PetscObjectTypeCompare((PetscObject)x,VECMPIUNASM,&flg);CHKERRQ(ierr);
+  if(!flg) SETERRQ(PetscObjectComm((PetscObject)x),PETSC_ERR_SUP,"Cannot set multiplicity to non globally unassembled vector");
+
+  xi = (Vec_UNASM*)x->data;
   xi->multiplicity = multiplicity;
   ierr             = PetscObjectReference((PetscObject)multiplicity);CHKERRQ(ierr);
   PetscFunctionReturn(0);
@@ -596,10 +607,16 @@ PetscErrorCode VecUnAsmCreateMPIVec(Vec v,ISLocalToGlobalMapping mapping,Compati
 {
   Vec            mpivec;
   PetscErrorCode ierr;
-  Vec_UNASM      *xi = (Vec_UNASM*)v->data;
+  Vec_UNASM      *xi;
+  PetscBool      flg;
   
   PetscFunctionBeginUser;
-  PetscValidHeaderSpecific(mapping,IS_LTOGM_CLASSID,3);
+  PetscValidHeaderSpecific(v,VEC_CLASSID,1);
+  ierr = PetscObjectTypeCompare((PetscObject)v,VECMPIUNASM,&flg);CHKERRQ(ierr);
+  if(!flg) SETERRQ(PetscObjectComm((PetscObject)v),PETSC_ERR_SUP,"Cannot create MPI vector from non globally unassembled vector");
+  PetscValidHeaderSpecific(mapping,IS_LTOGM_CLASSID,2);
+
+  xi    = (Vec_UNASM*)v->data;
   ierr  = VecCreate(PetscObjectComm((PetscObject)v),&mpivec);CHKERRQ(ierr);
   ierr  = VecSetType(mpivec,VECMPI);CHKERRQ(ierr);
   ierr  = VecSetSizes(mpivec,PETSC_DECIDE,v->map->N);CHKERRQ(ierr);

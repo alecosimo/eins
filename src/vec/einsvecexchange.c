@@ -39,9 +39,12 @@ PETSC_EXTERN PetscErrorCode VecExchangeCreate(Vec xin,PetscInt n_neigh,PetscInt*
   MPI_Comm       comm;
   VecExchange    ctx;
   PetscInt       i,j,rank;
+  PetscBool      flg;
 
   PetscFunctionBegin;
   PetscValidHeaderSpecific(xin,VEC_CLASSID,1);
+  ierr = PetscObjectTypeCompare((PetscObject)xin,VECMPIUNASM,&flg);CHKERRQ(ierr);
+  if(!flg) SETERRQ(PetscObjectComm((PetscObject)xin),PETSC_ERR_SUP,"Cannot use VecExchange with a non globally unassembled vector");
   PetscValidPointer(neigh,3);
   PetscValidPointer(n_shared,4);
   PetscValidPointer(shared,5);
@@ -149,10 +152,14 @@ PETSC_EXTERN PetscErrorCode VecExchangeBegin(VecExchange ve,Vec xin,InsertMode i
   PetscMPIInt         i_mpi;
   MPI_Comm            comm;
   Vec_UNASM           *xi;
+  PetscBool           flg;
   
   PetscFunctionBegin;
   PetscValidHeaderSpecific(ve,VEC_EXCHANGE_CLASSID,1);
   PetscValidHeaderSpecific(xin,VEC_CLASSID,2);
+  ierr = PetscObjectTypeCompare((PetscObject)xin,VECMPIUNASM,&flg);CHKERRQ(ierr);
+  if(!flg) SETERRQ(PetscObjectComm((PetscObject)xin),PETSC_ERR_SUP,"Cannot use VecExchange with a non globally unassembled vector");
+
   if (ve->ops->begin) {
     ierr = (*ve->ops->begin)(ve,xin,imode);CHKERRQ(ierr);
     PetscFunctionReturn(0);
@@ -198,10 +205,14 @@ PETSC_EXTERN PetscErrorCode VecExchangeEnd(VecExchange ve,Vec xin,InsertMode imo
   PetscInt       i;
   MPI_Comm       comm;
   Vec_UNASM      *xi;
+  PetscBool      flg;
   
   PetscFunctionBegin;
   PetscValidHeaderSpecific(ve,VEC_EXCHANGE_CLASSID,1);
   PetscValidHeaderSpecific(xin,VEC_CLASSID,2);
+  ierr = PetscObjectTypeCompare((PetscObject)xin,VECMPIUNASM,&flg);CHKERRQ(ierr);
+  if(!flg) SETERRQ(PetscObjectComm((PetscObject)xin),PETSC_ERR_SUP,"Cannot use VecExchange with a non globally unassembled vector");
+
   if (ve->ops->end) {
     ierr = (*ve->ops->end)(ve,xin,imode);CHKERRQ(ierr);
     PetscFunctionReturn(0);
