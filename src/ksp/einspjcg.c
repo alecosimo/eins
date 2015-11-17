@@ -7,7 +7,7 @@ static PetscErrorCode KSPSetUp_PJCG(KSP);
 static PetscErrorCode KSPSolve_PJCG(KSP);
 static PetscErrorCode KSPDestroy_PJCG(KSP);
 static PetscErrorCode KSPView_PJCG(KSP,PetscViewer);
-static PetscErrorCode KSPSetFromOptions_PJCG(PetscOptions*,KSP);
+static PetscErrorCode KSPSetFromOptions_PJCG(PetscOptionItems*,KSP);
 static PetscErrorCode KSPGetResidual_PJCG(KSP,Vec*);
 
 const char *const KSPPJCGTruncationTypes[]     = {"STANDARD","NOTAY","KSPPJCGTrunctionTypes","KSP_PJCG_TRUNC_TYPE_",0};
@@ -511,7 +511,7 @@ PetscErrorCode KSPPJCGGetTruncationType(KSP ksp,KSPPJCGTruncationType *truncstra
 
 #undef __FUNCT__
 #define __FUNCT__ "KSPSetFromOptions_PJCG"
-static PetscErrorCode KSPSetFromOptions_PJCG(PetscOptions *PetscOptionsObject,KSP ksp)
+static PetscErrorCode KSPSetFromOptions_PJCG(PetscOptionItems *PetscOptionsObject,KSP ksp)
 {
   PetscErrorCode ierr;
   KSP_PJCG        *cg=(KSP_PJCG*)ksp->data;

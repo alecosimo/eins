@@ -14,7 +14,7 @@ static PetscErrorCode FETIDestroy_FETI1(FETI);
 static PetscErrorCode FETISetUp_FETI1(FETI);
 static PetscErrorCode FETI1DestroyMatF_Private(Mat);
 static PetscErrorCode FETI1MatMult_Private(Mat,Vec,Vec);
-static PetscErrorCode FETISetFromOptions_FETI1(PetscOptions*,FETI);
+static PetscErrorCode FETISetFromOptions_FETI1(PetscOptionItems*,FETI);
 static PetscErrorCode FETI1SetUpCoarseProblem_Private(FETI);
 static PetscErrorCode FETI1FactorizeCoarseProblem_Private(FETI);
 static PetscErrorCode FETI1ApplyCoarseProblem_Private(FETI,Vec,Vec);
@@ -170,7 +170,7 @@ static PetscErrorCode FETISetUp_FETI1(FETI ft)
 
 .keywords: FETI, options
 @*/
-static PetscErrorCode FETISetFromOptions_FETI1(PetscOptions *PetscOptionsObject,FETI ft)
+static PetscErrorCode FETISetFromOptions_FETI1(PetscOptionItems *PetscOptionsObject,FETI ft)
 {
   PetscErrorCode ierr;
   FETI_1         *ft1 = (FETI_1*)ft->data;
@@ -289,7 +289,7 @@ static PetscErrorCode FETI1BuildLambdaAndB_Private(FETI ft)
 
   /* Default type of lagrange multipliers is non-redundant */
   fully_redundant = PETSC_FALSE;
-  ierr = PetscOptionsGetBool(NULL,"-feti_fullyredundant",&fully_redundant,NULL);CHKERRQ(ierr);
+  ierr = PetscOptionsGetBool(NULL,NULL,"-feti_fullyredundant",&fully_redundant,NULL);CHKERRQ(ierr);
 
   /* Evaluate local and global number of lagrange multipliers */
   ierr = VecSet(sd->vec1_N,0.0);CHKERRQ(ierr);
@@ -1386,10 +1386,10 @@ PetscErrorCode FETI1SetDefaultOptions(int *argc,char ***args,const char file[])
   
   PetscFunctionBegin;
 #if defined(PETSC_HAVE_MUMPS)
-  ierr = PetscOptionsInsertString(mumps_options);CHKERRQ(ierr);
+  ierr = PetscOptionsInsertString(NULL,mumps_options);CHKERRQ(ierr);
 #endif
-  ierr = PetscOptionsInsertString(other_options);CHKERRQ(ierr);
-  ierr = PetscOptionsInsert(argc,args,file);CHKERRQ(ierr);
+  ierr = PetscOptionsInsertString(NULL,other_options);CHKERRQ(ierr);
+  ierr = PetscOptionsInsert(NULL,argc,args,file);CHKERRQ(ierr);
     
   PetscFunctionReturn(0);
 }

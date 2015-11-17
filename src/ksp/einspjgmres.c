@@ -42,7 +42,7 @@ static PetscErrorCode KSPReset_PJGMRES(KSP);
 static PetscErrorCode KSPDestroy_PJGMRES(KSP);
 static PetscErrorCode KSPBuildSolution_PJGMRES(KSP,Vec,Vec*);
 static PetscErrorCode KSPView_PJGMRES(KSP,PetscViewer);
-static PetscErrorCode KSPSetFromOptions_PJGMRES(PetscOptions*,KSP);
+static PetscErrorCode KSPSetFromOptions_PJGMRES(PetscOptionItems*,KSP);
 static PetscErrorCode KSPGMRESSetHapTol_PJGMRES(KSP,PetscReal);
 static PetscErrorCode KSPGMRESGetRestart_PJGMRES(KSP,PetscInt*);
 static PetscErrorCode KSPGMRESSetRestart_PJGMRES(KSP,PetscInt);
@@ -613,7 +613,7 @@ PetscErrorCode  KSPPJGMRESMonitorKrylov(KSP ksp,PETSC_UNUSED PetscInt its,PETSC_
 
 #undef __FUNCT__
 #define __FUNCT__ "KSPSetFromOptions_PJGMRES"
-static PetscErrorCode KSPSetFromOptions_PJGMRES(PetscOptions *PetscOptionsObject,KSP ksp)
+static PetscErrorCode KSPSetFromOptions_PJGMRES(PetscOptionItems *PetscOptionsObject,KSP ksp)
 {
   PetscErrorCode ierr;
   PetscInt       restart;

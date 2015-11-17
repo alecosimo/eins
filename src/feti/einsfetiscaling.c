@@ -192,7 +192,7 @@ PetscErrorCode  FETIScalingSetUp(FETI ft)
   ierr = PetscOptionsBegin(comm,NULL,"FETI Scaling Options","");CHKERRQ(ierr);
   {
   ierr = PetscOptionsFList("-feti_scaling_type","FETIScaling","FETIScalingSetUp",FETIScalingList,def,type,256,&flg);CHKERRQ(ierr);
-  ierr = PetscOptionsGetReal(NULL,"-feti_scaling_factor",&ft->scaling_factor,NULL);CHKERRQ(ierr);
+  ierr = PetscOptionsGetReal(NULL,NULL,"-feti_scaling_factor",&ft->scaling_factor,NULL);CHKERRQ(ierr);
   }
   ierr = PetscOptionsEnd();CHKERRQ(ierr);
   if (flg) {

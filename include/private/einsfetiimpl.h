@@ -5,6 +5,7 @@
 #include <einsvec.h>
 #include <einsmat.h>
 #include <petscksp.h>
+#include <private/einspetsccompat.h>
 #include <private/einssubdomain.h>
 #include <petsc/private/petscimpl.h>
 
@@ -13,10 +14,11 @@ PETSC_EXTERN PetscErrorCode FETIRegisterAll(void);
 PETSC_EXTERN PetscErrorCode FETICreateFMat(FETI,void (*)(void),void (*)(void),void (*)(void));
 PETSC_EXTERN PetscErrorCode FETIBuildInterfaceKSP(FETI);
 
+
 typedef struct _FETIOps *FETIOps;
 struct _FETIOps {
   PetscErrorCode (*setup)(FETI);
-  PetscErrorCode (*setfromoptions)(PetscOptions*,FETI);
+  PetscErrorCode (*setfromoptions)(PetscOptionItems*,FETI);
   PetscErrorCode (*destroy)(FETI);
   PetscErrorCode (*view)(FETI,PetscViewer);
   PetscErrorCode (*computesolution)(FETI,Vec);

@@ -296,7 +296,7 @@ PetscErrorCode  FETISetFromOptions(FETI feti)
     ierr = (*feti->ops->setfromoptions)(PetscOptionsObject,feti);CHKERRQ(ierr);
   }
 
-  ierr = PetscObjectProcessOptionsHandlers((PetscObject)feti);CHKERRQ(ierr);
+  ierr = PetscObjectProcessOptionsHandlers(PetscOptionsObject,(PetscObject)feti);CHKERRQ(ierr);
   ierr = PetscOptionsEnd();CHKERRQ(ierr);
   feti->setfromoptionscalled++;
   PetscFunctionReturn(0);
