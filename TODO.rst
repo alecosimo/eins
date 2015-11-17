@@ -1,3 +1,6 @@
+* Take into consideration cases in which none of the subdomains has
+  rigid body modes.
+
 * NULL expressions pj->reproject, etc in gmres
 
 * Can FETI1ApplyCoarseProblem_Private() be improved by considering
