@@ -5,7 +5,7 @@
 #include <einsvec.h>
 #include <einsmat.h>
 #include <petscksp.h>
-#include <private/einspetsccompat.h>
+#include <einspetsccompat.h>
 #include <private/einssubdomain.h>
 #include <petsc/private/petscimpl.h>
 

@@ -522,9 +522,9 @@ static PetscErrorCode InitializeDomainData(DomainData *dd)
   dd->npy = 0;
   dd->npz = 0;
   dd->dim = 1;
-  ierr    = PetscOptionsGetInt (NULL,"-npx",&dd->npx,NULL);CHKERRQ(ierr);
-  ierr    = PetscOptionsGetInt (NULL,"-npy",&dd->npy,NULL);CHKERRQ(ierr);
-  ierr    = PetscOptionsGetInt (NULL,"-npz",&dd->npz,NULL);CHKERRQ(ierr);
+  ierr    = PetscOptionsGetInt (NULL,NULL,"-npx",&dd->npx,NULL);CHKERRQ(ierr);
+  ierr    = PetscOptionsGetInt (NULL,NULL,"-npy",&dd->npy,NULL);CHKERRQ(ierr);
+  ierr    = PetscOptionsGetInt (NULL,NULL,"-npz",&dd->npz,NULL);CHKERRQ(ierr);
   if (dd->npy) dd->dim++;
   if (dd->npz) dd->dim++;
   /* Number of elements per dimension */
@@ -532,9 +532,9 @@ static PetscErrorCode InitializeDomainData(DomainData *dd)
   dd->nex = dd->npx;
   dd->ney = dd->npy;
   dd->nez = dd->npz;
-  ierr    = PetscOptionsGetInt (NULL,"-nex",&dd->nex,NULL);CHKERRQ(ierr);
-  ierr    = PetscOptionsGetInt (NULL,"-ney",&dd->ney,NULL);CHKERRQ(ierr);
-  ierr    = PetscOptionsGetInt (NULL,"-nez",&dd->nez,NULL);CHKERRQ(ierr);
+  ierr    = PetscOptionsGetInt (NULL,NULL,"-nex",&dd->nex,NULL);CHKERRQ(ierr);
+  ierr    = PetscOptionsGetInt (NULL,NULL,"-ney",&dd->ney,NULL);CHKERRQ(ierr);
+  ierr    = PetscOptionsGetInt (NULL,NULL,"-nez",&dd->nez,NULL);CHKERRQ(ierr);
   if (!dd->npy) {
     dd->ney=0;
     dd->nez=0;
@@ -542,10 +542,10 @@ static PetscErrorCode InitializeDomainData(DomainData *dd)
   if (!dd->npz) dd->nez=0;
   /* Spectral degree */
   dd->p = 3;
-  ierr  = PetscOptionsGetInt (NULL,"-p",&dd->p,NULL);CHKERRQ(ierr);
+  ierr  = PetscOptionsGetInt (NULL,NULL,"-p",&dd->p,NULL);CHKERRQ(ierr);
   /* pure neumann problem? */
   dd->pure_neumann = PETSC_FALSE;
-  ierr             = PetscOptionsGetBool(NULL,"-pureneumann",&dd->pure_neumann,NULL);CHKERRQ(ierr);
+  ierr             = PetscOptionsGetBool(NULL,NULL,"-pureneumann",&dd->pure_neumann,NULL);CHKERRQ(ierr);
 
   /* test data passed in */
   if (dd->dim==1) {
@@ -592,8 +592,8 @@ int main(int argc,char **args)
   printf("STARTS: %d %d %d\n",dd.startx,dd.starty,dd.startz);
 #endif
   /* assemble global matrix */
-  ierr = PetscOptionsGetScalar (NULL,"-boundary",&boundary,NULL);CHKERRQ(ierr);
-  ierr = PetscOptionsGetScalar (NULL,"-source",&source,NULL);CHKERRQ(ierr);
+  ierr = PetscOptionsGetScalar (NULL,NULL,"-boundary",&boundary,NULL);CHKERRQ(ierr);
+  ierr = PetscOptionsGetScalar (NULL,NULL,"-source",&source,NULL);CHKERRQ(ierr);
   ierr = ComputeMatrixAndRHS(dd,&localA,&localRHS,boundary,source);CHKERRQ(ierr);
   /* Compute global mapping of local dofs */
   ierr = ComputeMapping(dd,&mapping);CHKERRQ(ierr);

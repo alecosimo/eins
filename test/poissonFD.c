@@ -248,24 +248,24 @@ static PetscErrorCode InitializeDomainData(DomainData *dd)
   /* Default is 1d problem */
   dd->npx = sizes/2+sizes%2;
   dd->npy = sizes/2;
-  ierr    = PetscOptionsGetInt (NULL,"-npx",&dd->npx,NULL);CHKERRQ(ierr);
-  ierr    = PetscOptionsGetInt (NULL,"-npy",&dd->npy,NULL);CHKERRQ(ierr);
+  ierr    = PetscOptionsGetInt (NULL,NULL,"-npx",&dd->npx,NULL);CHKERRQ(ierr);
+  ierr    = PetscOptionsGetInt (NULL,NULL,"-npy",&dd->npy,NULL);CHKERRQ(ierr);
   /* Number of elements per dimension */
   /* Default is one element per subdomain */
   dd->nex = dd->npx;
   dd->ney = dd->npy;
-  ierr    = PetscOptionsGetInt (NULL,"-nex",&dd->nex,NULL);CHKERRQ(ierr);
-  ierr    = PetscOptionsGetInt (NULL,"-ney",&dd->ney,NULL);CHKERRQ(ierr);
+  ierr    = PetscOptionsGetInt (NULL,NULL,"-nex",&dd->nex,NULL);CHKERRQ(ierr);
+  ierr    = PetscOptionsGetInt (NULL,NULL,"-ney",&dd->ney,NULL);CHKERRQ(ierr);
   dd->lx  = dd->npx;
   dd->ly  = dd->npy;
-  ierr    = PetscOptionsGetScalar (NULL,"-ly",&dd->ly,NULL);CHKERRQ(ierr);
-  ierr    = PetscOptionsGetScalar (NULL,"-lx",&dd->lx,NULL);CHKERRQ(ierr);
+  ierr    = PetscOptionsGetScalar (NULL,NULL,"-ly",&dd->ly,NULL);CHKERRQ(ierr);
+  ierr    = PetscOptionsGetScalar (NULL,NULL,"-lx",&dd->lx,NULL);CHKERRQ(ierr);
   dd->hx  = dd->lx/dd->nex;
   dd->hy  = dd->ly/dd->ney;
   dd->boundary = -5.0;
   dd->source   = -2.0;
-  ierr = PetscOptionsGetScalar (NULL,"-boundary",&dd->boundary,NULL);CHKERRQ(ierr);
-  ierr = PetscOptionsGetScalar (NULL,"-source",&dd->source,NULL);CHKERRQ(ierr);
+  ierr = PetscOptionsGetScalar (NULL,NULL,"-boundary",&dd->boundary,NULL);CHKERRQ(ierr);
+  ierr = PetscOptionsGetScalar (NULL,NULL,"-source",&dd->source,NULL);CHKERRQ(ierr);
 
   if (sizes!=dd->npx*dd->npy) SETERRQ(dd->gcomm,PETSC_ERR_USER,"Number of mpi procs in 2D must be equal to npx*npy");
   if (dd->nex<dd->npx || dd->ney<dd->npy) SETERRQ(dd->gcomm,PETSC_ERR_USER,"Number of elements per dim must be greater/equal than number of procs per dim");

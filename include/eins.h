@@ -6,5 +6,6 @@
 #include "einspc.h"
 #include "einsfeti.h" 
 #include "einsvec.h"
+#include "einspetsccompat.h" 
 
 #endif/* EINS_H*/

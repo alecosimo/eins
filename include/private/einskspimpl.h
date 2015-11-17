@@ -2,7 +2,7 @@
 #define KSPIMPL_H
 
 #include <einsksp.h>
-#include <private/einspetsccompat.h>
+#include <einspetsccompat.h>
 #include <petsc/private/kspimpl.h>
 
 PETSC_EXTERN PetscErrorCode KSPCreate_PJGMRES(KSP);
