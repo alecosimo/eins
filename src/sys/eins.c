@@ -204,9 +204,7 @@ PetscErrorCode  EinsFinalize(void)
       ierr = PrintLogMemUsage_Private(viewer);CHKERRQ(ierr);
     }
   }
-    
-    
-  if (KSPList) {ierr = PetscFunctionListDestroy(&KSPList);CHKERRQ(ierr);}
+  
   ierr = PetscFinalized(&petscFinalized);CHKERRQ(ierr);
   if(!petscFinalized)  {ierr = PetscFinalize();CHKERRQ(ierr);}   
   EinsInitializeCalled  = PETSC_FALSE;
