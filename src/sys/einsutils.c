@@ -1,12 +1,17 @@
 #include <einssys.h>
 #include <petsc/private/petscimpl.h>
+#include <petsc/private/vecimpl.h>
 #include <petscmat.h>
 #include <petscsf.h>
 
 #undef __FUNCT__
 #define __FUNCT__ "MatSeqViewSynchronized"
 /*@
-   MatSeqViewSynchronized - Prints a sequential Mat to the standard output in a synchronized form, that is first for process 0, then for process 1,... Process 0 waits the last process to finish.
+   MatSeqViewSynchronized - Prints a sequential Mat to the standard
+   output in a synchronized form, that is first for process 0, then
+   for process 1,... Process 0 waits the last process to
+   finish. ACTUALLLY, THIS MUST BE RE-IMPLEMENTED BECAUSE IT IS NOT
+   PRINTING IN A SYNCHRONIZED MANNER!!!!!
 
    Input Parameter:
 .  comm   - The MPI communicator 
@@ -27,12 +32,11 @@ PetscErrorCode MatSeqViewSynchronized(MPI_Comm comm,Mat mat)
   ierr = MPI_Comm_rank(comm,&rank);
 
   if(rank) { ierr = MPI_Recv(&buff,1,MPI_INT,rank-1,0,comm,&status);CHKERRQ(ierr); }
-  PetscPrintf(PETSC_COMM_SELF,"\nMatView process number %d\n",rank);
-  PetscViewerSetFormat(PETSC_VIEWER_STDOUT_SELF,PETSC_VIEWER_ASCII_MATLAB);
-  MatView(mat,PETSC_VIEWER_STDOUT_SELF);
+  ierr = PetscPrintf(PETSC_COMM_SELF,"\nMatView process number %d\n",rank);CHKERRQ(ierr);
+  ierr = MatView(mat,PETSC_VIEWER_STDOUT_SELF);CHKERRQ(ierr);
   ierr = MPI_Send(&buff,1,MPI_INT,(rank+1)%size,0,comm);CHKERRQ(ierr);
   if(!rank) { ierr = MPI_Recv(&buff,1,MPI_INT,size-1,0,comm,&status);CHKERRQ(ierr); }
-  
+
   PetscFunctionReturn(0);
 }
 
@@ -49,23 +53,43 @@ PetscErrorCode MatSeqViewSynchronized(MPI_Comm comm,Mat mat)
    Level: beginner
 
 @*/
-PetscErrorCode VecSeqViewSynchronized(MPI_Comm comm,Vec vec)
+PetscErrorCode VecSeqViewSynchronized(MPI_Comm comm,Vec vecprint)
 {
-  PetscErrorCode ierr;
-  PetscMPIInt    size,rank,buff=1;
-  MPI_Status     status;
+  PetscErrorCode    ierr;
+  PetscMPIInt       j,n,size,rank;
+  PetscInt          work = vecprint->map->n,len;
+  MPI_Status        status;
+  Vec               vec;
+  PetscScalar       *values;
+  const PetscScalar *xarray;
+
   
   PetscFunctionBeginUser;
-  PetscValidHeaderSpecific(vec,VEC_CLASSID,2);
+  PetscValidHeaderSpecific(vecprint,VEC_CLASSID,2);
   ierr = MPI_Comm_size(comm,&size);
   ierr = MPI_Comm_rank(comm,&rank);
 
-  if(rank) { ierr = MPI_Recv(&buff,1,MPI_INT,rank-1,0,comm,&status);CHKERRQ(ierr); }
-  PetscPrintf(PETSC_COMM_SELF,"\nVecView process number %d\n",rank);
-  VecView(vec,PETSC_VIEWER_STDOUT_SELF);
-  ierr = MPI_Send(&buff,1,MPI_INT,(rank+1)%size,0,comm);CHKERRQ(ierr);
-  if(!rank) { ierr = MPI_Recv(&buff,1,MPI_INT,size-1,0,comm,&status);CHKERRQ(ierr); }
-  
+  ierr = MPI_Reduce(&work,&len,1,MPIU_INT,MPI_MAX,0,comm);CHKERRQ(ierr);
+  if(!rank) {
+    ierr = PetscPrintf(PETSC_COMM_SELF, "Processor # %d out of %d \n",rank,size);CHKERRQ(ierr);
+    ierr = VecView(vecprint,PETSC_VIEWER_STDOUT_SELF);CHKERRQ(ierr);
+    ierr = PetscMalloc1(len,&values);CHKERRQ(ierr);
+    for (j=1; j<size; j++) {
+      ierr = MPI_Recv(values,(PetscMPIInt)len,MPIU_SCALAR,j,0,comm,&status);CHKERRQ(ierr);
+      ierr = MPI_Get_count(&status,MPIU_SCALAR,&n);CHKERRQ(ierr);
+      ierr = VecCreateSeq(PETSC_COMM_SELF,n,&vec);CHKERRQ(ierr);
+      ierr = VecPlaceArray(vec,values);CHKERRQ(ierr);
+      ierr = PetscPrintf(PETSC_COMM_SELF, "Processor # %d out of %d \n",j,size);CHKERRQ(ierr);
+      ierr = VecView(vec,PETSC_VIEWER_STDOUT_SELF);CHKERRQ(ierr);
+      ierr = VecResetArray(vec);CHKERRQ(ierr);
+      ierr = VecDestroy(&vec);CHKERRQ(ierr);
+    }
+    ierr = PetscFree(values);CHKERRQ(ierr);
+  } else {
+    ierr = VecGetArrayRead(vecprint,&xarray);CHKERRQ(ierr);
+    ierr = MPI_Send((void*)xarray,vecprint->map->n,MPIU_SCALAR,0,0,comm);CHKERRQ(ierr);
+    ierr = VecRestoreArrayRead(vecprint,&xarray);CHKERRQ(ierr);
+  }    
   PetscFunctionReturn(0);
 }
 

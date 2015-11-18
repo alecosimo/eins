@@ -651,12 +651,16 @@ PetscErrorCode VecUnAsmCreateMPIVec(Vec v,ISLocalToGlobalMapping mapping,Compati
 #define __FUNCT__ "VecView_UNASM"
 static PetscErrorCode VecView_UNASM(Vec xin,PetscViewer viewer)
 {
-  PetscErrorCode ierr;
-  Vec_UNASM      *xi = (Vec_UNASM*)xin->data;
-  PetscMPIInt    size,rank,buff=1;
-  MPI_Status     status;
-  MPI_Comm       comm;
-  PetscBool      iascii;
+  PetscErrorCode    ierr;
+  Vec_UNASM         *xi = (Vec_UNASM*)xin->data;
+  PetscMPIInt       j,n,size,rank,tag;
+  PetscInt          work = xin->map->n,len;
+  MPI_Status        status;
+  MPI_Comm          comm;
+  PetscBool         iascii;
+  Vec               vec;
+  PetscScalar       *values;
+  const PetscScalar *xarray;
   
   PetscFunctionBeginUser;
   ierr = PetscObjectGetComm((PetscObject)xin,&comm);CHKERRQ(ierr);
@@ -666,11 +670,29 @@ static PetscErrorCode VecView_UNASM(Vec xin,PetscViewer viewer)
   ierr = PetscObjectTypeCompare((PetscObject)viewer,PETSCVIEWERASCII,&iascii);CHKERRQ(ierr);
 
   if(iascii){
-    if(rank) { ierr = MPI_Recv(&buff,1,MPI_INT,rank-1,0,comm,&status);CHKERRQ(ierr); }
-    PetscPrintf(PETSC_COMM_SELF, "Processor # %d, size %d \n",rank,size);
-    ierr = VecView(xi->vlocal,PETSC_VIEWER_STDOUT_SELF);CHKERRQ(ierr);
-    ierr = MPI_Send(&buff,1,MPI_INT,(rank+1)%size,0,comm);CHKERRQ(ierr);
-    if(!rank) { ierr = MPI_Recv(&buff,1,MPI_INT,size-1,0,comm,&status);CHKERRQ(ierr); }
+    ierr = MPI_Reduce(&work,&len,1,MPIU_INT,MPI_MAX,0,comm);CHKERRQ(ierr);
+    tag  = ((PetscObject)viewer)->tag;
+    if(!rank) {
+      ierr = PetscPrintf(PETSC_COMM_SELF, "Processor # %d out of %d \n",rank,size);CHKERRQ(ierr);
+      ierr = VecView(xi->vlocal,PETSC_VIEWER_STDOUT_SELF);CHKERRQ(ierr);
+      ierr = PetscMalloc1(len,&values);CHKERRQ(ierr);
+      for (j=1; j<size; j++) {
+	ierr = MPI_Recv(values,(PetscMPIInt)len,MPIU_SCALAR,j,tag,comm,&status);CHKERRQ(ierr);
+        ierr = MPI_Get_count(&status,MPIU_SCALAR,&n);CHKERRQ(ierr);
+	ierr = VecCreateSeq(PETSC_COMM_SELF,n,&vec);CHKERRQ(ierr);
+	ierr = VecPlaceArray(vec,values);CHKERRQ(ierr);
+	ierr = PetscPrintf(PETSC_COMM_SELF, "Processor # %d out of %d \n",j,size);CHKERRQ(ierr);
+	ierr = VecView(vec,PETSC_VIEWER_STDOUT_SELF);CHKERRQ(ierr);
+	ierr = VecResetArray(vec);CHKERRQ(ierr);
+	ierr = VecDestroy(&vec);CHKERRQ(ierr);
+      }
+      ierr = PetscFree(values);CHKERRQ(ierr);
+    } else {
+      ierr = VecGetArrayRead(xi->vlocal,&xarray);CHKERRQ(ierr);
+      ierr = MPI_Send((void*)xarray,xin->map->n,MPIU_SCALAR,0,tag,comm);CHKERRQ(ierr);
+      ierr = VecRestoreArrayRead(xi->vlocal,&xarray);CHKERRQ(ierr);
+    }    
+
   } else {
     SETERRQ(comm,PETSC_ERR_ARG_WRONG,"Error: only ascii viewer implemented");
   }

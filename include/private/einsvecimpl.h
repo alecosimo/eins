@@ -5,6 +5,7 @@
 #include <petsc/private/vecimpl.h>
 #include <petscmat.h>
 
+
 typedef struct _VecExchangeOps *VecExchangeOps;
 struct _VecExchangeOps {
   PetscErrorCode (*begin)(VecExchange,Vec,InsertMode);

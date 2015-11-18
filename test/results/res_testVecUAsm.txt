@@ -1,169 +1,198 @@
-Vec Object: 3 MPI processes
-  type: mpi
-Process [0]
-3
-1
-2
-Process [1]
-3
-4
-5
-Process [2]
-8
-10
-5
+%Vec Object: 3 MPI processes
+%  type: mpi
+Vec_0x84000005_0 = [
+3.0000000000000000e+00
+1.0000000000000000e+00
+2.0000000000000000e+00
+3.0000000000000000e+00
+4.0000000000000000e+00
+5.0000000000000000e+00
+8.0000000000000000e+00
+1.0000000000000000e+01
+5.0000000000000000e+00
+];
 
-VecDot .......................................... 253 
-VecDot mpiVec ................................... 253 
+VecDot .......................................... 2.530000e+02 
+VecDot mpiVec ................................... 2.530000e+02 
 
-NORM_2 .......................................... 15.906 
-NORM_2 mpiVec ................................... 15.906 
+NORM_2 .......................................... 1.590597e+01 
+NORM_2 mpiVec ................................... 1.590597e+01 
 
-NORM_1 .......................................... 41 
-NORM_1 mpiVec ................................... 41 
+NORM_1 .......................................... 4.100000e+01 
+NORM_1 mpiVec ................................... 4.100000e+01 
 
-NORM_inf .......................................... 10 
-NORM_inf mpiVec ................................... 10 
+NORM_inf .......................................... 1.000000e+01 
+NORM_inf mpiVec ................................... 1.000000e+01 
 
-NORM_1_2 .......................................... 41, 15.906 
-NORM_1_2 mpiVec ................................... 41, 15.906 
+NORM_1_2 .......................................... 4.100000e+01, 1.590597e+01 
+NORM_1_2 mpiVec ................................... 4.100000e+01, 1.590597e+01 
 
 Printing v ................................... 
-Vec Object: 3 MPI processes
-  type: mpiunasm
-Processor # 0, size 3 
-Vec Object: 1 MPI processes
-  type: seq
-1
-2
-3
-4
-5
-Processor # 1, size 3 
-Vec Object: 1 MPI processes
-  type: seq
-5
-4
-3
-8
-10
-Processor # 2, size 3 
-Vec Object: 1 MPI processes
-  type: seq
-3
-5
-3
-8
-10
+%Vec Object: 3 MPI processes
+%  type: mpiunasm
+Processor # 0 out of 3 
+%Vec Object: 1 MPI processes
+%  type: seq
+Vec_0x84000004_0 = [
+1.0000000000000000e+00
+2.0000000000000000e+00
+3.0000000000000000e+00
+4.0000000000000000e+00
+5.0000000000000000e+00
+];
+Processor # 1 out of 3 
+%Vec Object: 1 MPI processes
+%  type: seq
+Vec_0x84000004_1 = [
+5.0000000000000000e+00
+4.0000000000000000e+00
+3.0000000000000000e+00
+8.0000000000000000e+00
+1.0000000000000000e+01
+];
+Processor # 2 out of 3 
+%Vec Object: 1 MPI processes
+%  type: seq
+Vec_0x84000004_2 = [
+3.0000000000000000e+00
+5.0000000000000000e+00
+3.0000000000000000e+00
+8.0000000000000000e+00
+1.0000000000000000e+01
+];
 
 Printing v2 ................................... 
-Vec Object: 3 MPI processes
-  type: mpiunasm
-Processor # 0, size 3 
-Vec Object: 1 MPI processes
-  type: seq
-1
-2
-3
-4
-5
-Processor # 1, size 3 
-Vec Object: 1 MPI processes
-  type: seq
-5
-4
-3
-8
-10
-Processor # 2, size 3 
-Vec Object: 1 MPI processes
-  type: seq
-3
-5
-3
-8
-10
+%Vec Object: 3 MPI processes
+%  type: mpiunasm
+Processor # 0 out of 3 
+%Vec Object: 1 MPI processes
+%  type: seq
+Vec_0x84000004_3 = [
+1.0000000000000000e+00
+2.0000000000000000e+00
+3.0000000000000000e+00
+4.0000000000000000e+00
+5.0000000000000000e+00
+];
+Processor # 1 out of 3 
+%Vec Object: 1 MPI processes
+%  type: seq
+Vec_0x84000004_4 = [
+5.0000000000000000e+00
+4.0000000000000000e+00
+3.0000000000000000e+00
+8.0000000000000000e+00
+1.0000000000000000e+01
+];
+Processor # 2 out of 3 
+%Vec Object: 1 MPI processes
+%  type: seq
+Vec_0x84000004_5 = [
+3.0000000000000000e+00
+5.0000000000000000e+00
+3.0000000000000000e+00
+8.0000000000000000e+00
+1.0000000000000000e+01
+];
 
 Printing v2 scaled by 3 ..................... 
-Vec Object: 3 MPI processes
-  type: mpiunasm
-Processor # 0, size 3 
-Vec Object: 1 MPI processes
-  type: seq
-3
-6
-9
-12
-15
-Processor # 1, size 3 
-Vec Object: 1 MPI processes
-  type: seq
-15
-12
-9
-24
-30
-Processor # 2, size 3 
-Vec Object: 1 MPI processes
-  type: seq
-9
-15
-9
-24
-30
+%Vec Object: 3 MPI processes
+%  type: mpiunasm
+Processor # 0 out of 3 
+%Vec Object:Vec_0x84000004_3 1 MPI processes
+%  type: seq
+Vec_0x84000004_3 = [
+3.0000000000000000e+00
+6.0000000000000000e+00
+9.0000000000000000e+00
+1.2000000000000000e+01
+1.5000000000000000e+01
+];
+Processor # 1 out of 3 
+%Vec Object: 1 MPI processes
+%  type: seq
+Vec_0x84000004_6 = [
+1.5000000000000000e+01
+1.2000000000000000e+01
+9.0000000000000000e+00
+2.4000000000000000e+01
+3.0000000000000000e+01
+];
+Processor # 2 out of 3 
+%Vec Object: 1 MPI processes
+%  type: seq
+Vec_0x84000004_7 = [
+9.0000000000000000e+00
+1.5000000000000000e+01
+9.0000000000000000e+00
+2.4000000000000000e+01
+3.0000000000000000e+01
+];
 
 Printing v2 AXPY, must be zero .............. 
-Vec Object: 3 MPI processes
-  type: mpiunasm
-Processor # 0, size 3 
-Vec Object: 1 MPI processes
-  type: seq
-0
-0
-0
-0
-0
-Processor # 1, size 3 
-Vec Object: 1 MPI processes
-  type: seq
-0
-0
-0
-0
-0
-Processor # 2, size 3 
-Vec Object: 1 MPI processes
-  type: seq
-0
-0
-0
-0
-0
+%Vec Object: 3 MPI processes
+%  type: mpiunasm
+Processor # 0 out of 3 
+%Vec Object:Vec_0x84000004_3 1 MPI processes
+%  type: seq
+Vec_0x84000004_3 = [
+0.0000000000000000e+00
+0.0000000000000000e+00
+0.0000000000000000e+00
+0.0000000000000000e+00
+0.0000000000000000e+00
+];
+Processor # 1 out of 3 
+%Vec Object: 1 MPI processes
+%  type: seq
+Vec_0x84000004_8 = [
+0.0000000000000000e+00
+0.0000000000000000e+00
+0.0000000000000000e+00
+0.0000000000000000e+00
+0.0000000000000000e+00
+];
+Processor # 2 out of 3 
+%Vec Object: 1 MPI processes
+%  type: seq
+Vec_0x84000004_9 = [
+0.0000000000000000e+00
+0.0000000000000000e+00
+0.0000000000000000e+00
+0.0000000000000000e+00
+0.0000000000000000e+00
+];
 
 Printing VecExchange .............. 
-Vec Object: 3 MPI processes
-  type: mpiunasm
-Processor # 0, size 3 
-Vec Object: 1 MPI processes
-  type: seq
-1
-2
-9
-8
-10
-Processor # 1, size 3 
-Vec Object: 1 MPI processes
-  type: seq
-10
-8
-9
-16
-20
-Processor # 2, size 3 
-Vec Object: 1 MPI processes
-  type: seq
-3
-5
-9
-16
-20
+%Vec Object: 3 MPI processes
+%  type: mpiunasm
+Processor # 0 out of 3 
+%Vec Object:Vec_0x84000004_0 1 MPI processes
+%  type: seq
+Vec_0x84000004_0 = [
+1.0000000000000000e+00
+2.0000000000000000e+00
+9.0000000000000000e+00
+8.0000000000000000e+00
+1.0000000000000000e+01
+];
+Processor # 1 out of 3 
+%Vec Object: 1 MPI processes
+%  type: seq
+Vec_0x84000004_10 = [
+1.0000000000000000e+01
+8.0000000000000000e+00
+9.0000000000000000e+00
+1.6000000000000000e+01
+2.0000000000000000e+01
+];
+Processor # 2 out of 3 
+%Vec Object: 1 MPI processes
+%  type: seq
+Vec_0x84000004_11 = [
+3.0000000000000000e+00
+5.0000000000000000e+00
+9.0000000000000000e+00
+1.6000000000000000e+01
+2.0000000000000000e+01
+];
