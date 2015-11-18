@@ -54,7 +54,8 @@ PETSC_EXTERN PetscErrorCode VecCreate_UNASM(Vec v)
   /* vector ops */
   ierr                     = PetscMemzero(v->ops,sizeof(struct _VecOps));CHKERRQ(ierr);
   v->ops->duplicate        = VecDuplicate_UNASM;
-  v->ops->duplicatevecs    = VecDuplicateVecs_Default;      
+  v->ops->duplicatevecs    = VecDuplicateVecs_Default;
+  v->ops->destroyvecs      = VecDestroyVecs_Default;      
   v->ops->getlocalsize     = VecGetLocalSize_UNASM;
   v->ops->getsize          = VecGetSize_UNASM;
   v->ops->dot              = VecDot_UNASM;

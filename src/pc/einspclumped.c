@@ -14,19 +14,25 @@ typedef struct {
 static PetscErrorCode PCSetUp_LUMPED(PC pc)
 {
   PCFT_LUMPED      *pcl = (PCFT_LUMPED*)pc->data;
-  FETI             ft   = NULL;
   PetscErrorCode   ierr;
-  Mat              F;
   Subdomain        sd;
-  
+  FETIMat_ctx      mat_ctx;
+  PetscBool        flg;
+  Mat              F;
+  FETI             ft   = NULL;
+
   PetscFunctionBegin;
-  /* get reference to the FETI context */
+    /* get reference to the FETI context */
   F = pc->pmat;
-  ierr = PetscObjectQuery((PetscObject)F,"FETI",(PetscObject*)&ft);CHKERRQ(ierr);
+  ierr = PetscObjectTypeCompare((PetscObject)F,MATSHELLUNASM,&flg);CHKERRQ(ierr);
+  if(!flg) SETERRQ(PetscObjectComm((PetscObject)F),PETSC_ERR_SUP,"Cannot use preconditioner with non-shell matrix");
+  ierr = MatShellUnAsmGetContext(F,(void**)&mat_ctx);CHKERRQ(ierr);
+  /* there is no need to increment the reference to the FETI context because we are already referencing matrix F */
+  ft   = mat_ctx->ft; 
   if (!ft) SETERRQ(PETSC_COMM_SELF,PETSC_ERR_ARG_WRONG,"Matrix F is missing the FETI context");
   PetscValidHeaderSpecific(ft,FETI_CLASSID,0);
+
   pcl->ft   = ft;
-  ierr      = PetscObjectReference((PetscObject)ft);CHKERRQ(ierr);
   sd        = ft->subdomain;
   ierr      = SubdomainComputeSubmatrices(sd,MAT_INITIAL_MATRIX,PETSC_TRUE);CHKERRQ(ierr);
   pcl->A_BB = sd->A_BB;
@@ -42,7 +48,6 @@ static PetscErrorCode PCReset_LUMPED(PC pc)
   PCFT_LUMPED    *pcl = (PCFT_LUMPED*)pc->data;
   PetscErrorCode ierr;
   PetscFunctionBegin;
-  ierr = FETIDestroy(&pcl->ft);CHKERRQ(ierr);
   ierr = MatDestroy(&pcl->A_BB);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
@@ -99,11 +104,11 @@ PetscErrorCode PCCreate_LUMPED(PC pc)
 {
   PCFT_LUMPED     *pcl = NULL;
   PetscErrorCode  ierr;
-
+  
   PetscFunctionBegin;
   ierr     = PetscNewLog(pc,&pcl);CHKERRQ(ierr);
   pc->data = (void*)pcl;
-
+  
   pcl->ft                      = 0;
   pcl->A_BB                    = 0;
   

@@ -15,21 +15,28 @@ typedef struct {
 static PetscErrorCode PCSetUp_DIRICHLET(PC pc)
 {
   PCFT_DIRICHLET  *pcd = (PCFT_DIRICHLET*)pc->data;
-  FETI             ft  = NULL;
   PetscErrorCode   ierr;
-  Mat              F;
   Subdomain        sd;
   PetscBool        issbaij;
   PC               pctemp;
+  FETI             ft  = NULL;
+  Mat              F;
+  FETIMat_ctx      mat_ctx;
+  PetscBool        flg;
+
   
   PetscFunctionBegin;
   /* get reference to the FETI context */
   F = pc->pmat;
-  ierr = PetscObjectQuery((PetscObject)F,"FETI",(PetscObject*)&ft);CHKERRQ(ierr);
+  ierr = PetscObjectTypeCompare((PetscObject)F,MATSHELLUNASM,&flg);CHKERRQ(ierr);
+  if(!flg) SETERRQ(PetscObjectComm((PetscObject)F),PETSC_ERR_SUP,"Cannot use preconditioner with non-shell matrix");
+  ierr = MatShellUnAsmGetContext(F,(void**)&mat_ctx);CHKERRQ(ierr);
+  /* there is no need to increment the reference to the FETI context because we are already referencing matrix F */
+  ft   = mat_ctx->ft;
   if (!ft) SETERRQ(PETSC_COMM_SELF,PETSC_ERR_ARG_WRONG,"Matrix F is missing the FETI context");
   PetscValidHeaderSpecific(ft,FETI_CLASSID,0);
+  
   pcd->ft = ft;
-  ierr    = PetscObjectReference((PetscObject)ft);CHKERRQ(ierr);
   sd      = ft->subdomain;
   ierr    = SubdomainComputeSubmatrices(sd,MAT_INITIAL_MATRIX,PETSC_FALSE);CHKERRQ(ierr);
 
@@ -37,6 +44,7 @@ static PetscErrorCode PCSetUp_DIRICHLET(PC pc)
   if (!pcd->ksp_D) {
     ierr = KSPCreate(PETSC_COMM_SELF,&pcd->ksp_D);CHKERRQ(ierr);
     ierr = PetscObjectIncrementTabLevel((PetscObject)pcd->ksp_D,(PetscObject)pc,1);CHKERRQ(ierr);
+    ierr = PetscLogObjectParent((PetscObject)pc,(PetscObject)pcd->ksp_D);CHKERRQ(ierr);
     ierr = KSPSetType(pcd->ksp_D,KSPPREONLY);CHKERRQ(ierr);
     ierr = KSPSetOptionsPrefix(pcd->ksp_D,"feti_pc_dirichlet_");CHKERRQ(ierr);
     ierr = MatSetOptionsPrefix(sd->A_II,"feti_pc_dirichlet_");CHKERRQ(ierr);
@@ -67,7 +75,6 @@ static PetscErrorCode PCReset_DIRICHLET(PC pc)
   PCFT_DIRICHLET *pcd = (PCFT_DIRICHLET*)pc->data;
   PetscErrorCode ierr;
   PetscFunctionBegin;
-  ierr = FETIDestroy(&pcd->ft);CHKERRQ(ierr);
   ierr = MatDestroy(&pcd->Sj);CHKERRQ(ierr);
   ierr = KSPDestroy(&pcd->ksp_D);CHKERRQ(ierr);
   PetscFunctionReturn(0);
@@ -134,8 +141,8 @@ PetscErrorCode PCCreate_DIRICHLET(PC pc)
   ierr     = PetscNewLog(pc,&pcd);CHKERRQ(ierr);
   pc->data = (void*)pcd;
 
-  pcd->ksp_D                   = 0;
   pcd->ft                      = 0;
+  pcd->ksp_D                   = 0;
   pcd->Sj                      = 0;
   
   pc->ops->setup               = PCSetUp_DIRICHLET;

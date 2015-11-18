@@ -8,7 +8,7 @@ static char help[] = "Test the creation of globally unassembled vector\n\n";
 int main(int argc,char **argv)
 {
   MPI_Comm               comm;
-  PetscInt               rank,idx[5]={0,1,2,3,4},global_indices[5];
+  PetscInt               rank,idx[5]={0,1,2,3,4},*global_indices;
   PetscErrorCode         ierr;
   Vec                    v,mpivec,multiplicity,v2,refvec,vec_comp;
   PetscScalar            dval0,dval1,dval2_0[2],dval2_1[2],vals[5];
@@ -19,6 +19,7 @@ int main(int argc,char **argv)
   
   ierr = EinsInitialize(&argc,&argv,0,help);CHKERRQ(ierr);
   comm = MPI_COMM_WORLD;
+  ierr = PetscMalloc1(5,&global_indices);CHKERRQ(ierr);
   ierr = MPI_Comm_rank(comm,&rank);CHKERRQ(ierr);
   ierr = VecCreateSeq(MPI_COMM_SELF,5,&multiplicity);CHKERRQ(ierr);
   ierr = VecCreateSeq(MPI_COMM_SELF,5,&vec_comp);CHKERRQ(ierr);
@@ -141,6 +142,7 @@ int main(int argc,char **argv)
   ierr = VecDestroy(&v2);CHKERRQ(ierr);
   ierr = VecDestroy(&vec_comp);CHKERRQ(ierr);
   ierr = VecDestroy(&v);CHKERRQ(ierr);
+  ierr = VecDestroy(&mpivec);CHKERRQ(ierr);
   ierr = EinsFinalize();CHKERRQ(ierr);
   return 0;
 }

@@ -201,6 +201,8 @@ PetscErrorCode FETIBuildInterfaceKSP(FETI ft)
   if(!ft->ksp_type_interface) SETERRQ(comm,PETSC_ERR_ARG_WRONGSTATE,"Error: KSP type for the interface problem must be first defined");
   if(!ft->pc_type_interface) SETERRQ(comm,PETSC_ERR_ARG_WRONGSTATE,"Error: PC type for the interface problem must be first defined");
   ierr = KSPCreate(comm,&ft->ksp_interface);CHKERRQ(ierr);
+  ierr = PetscObjectIncrementTabLevel((PetscObject)ft->ksp_interface,(PetscObject)ft,1);CHKERRQ(ierr);
+  ierr = PetscLogObjectParent((PetscObject)ft,(PetscObject)ft->ksp_interface);CHKERRQ(ierr);
   ierr = KSPSetType(ft->ksp_interface,ft->ksp_type_interface);CHKERRQ(ierr);
   ierr = KSPGetPC(ft->ksp_interface,&pc);CHKERRQ(ierr);
   ierr = PCSetType(pc,ft->pc_type_interface);CHKERRQ(ierr);
@@ -241,13 +243,13 @@ PetscErrorCode FETICreateFMat(FETI ft,void (*FETIMatMult)(void),void (*FETIDestr
   /* creating the mat context for the MatShell*/
   ierr = PetscNew(&matctx);CHKERRQ(ierr);
   matctx->ft = ft;
-  ierr = PetscObjectReference((PetscObject)ft);CHKERRQ(ierr);
   /* creating the MatShell */
   ierr = MatCreateShellUnAsm(comm,ft->n_lambda_local,ft->n_lambda_local,ft->n_lambda,ft->n_lambda,matctx,&ft->F);CHKERRQ(ierr);
+  ierr = PetscObjectIncrementTabLevel((PetscObject)ft->F,(PetscObject)ft,1);CHKERRQ(ierr);
+  ierr = PetscLogObjectParent((PetscObject)ft,(PetscObject)ft->F);CHKERRQ(ierr);
   ierr = MatShellUnAsmSetOperation(ft->F,MATOP_MULT,FETIMatMult);CHKERRQ(ierr);
   ierr = MatShellUnAsmSetOperation(ft->F,MATOP_DESTROY,FETIDestroyMatF);CHKERRQ(ierr);
   ierr = MatShellUnAsmSetOperation(ft->F,MATOP_GET_VECS,FETIMatGetVecs);CHKERRQ(ierr);
-  ierr = PetscObjectCompose((PetscObject)ft->F,"FETI",(PetscObject)ft);CHKERRQ(ierr);
   ierr = MatSetUp(ft->F);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
@@ -331,31 +333,28 @@ PetscErrorCode FETIDestroy(FETI *_feti)
   PetscValidHeaderSpecific(feti,FETI_CLASSID,1);
   if (--((PetscObject)feti)->refct > 0) PetscFunctionReturn(0);
   feti->setupcalled = 0;
-  if (feti->ops->destroy) {ierr = (*feti->ops->destroy)(feti);CHKERRQ(ierr);}
-  
   /* destroying FETI objects */
-  ierr = SubdomainDestroy(&feti->subdomain);CHKERRQ(ierr);
+  ierr = MatDestroy(&feti->F);CHKERRQ(ierr);
   ierr = KSPDestroy(&feti->ksp_neumann);CHKERRQ(ierr);
   ierr = KSPDestroy(&feti->ksp_interface);CHKERRQ(ierr);
   ierr = MatDestroy(&feti->B_delta);CHKERRQ(ierr);
   ierr = MatDestroy(&feti->B_Ddelta);CHKERRQ(ierr);
-  ierr = FETIScalingDestroy(feti);CHKERRQ(ierr);
   ierr = VecDestroy(&feti->d);CHKERRQ(ierr);
   ierr = VecDestroy(&feti->multiplicity);CHKERRQ(ierr);
   ierr = VecDestroy(&feti->lambda_local);CHKERRQ(ierr);
   ierr = VecDestroy(&feti->lambda_global);CHKERRQ(ierr);
+  ierr = FETIScalingDestroy(feti);CHKERRQ(ierr);
   ierr = VecExchangeDestroy(&feti->exchange_lambda);CHKERRQ(ierr);
   if (feti->n_neigh_lb > -1) {
-    ierr = ISLocalToGlobalMappingRestoreInfo(feti->mapping_lambda,&(feti->n_neigh_lb),&(feti->neigh_lb),&(feti->n_shared_lb),&(feti->shared_lb));CHKERRQ(ierr);
+    ierr = ISLocalToGlobalMappingRestoreInfo(feti->mapping_lambda,&(feti->n_neigh_lb),&(feti->neigh_lb),
+					     &(feti->n_shared_lb),&(feti->shared_lb));CHKERRQ(ierr);
   }
   ierr = ISLocalToGlobalMappingDestroy(&feti->mapping_lambda);CHKERRQ(ierr);
+  ierr = SubdomainDestroy(&feti->subdomain);CHKERRQ(ierr);
 
-  /* destroying ComposedObjects */
-  if(feti->F){
-    ierr = PetscObjectCompose((PetscObject)feti->F,"FETI",NULL);CHKERRQ(ierr);
-    ierr = MatDestroy(&feti->F);CHKERRQ(ierr);
-  }
-  ierr = PetscHeaderDestroy(&feti);CHKERRQ(ierr);
+  if (feti->ops->destroy) {ierr = (*feti->ops->destroy)(feti);CHKERRQ(ierr);}  
+
+  ierr = PetscHeaderDestroy(&feti);CHKERRQ(ierr); 
   PetscFunctionReturn(0);
 }
 

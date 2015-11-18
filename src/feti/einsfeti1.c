@@ -41,10 +41,12 @@ static PetscErrorCode FETIDestroy_FETI1(FETI ft)
   PetscInt       i;
   
   PetscFunctionBegin;
+  if (!ft1) PetscFunctionReturn(0);
   ierr = VecDestroy(&ft1->res_interface);CHKERRQ(ierr);
   ierr = VecDestroy(&ft1->alpha_local);CHKERRQ(ierr);
   ierr = MatDestroy(&ft1->localG);CHKERRQ(ierr);
   ierr = VecDestroy(&ft1->local_e);CHKERRQ(ierr);
+  ierr = KSPDestroy(&ft1->ksp_coarse);CHKERRQ(ierr);
   if(ft1->neigh_holder) {
     ierr = PetscFree(ft1->neigh_holder[0]);CHKERRQ(ierr);
     ierr = PetscFree(ft1->neigh_holder);CHKERRQ(ierr);
@@ -56,6 +58,7 @@ static PetscErrorCode FETIDestroy_FETI1(FETI ft)
   for (i=0;i<ft1->n_Gholder;i++) {
     ierr = MatDestroy(&ft1->Gholder[i]);CHKERRQ(ierr);
   }
+  if(ft1->coarse_problem) {ierr = MatDestroy(&ft1->coarse_problem);CHKERRQ(ierr);}
   ierr = PetscFree(ft1->Gholder);CHKERRQ(ierr);
   if(ft1->matrices) { ierr = PetscFree(ft1->matrices);CHKERRQ(ierr);}
   ierr = PetscFree(ft->data);CHKERRQ(ierr);
@@ -482,7 +485,6 @@ static PetscErrorCode FETI1DestroyMatF_Private(Mat A)
 
   PetscFunctionBegin;
   ierr = MatShellUnAsmGetContext(A,(void**)&mat_ctx);CHKERRQ(ierr);
-  ierr = FETIDestroy(&mat_ctx->ft);CHKERRQ(ierr);
   ierr = PetscFree(mat_ctx);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
@@ -546,11 +548,14 @@ static PetscErrorCode FETI1MatGetVecs_Private(Mat mat,Vec *right,Vec *left)
   PetscErrorCode ierr;
   PetscBool      flg;
   FETI           ft  = NULL;
+  FETIMat_ctx    mat_ctx;
   
   PetscFunctionBegin;
   PetscValidHeaderSpecific(mat,MAT_CLASSID,1);
   ierr = PetscObjectTypeCompare((PetscObject)mat,MATSHELLUNASM,&flg);CHKERRQ(ierr);
-  ierr = PetscObjectQuery((PetscObject)mat,"FETI",(PetscObject*)&ft);CHKERRQ(ierr);
+  if(!flg) SETERRQ(PetscObjectComm((PetscObject)mat),PETSC_ERR_SUP,"Cannot create vectors from non-shell matrix");
+  ierr = MatShellUnAsmGetContext(mat,(void**)&mat_ctx);CHKERRQ(ierr);
+  ft   = mat_ctx->ft;
   if (!ft) SETERRQ(PETSC_COMM_SELF,PETSC_ERR_ARG_WRONG,"Matrix F is missing the FETI context");
 
   if (right) {
@@ -697,6 +702,7 @@ static PetscErrorCode FETI1SetUpNeumannSolver_Private(FETI ft)
   if (!ft->ksp_neumann) {
     ierr = KSPCreate(PETSC_COMM_SELF,&ft->ksp_neumann);CHKERRQ(ierr);
     ierr = PetscObjectIncrementTabLevel((PetscObject)ft->ksp_neumann,(PetscObject)ft,1);CHKERRQ(ierr);
+    ierr = PetscLogObjectParent((PetscObject)ft,(PetscObject)ft->ksp_neumann);CHKERRQ(ierr);
     ierr = KSPSetType(ft->ksp_neumann,KSPPREONLY);CHKERRQ(ierr);
     ierr = KSPGetPC(ft->ksp_neumann,&pc);CHKERRQ(ierr);
     ierr = PetscObjectTypeCompare((PetscObject)(sd->localA),MATSEQSBAIJ,&issbaij);CHKERRQ(ierr);
@@ -1012,6 +1018,7 @@ static PetscErrorCode FETI1SetUpCoarseProblem_Private(FETI ft)
   }
   ierr = MatAssemblyBegin(ft1->coarse_problem,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
   ierr = MatAssemblyEnd(ft1->coarse_problem,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
+
   ierr = PetscFree(idxm);CHKERRQ(ierr);
   ierr = PetscFree(idxn);CHKERRQ(ierr);
   ierr = PetscFree(nnz);CHKERRQ(ierr);
@@ -1054,6 +1061,8 @@ static PetscErrorCode FETI1FactorizeCoarseProblem_Private(FETI ft)
 
   /* factorize the coarse problem */
   ierr = KSPCreate(PETSC_COMM_SELF,&ft1->ksp_coarse);CHKERRQ(ierr);
+  ierr = PetscObjectIncrementTabLevel((PetscObject)ft1->ksp_coarse,(PetscObject)ft1,1);CHKERRQ(ierr);
+  ierr = PetscLogObjectParent((PetscObject)ft1,(PetscObject)ft1->ksp_coarse);CHKERRQ(ierr);
   ierr = KSPSetType(ft1->ksp_coarse,KSPPREONLY);CHKERRQ(ierr);
   ierr = KSPSetOptionsPrefix(ft1->ksp_coarse,"feti1_pc_coarse_");CHKERRQ(ierr);
   ierr = MatSetOptionsPrefix(ft1->coarse_problem,"feti1_pc_coarse_");CHKERRQ(ierr);
