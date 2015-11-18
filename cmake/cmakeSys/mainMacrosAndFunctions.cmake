@@ -12,6 +12,27 @@ macro(M_ADD_TEST filePath command libraries)
   add_dependencies(check "test_${target}")  
 endmacro()
 
+# Add a test and compare results
+# filePath: file name with extension and complete path
+# command: command to run the test: it must be a STRING
+# file_cmp: file for comparing output
+macro(M_ADD_TEST_CMP filePath command libraries file_cmp)
+  get_filename_component(target ${filePath} NAME_WE)
+  add_executable("test_${target}" EXCLUDE_FROM_ALL ${filePath})
+  set_property(TARGET "test_${target}" PROPERTY OUTPUT_NAME ${target})
+  set_property(TARGET "test_${target}" PROPERTY RUNTIME_OUTPUT_DIRECTORY ${CMAKE_TEST_OUTPUT_DIRECTORY})
+  target_link_libraries("test_${target}" ${libraries})
+  add_test("test_${target}"
+    ${CMAKE_COMMAND}
+    -D test_cmd=${command}
+    -D output_blessed=${CMAKE_SOURCE_DIR}/test/results/${file_cmp}
+    -D output_test=${CMAKE_TEST_OUTPUT_DIRECTORY}/res_test_${target}_${id}
+    -D working_dir=${CMAKE_TEST_OUTPUT_DIRECTORY}
+    -P ${CMAKE_SOURCE_DIR}/cmake/cmakeSys/runtest.cmake
+    )
+  add_dependencies(check "test_${target}")  
+endmacro()
+
 
 # Add a test to be compiled
 # filePath: file name with extension and complete path
@@ -22,6 +43,24 @@ macro(M_ADD_BINARY_TEST filePath libraries)
   set_property(TARGET "test_${target}" PROPERTY RUNTIME_OUTPUT_DIRECTORY ${CMAKE_TEST_OUTPUT_DIRECTORY})
   target_link_libraries("test_${target}" ${libraries})
   add_dependencies(check "test_${target}")  
+endmacro()
+
+
+# Add a command to already existing binary test and compare results
+# filePath: file name with extension and complete path
+# id: id for the test
+# command: command to run the test: it must be a STRING
+# file_cmp: file for comparing output
+macro(M_ADD_COMMAND_TEST_CMP filePath id command file_cmp)
+  get_filename_component(target ${filePath} NAME_WE)
+  add_test("test_${target}_${id}"
+    ${CMAKE_COMMAND}
+    -D test_cmd=${command}
+    -D output_blessed=${CMAKE_SOURCE_DIR}/test/results/${file_cmp}
+    -D output_test=${CMAKE_TEST_OUTPUT_DIRECTORY}/res_test_${target}_${id}
+    -D working_dir=${CMAKE_TEST_OUTPUT_DIRECTORY}
+    -P ${CMAKE_SOURCE_DIR}/cmake/cmakeSys/runtest.cmake
+    )
 endmacro()
 
 

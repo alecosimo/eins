@@ -1,0 +1,56 @@
+    Residual norms for feti_interface_ solve.
+    0 KSP Residual norm 15.5271 
+    1 KSP Residual norm 0.0159782 
+    2 KSP Residual norm < 1.e-11
+
+VecView process number 0
+Vec Object: 1 MPI processes
+  type: seq
+-5
+-20.2374
+-32.4246
+-5
+-19.7626
+-31.5754
+-5
+-20.2374
+-32.4246
+
+VecView process number 1
+Vec Object: 1 MPI processes
+  type: seq
+-32.4246
+-38.3102
+-41.4367
+-31.5754
+-37.6898
+-40.5633
+-32.4246
+-38.3102
+-41.4367
+
+VecView process number 2
+Vec Object: 1 MPI processes
+  type: seq
+-5
+-20.2374
+-32.4246
+-5
+-19.7626
+-31.5754
+-5
+-20.2374
+-32.4246
+
+VecView process number 3
+Vec Object: 1 MPI processes
+  type: seq
+-32.4246
+-38.3102
+-41.4367
+-31.5754
+-37.6898
+-40.5633
+-32.4246
+-38.3102
+-41.4367

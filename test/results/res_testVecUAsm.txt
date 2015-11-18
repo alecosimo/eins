@@ -1,0 +1,169 @@
+Vec Object: 3 MPI processes
+  type: mpi
+Process [0]
+3
+1
+2
+Process [1]
+3
+4
+5
+Process [2]
+8
+10
+5
+
+VecDot .......................................... 253 
+VecDot mpiVec ................................... 253 
+
+NORM_2 .......................................... 15.906 
+NORM_2 mpiVec ................................... 15.906 
+
+NORM_1 .......................................... 41 
+NORM_1 mpiVec ................................... 41 
+
+NORM_inf .......................................... 10 
+NORM_inf mpiVec ................................... 10 
+
+NORM_1_2 .......................................... 41, 15.906 
+NORM_1_2 mpiVec ................................... 41, 15.906 
+
+Printing v ................................... 
+Vec Object: 3 MPI processes
+  type: mpiunasm
+Processor # 0, size 3 
+Vec Object: 1 MPI processes
+  type: seq
+1
+2
+3
+4
+5
+Processor # 1, size 3 
+Vec Object: 1 MPI processes
+  type: seq
+5
+4
+3
+8
+10
+Processor # 2, size 3 
+Vec Object: 1 MPI processes
+  type: seq
+3
+5
+3
+8
+10
+
+Printing v2 ................................... 
+Vec Object: 3 MPI processes
+  type: mpiunasm
+Processor # 0, size 3 
+Vec Object: 1 MPI processes
+  type: seq
+1
+2
+3
+4
+5
+Processor # 1, size 3 
+Vec Object: 1 MPI processes
+  type: seq
+5
+4
+3
+8
+10
+Processor # 2, size 3 
+Vec Object: 1 MPI processes
+  type: seq
+3
+5
+3
+8
+10
+
+Printing v2 scaled by 3 ..................... 
+Vec Object: 3 MPI processes
+  type: mpiunasm
+Processor # 0, size 3 
+Vec Object: 1 MPI processes
+  type: seq
+3
+6
+9
+12
+15
+Processor # 1, size 3 
+Vec Object: 1 MPI processes
+  type: seq
+15
+12
+9
+24
+30
+Processor # 2, size 3 
+Vec Object: 1 MPI processes
+  type: seq
+9
+15
+9
+24
+30
+
+Printing v2 AXPY, must be zero .............. 
+Vec Object: 3 MPI processes
+  type: mpiunasm
+Processor # 0, size 3 
+Vec Object: 1 MPI processes
+  type: seq
+0
+0
+0
+0
+0
+Processor # 1, size 3 
+Vec Object: 1 MPI processes
+  type: seq
+0
+0
+0
+0
+0
+Processor # 2, size 3 
+Vec Object: 1 MPI processes
+  type: seq
+0
+0
+0
+0
+0
+
+Printing VecExchange .............. 
+Vec Object: 3 MPI processes
+  type: mpiunasm
+Processor # 0, size 3 
+Vec Object: 1 MPI processes
+  type: seq
+1
+2
+9
+8
+10
+Processor # 1, size 3 
+Vec Object: 1 MPI processes
+  type: seq
+10
+8
+9
+16
+20
+Processor # 2, size 3 
+Vec Object: 1 MPI processes
+  type: seq
+3
+5
+9
+16
+20
