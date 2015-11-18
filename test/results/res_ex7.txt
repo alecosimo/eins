@@ -6,3 +6,19 @@
   5 KSP Residual norm 0.00154823 
   6 KSP Residual norm < 1.e-11
 Norm of error 1.5263e-15 iterations 6
+------------------------------------------------------------------------------------------------------------------------
+
+Memory usage is given in bytes:
+
+Object Type          Creations   Destructions     Memory  Descendants' Mem.
+Reports information only for process 0.
+
+--- Event Stage 0: Main Stage
+
+              Matrix     6              6        18620     0
+              Vector    37             37        60624     0
+      Vector Scatter     1              1         1064     0
+           Index Set     7              7         5448     0
+       Krylov Solver     3              3        37880     0
+      Preconditioner     3              3         2760     0
+              Viewer     1              0            0     0

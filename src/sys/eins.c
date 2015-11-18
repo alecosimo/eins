@@ -14,6 +14,7 @@ PetscBool EinsInitializeCalled   = PETSC_FALSE;
 PetscBool EinsFinalizeCalled     = PETSC_FALSE;
 PetscBool EinsRegisterAllCalled  = PETSC_FALSE;
 
+static PetscErrorCode PrintLogMemUsage_Private(PetscViewer);
 
 #undef  __FUNCT__
 #define __FUNCT__ "EinsRegisterAll"
@@ -96,6 +97,78 @@ PetscErrorCode  EinsInitialize(int *argc,char ***args,const char file[],const ch
 
 
 #undef __FUNCT__
+#define __FUNCT__ "PrintLogMemUsage_Private"
+/*@
+   PrintLogMemUsage_Private - Prints information about Memory usage
+   and object creation. It is called by EinsFinalize()
+
+   Level: developer
+
+.seealso: EinsFinalize()
+@*/
+static PetscErrorCode  PrintLogMemUsage_Private(PetscViewer viewer)
+{
+  PetscErrorCode    ierr;
+  int                stage, oclass,numStages;
+  MPI_Comm           comm;
+  FILE               *fd;
+  PetscClassPerfInfo *classInfo;
+  PetscStageLog      stageLog;
+  PetscStageInfo     *stageInfo = NULL;
+  PetscBool          *localStageUsed;
+
+  PetscFunctionBegin;
+  ierr = PetscObjectGetComm((PetscObject)viewer,&comm);CHKERRQ(ierr);
+  ierr = PetscViewerASCIIGetPointer(viewer,&fd);CHKERRQ(ierr);
+  ierr = PetscLogGetStageLog(&stageLog);CHKERRQ(ierr);
+  ierr = MPI_Allreduce(&stageLog->numStages, &numStages, 1, MPI_INT, MPI_MAX, comm);CHKERRQ(ierr);
+  ierr = PetscMalloc1(numStages, &localStageUsed);CHKERRQ(ierr);
+  if (numStages > 0) {
+    stageInfo = stageLog->stageInfo;
+    for (stage = 0; stage < numStages; stage++) {
+      if (stage < stageLog->numStages) {
+	localStageUsed[stage]    = stageInfo[stage].used;
+      } else {
+	localStageUsed[stage]    = PETSC_FALSE;
+      }
+    }
+      
+  }
+
+  /* Memory usage and object creation */
+  ierr = PetscFPrintf(comm, fd, "------------------------------------------------------------------------------------------------------------------------\n");CHKERRQ(ierr);
+  ierr = PetscFPrintf(comm, fd, "\n");CHKERRQ(ierr);
+  ierr = PetscFPrintf(comm, fd, "Memory usage is given in bytes:\n\n");CHKERRQ(ierr);
+
+  /* Right now, only stages on the first processor are reported here, meaning only objects associated with
+     the global communicator, or MPI_COMM_SELF for proc 1. We really should report global stats and then
+     stats for stages local to processor sets.
+  */
+  /* We should figure out the longest object name here (now 20 characters) */
+  ierr = PetscFPrintf(comm, fd, "Object Type          Creations   Destructions     Memory  Descendants' Mem.\n");CHKERRQ(ierr);
+  ierr = PetscFPrintf(comm, fd, "Reports information only for process 0.\n");CHKERRQ(ierr);
+  for (stage = 0; stage < numStages; stage++) {
+    if (localStageUsed[stage]) {
+      classInfo = stageLog->stageInfo[stage].classLog->classInfo;
+      ierr = PetscFPrintf(comm, fd, "\n--- Event Stage %d: %s\n\n", stage, stageInfo[stage].name);CHKERRQ(ierr);
+      for (oclass = 0; oclass < stageLog->stageInfo[stage].classLog->numClasses; oclass++) {
+	if ((classInfo[oclass].creations > 0) || (classInfo[oclass].destructions > 0)) {
+	  ierr = PetscFPrintf(comm, fd, "%20s %5d          %5d  %11.0f     %g\n", stageLog->classLog->classInfo[oclass].name,
+			      classInfo[oclass].creations, classInfo[oclass].destructions, classInfo[oclass].mem,
+			      classInfo[oclass].descMem);CHKERRQ(ierr);
+	}
+      }
+    } else {
+      ierr = PetscFPrintf(comm, fd, "\n--- Event Stage %d: Unknown\n\n", stage);CHKERRQ(ierr);
+    }
+  }
+
+  ierr = PetscFree(localStageUsed);CHKERRQ(ierr);
+  PetscFunctionReturn(0);
+}
+
+
+#undef __FUNCT__
 #define __FUNCT__ "EinsFinalize"
 /*@C
    EinsFinalize - Finalizes the program. Calls to PetscFinalize().
@@ -108,14 +181,31 @@ PetscErrorCode  EinsInitialize(int *argc,char ***args,const char file[],const ch
 @*/
 PetscErrorCode  EinsFinalize(void)
 {
-  PetscBool petscFinalized;
+  PetscBool      petscFinalized,flg;
   PetscErrorCode ierr;
-  
+#if defined(PETSC_USE_LOG)
+  char           mname[PETSC_MAX_PATH_LEN];
+#endif
+
   PetscFunctionBegin;
   if (!EinsInitializeCalled) {
     printf("EinsInitialize() must be called before EinsFinalize()\n");
     PetscFunctionReturn(PETSC_ERR_ARG_WRONGSTATE);
   }
+  ierr = PetscOptionsGetString(NULL,NULL,"-log_memory",mname,PETSC_MAX_PATH_LEN,&flg);CHKERRQ(ierr);
+  if (flg) {
+    PetscViewer viewer;
+    if (mname[0]) {
+      ierr = PetscViewerASCIIOpen(PETSC_COMM_WORLD,mname,&viewer);CHKERRQ(ierr);
+      ierr = PrintLogMemUsage_Private(viewer);CHKERRQ(ierr);
+      ierr = PetscViewerDestroy(&viewer);CHKERRQ(ierr);
+    } else {
+      viewer = PETSC_VIEWER_STDOUT_WORLD;
+      ierr = PrintLogMemUsage_Private(viewer);CHKERRQ(ierr);
+    }
+  }
+    
+    
   if (KSPList) {ierr = PetscFunctionListDestroy(&KSPList);CHKERRQ(ierr);}
   ierr = PetscFinalized(&petscFinalized);CHKERRQ(ierr);
   if(!petscFinalized)  {ierr = PetscFinalize();CHKERRQ(ierr);}   
