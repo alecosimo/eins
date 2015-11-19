@@ -14,7 +14,7 @@ PetscBool EinsInitializeCalled   = PETSC_FALSE;
 PetscBool EinsFinalizeCalled     = PETSC_FALSE;
 PetscBool EinsRegisterAllCalled  = PETSC_FALSE;
 
-static PetscErrorCode PrintLogMemUsage_Private(PetscViewer);
+static PetscErrorCode PrintLogDestruction_Private(PetscViewer);
 
 #undef  __FUNCT__
 #define __FUNCT__ "EinsRegisterAll"
@@ -97,16 +97,16 @@ PetscErrorCode  EinsInitialize(int *argc,char ***args,const char file[],const ch
 
 
 #undef __FUNCT__
-#define __FUNCT__ "PrintLogMemUsage_Private"
+#define __FUNCT__ "PrintLogDestruction_Private"
 /*@
-   PrintLogMemUsage_Private - Prints information about Memory usage
-   and object creation. It is called by EinsFinalize()
+   PrintLogDestruction_Private - Prints information about object
+   creation. It is called by EinsFinalize()
 
    Level: developer
 
 .seealso: EinsFinalize()
 @*/
-static PetscErrorCode  PrintLogMemUsage_Private(PetscViewer viewer)
+static PetscErrorCode  PrintLogDestruction_Private(PetscViewer viewer)
 {
   PetscErrorCode    ierr;
   int                stage, oclass,numStages;
@@ -145,7 +145,7 @@ static PetscErrorCode  PrintLogMemUsage_Private(PetscViewer viewer)
      stats for stages local to processor sets.
   */
   /* We should figure out the longest object name here (now 20 characters) */
-  ierr = PetscFPrintf(comm, fd, "Object Type          Creations   Destructions     Memory  Descendants' Mem.\n");CHKERRQ(ierr);
+  ierr = PetscFPrintf(comm, fd, "Object Type          Creations   Destructions\n");CHKERRQ(ierr);
   ierr = PetscFPrintf(comm, fd, "Reports information only for process 0.\n");CHKERRQ(ierr);
   for (stage = 0; stage < numStages; stage++) {
     if (localStageUsed[stage]) {
@@ -153,9 +153,8 @@ static PetscErrorCode  PrintLogMemUsage_Private(PetscViewer viewer)
       ierr = PetscFPrintf(comm, fd, "\n--- Event Stage %d: %s\n\n", stage, stageInfo[stage].name);CHKERRQ(ierr);
       for (oclass = 0; oclass < stageLog->stageInfo[stage].classLog->numClasses; oclass++) {
 	if ((classInfo[oclass].creations > 0) || (classInfo[oclass].destructions > 0)) {
-	  ierr = PetscFPrintf(comm, fd, "%20s %5d          %5d  %11.0f     %g\n", stageLog->classLog->classInfo[oclass].name,
-			      classInfo[oclass].creations, classInfo[oclass].destructions, classInfo[oclass].mem,
-			      classInfo[oclass].descMem);CHKERRQ(ierr);
+	  ierr = PetscFPrintf(comm, fd, "%20s %5d          %5d\n", stageLog->classLog->classInfo[oclass].name,
+			      classInfo[oclass].creations, classInfo[oclass].destructions);CHKERRQ(ierr);
 	}
       }
     } else {
@@ -192,16 +191,16 @@ PetscErrorCode  EinsFinalize(void)
     printf("EinsInitialize() must be called before EinsFinalize()\n");
     PetscFunctionReturn(PETSC_ERR_ARG_WRONGSTATE);
   }
-  ierr = PetscOptionsGetString(NULL,NULL,"-log_memory",mname,PETSC_MAX_PATH_LEN,&flg);CHKERRQ(ierr);
+  ierr = PetscOptionsGetString(NULL,NULL,"-log_destruction",mname,PETSC_MAX_PATH_LEN,&flg);CHKERRQ(ierr);
   if (flg) {
     PetscViewer viewer;
     if (mname[0]) {
       ierr = PetscViewerASCIIOpen(PETSC_COMM_WORLD,mname,&viewer);CHKERRQ(ierr);
-      ierr = PrintLogMemUsage_Private(viewer);CHKERRQ(ierr);
+      ierr = PrintLogDestruction_Private(viewer);CHKERRQ(ierr);
       ierr = PetscViewerDestroy(&viewer);CHKERRQ(ierr);
     } else {
       viewer = PETSC_VIEWER_STDOUT_WORLD;
-      ierr = PrintLogMemUsage_Private(viewer);CHKERRQ(ierr);
+      ierr = PrintLogDestruction_Private(viewer);CHKERRQ(ierr);
     }
   }
   

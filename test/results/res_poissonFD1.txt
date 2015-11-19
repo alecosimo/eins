@@ -62,22 +62,22 @@ Vec_0x84000004_3 = [
 
 Memory usage is given in bytes:
 
-Object Type          Creations   Destructions     Memory  Descendants' Mem.
+Object Type          Creations   Destructions
 Reports information only for process 0.
 
 --- Event Stage 0: Main Stage
 
-     Vector Exchange     1              1          632     0
-              Vector   139            139       214880     0
-      Vector Scatter    16             16        11744     0
-              Matrix    16             16        63900     0
-    Distributed Mesh     1              1         4952     0
-Star Forest Bipartite Graph     3              3         2520     0
-     Discrete System     1              1          840     0
-           Index Set    69             69        53316     0
-   IS L to G Mapping     4              4         2612     0
-   Application Order     1              1          712     0
-                FETI     1              1          936     0
-       Krylov Solver     5              5         6960     0
-      Preconditioner     5              5         4544     0
-              Viewer     2              0            0     0
+     Vector Exchange     1              1
+              Vector   139            139
+      Vector Scatter    16             16
+              Matrix    16             16
+    Distributed Mesh     1              1
+Star Forest Bipartite Graph     3              3
+     Discrete System     1              1
+           Index Set    69             69
+   IS L to G Mapping     4              4
+   Application Order     1              1
+                FETI     1              1
+       Krylov Solver     5              5
+      Preconditioner     5              5
+              Viewer     2              0

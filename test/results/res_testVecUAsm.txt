@@ -200,13 +200,13 @@ Vec_0x84000004_11 = [
 
 Memory usage is given in bytes:
 
-Object Type          Creations   Destructions     Memory  Descendants' Mem.
+Object Type          Creations   Destructions
 Reports information only for process 0.
 
 --- Event Stage 0: Main Stage
 
-     Vector Exchange     1              1          632     0
-              Vector    24             24        37312     0
-           Index Set     2              2         1536     0
-   IS L to G Mapping     1              1          636     0
-              Viewer     2              0            0     0
+     Vector Exchange     1              1
+              Vector    24             24
+           Index Set     2              2
+   IS L to G Mapping     1              1
+              Viewer     2              0

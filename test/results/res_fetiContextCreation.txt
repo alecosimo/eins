@@ -2,10 +2,10 @@
 
 Memory usage is given in bytes:
 
-Object Type          Creations   Destructions     Memory  Descendants' Mem.
+Object Type          Creations   Destructions
 Reports information only for process 0.
 
 --- Event Stage 0: Main Stage
 
-                FETI     1              1          936     0
-              Viewer     1              0            0     0
+                FETI     1              1
+              Viewer     1              0
