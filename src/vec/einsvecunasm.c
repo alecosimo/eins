@@ -30,7 +30,7 @@ static PetscErrorCode VecRestoreArray_UNASM(Vec,PetscScalar**);
 static PetscErrorCode VecView_UNASM_HDF5(Vec,PetscViewer);
 #endif
 
-  
+
 #undef __FUNCT__
 #define __FUNCT__ "VecCreate_UNASM"
 /*@ VECMPIUNASM = "mpiunasm" - Globally unassembled mpi vector for
@@ -51,15 +51,19 @@ PETSC_EXTERN PetscErrorCode VecCreate_UNASM(Vec v)
   Vec_UNASM      *b;
   PetscMPIInt    rank;
   char           str[10];
+  MPI_Comm       comm;
   
   PetscFunctionBegin;
   ierr    = PetscNewLog(v,&b);CHKERRQ(ierr);
   v->data = (void*)b;
   /* create local vec */
+  ierr = PetscObjectGetComm((PetscObject)v,&comm);CHKERRQ(ierr);
+  if((v->map->n) == PETSC_DECIDE) { SETERRABORT(PETSC_COMM_SELF,PETSC_ERR_SUP,"Cannot set local size to PETSC_DECIDE"); }
   ierr = VecCreateSeq(PETSC_COMM_SELF,v->map->n,&b->vlocal);CHKERRQ(ierr);
-  ierr = MPI_Comm_rank(PetscObjectComm((PetscObject)v),&rank);
+  ierr = MPI_Comm_rank(comm,&rank);CHKERRQ(ierr);
   sprintf(str,NAMEDOMAIN,rank);
   ierr = PetscObjectSetName((PetscObject)b->vlocal,str);CHKERRQ(ierr);
+  if((v->map->N) == PETSC_DECIDE) { ierr = MPI_Allreduce(&v->map->n,&v->map->N,1,MPIU_INT,MPI_SUM,comm);CHKERRQ(ierr); }
   
   b->multiplicity          = 0;
   b->local_sizes           = 0;
