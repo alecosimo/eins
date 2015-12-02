@@ -1,6 +1,7 @@
 #include <../src/vec/einsvecunasm.h>
 #include <petsc/private/matimpl.h>
 #include <petscblaslapack.h>
+#include <petscviewerhdf5.h>
 
 static PetscErrorCode VecView_UNASM(Vec,PetscViewer);
 static PetscErrorCode VecDuplicate_UNASM(Vec,Vec*);
@@ -25,6 +26,10 @@ static PetscErrorCode VecGetArrayRead_UNASM(Vec,const PetscScalar**);
 static PetscErrorCode VecRestoreArrayRead_UNASM(Vec,const PetscScalar**);
 static PetscErrorCode VecGetArray_UNASM(Vec,PetscScalar**);
 static PetscErrorCode VecRestoreArray_UNASM(Vec,PetscScalar**);
+#if defined(PETSC_HAVE_HDF5)
+static PetscErrorCode VecView_UNASM_HDF5(Vec,PetscViewer);
+#endif
+
   
 #undef __FUNCT__
 #define __FUNCT__ "VecCreate_UNASM"
@@ -44,13 +49,20 @@ PETSC_EXTERN PetscErrorCode VecCreate_UNASM(Vec v)
 {
   PetscErrorCode ierr;
   Vec_UNASM      *b;
-
+  PetscMPIInt    rank;
+  char           str[10];
+  
   PetscFunctionBegin;
   ierr    = PetscNewLog(v,&b);CHKERRQ(ierr);
   v->data = (void*)b;
   /* create local vec */
   ierr = VecCreateSeq(PETSC_COMM_SELF,v->map->n,&b->vlocal);CHKERRQ(ierr);
+  ierr = MPI_Comm_rank(PetscObjectComm((PetscObject)v),&rank);
+  sprintf(str,NAMEDOMAIN,rank);
+  ierr = PetscObjectSetName((PetscObject)b->vlocal,str);CHKERRQ(ierr);
+  
   b->multiplicity          = 0;
+  b->local_sizes           = 0;
   /* vector ops */
   ierr                     = PetscMemzero(v->ops,sizeof(struct _VecOps));CHKERRQ(ierr);
   v->ops->duplicate        = VecDuplicate_UNASM;
@@ -570,6 +582,7 @@ static PetscErrorCode VecDestroy_UNASM(Vec v)
   PetscFunctionBegin;
   ierr = VecDestroy(&b->vlocal);CHKERRQ(ierr);
   ierr = VecDestroy(&b->multiplicity);CHKERRQ(ierr);
+  if(b->local_sizes) { ierr = PetscFree(b->local_sizes);CHKERRQ(ierr);}
   ierr = PetscFree(v->data);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
@@ -661,6 +674,10 @@ static PetscErrorCode VecView_UNASM(Vec xin,PetscViewer viewer)
   Vec               vec;
   PetscScalar       *values;
   const PetscScalar *xarray;
+  char              str[10];
+#if defined(PETSC_HAVE_HDF5)
+  PetscBool      ishdf5;
+#endif
   
   PetscFunctionBeginUser;
   ierr = PetscObjectGetComm((PetscObject)xin,&comm);CHKERRQ(ierr);
@@ -668,6 +685,9 @@ static PetscErrorCode VecView_UNASM(Vec xin,PetscViewer viewer)
   ierr = MPI_Comm_rank(comm,&rank);
 
   ierr = PetscObjectTypeCompare((PetscObject)viewer,PETSCVIEWERASCII,&iascii);CHKERRQ(ierr);
+#if defined(PETSC_HAVE_HDF5)
+  ierr = PetscObjectTypeCompare((PetscObject)viewer,PETSCVIEWERHDF5,&ishdf5);CHKERRQ(ierr);
+#endif
 
   if(iascii){
     ierr = MPI_Reduce(&work,&len,1,MPIU_INT,MPI_MAX,0,comm);CHKERRQ(ierr);
@@ -680,6 +700,8 @@ static PetscErrorCode VecView_UNASM(Vec xin,PetscViewer viewer)
 	ierr = MPI_Recv(values,(PetscMPIInt)len,MPIU_SCALAR,j,tag,comm,&status);CHKERRQ(ierr);
         ierr = MPI_Get_count(&status,MPIU_SCALAR,&n);CHKERRQ(ierr);
 	ierr = VecCreateSeq(PETSC_COMM_SELF,n,&vec);CHKERRQ(ierr);
+	sprintf(str,NAMEDOMAIN,j);
+	ierr = PetscObjectSetName((PetscObject)vec,str);CHKERRQ(ierr);
 	ierr = VecPlaceArray(vec,values);CHKERRQ(ierr);
 	ierr = PetscPrintf(PETSC_COMM_SELF, "Processor # %d out of %d \n",j,size);CHKERRQ(ierr);
 	ierr = VecView(vec,PETSC_VIEWER_STDOUT_SELF);CHKERRQ(ierr);
@@ -692,12 +714,225 @@ static PetscErrorCode VecView_UNASM(Vec xin,PetscViewer viewer)
       ierr = MPI_Send((void*)xarray,xin->map->n,MPIU_SCALAR,0,tag,comm);CHKERRQ(ierr);
       ierr = VecRestoreArrayRead(xi->vlocal,&xarray);CHKERRQ(ierr);
     }    
-
+#if defined(PETSC_HAVE_HDF5)
+  } else if (ishdf5) {
+    ierr = VecView_UNASM_HDF5(xin,viewer);CHKERRQ(ierr);
+#endif
   } else {
-    SETERRQ(comm,PETSC_ERR_ARG_WRONG,"Error: only ascii viewer implemented");
+    SETERRQ(comm,PETSC_ERR_SUP,"Not supported viewer");
   }
   
   PetscFunctionReturn(0);
 }
+
+
+#if defined(PETSC_HAVE_HDF5)
+#undef __FUNCT__
+#define __FUNCT__ "VecView_UNASM_HDF5"
+static PetscErrorCode VecView_UNASM_HDF5(Vec xin, PetscViewer viewer)
+{
+  /* TODO: It looks like we can remove the H5Sclose(filespace) and H5Dget_space(dset_id). Why do we do this? */
+  hid_t             filespace; /* file dataspace identifier */
+  hid_t             chunkspace; /* chunk dataset property identifier */
+  hid_t             plist_id;  /* property list identifier */
+  hid_t             dset_id;   /* dataset identifier */
+  hid_t             memspace;  /* memory dataspace identifier */
+  hid_t             file_id;
+  hid_t             groupS,group;
+  hid_t             memscalartype; /* scalar type for mem (H5T_NATIVE_FLOAT or H5T_NATIVE_DOUBLE) */
+  hid_t             filescalartype; /* scalar type for file (H5T_NATIVE_FLOAT or H5T_NATIVE_DOUBLE) */
+  PetscInt          bs = PetscAbs(xin->map->bs);
+  hsize_t           dim;
+  hsize_t           maxDims[4], dims[4], chunkDims[4], count[4],offset[4];
+  PetscInt          timestep, i;
+  Vec_UNASM         *xi = (Vec_UNASM*)xin->data;
+  const PetscScalar *x;
+  const char        *vecname;
+  PetscErrorCode    ierr;
+  PetscBool         dim2;
+  PetscBool         spoutput, found;
+  char              vecname_local[10];
+  PetscMPIInt       size,rank;
+  MPI_Comm          comm;
+  
+  PetscFunctionBegin;
+  ierr = PetscViewerHDF5OpenGroup(viewer, &file_id, &groupS);CHKERRQ(ierr);
+  ierr = PetscObjectGetName((PetscObject) xin, &vecname);CHKERRQ(ierr);
+  PetscStackCall("H5Lexists",found = H5Lexists(groupS, vecname, H5P_DEFAULT));
+  if (found <= 0) {
+#if (H5_VERS_MAJOR * 10000 + H5_VERS_MINOR * 100 + H5_VERS_RELEASE >= 10800)
+    PetscStackCallHDF5Return(group,H5Gcreate2,(groupS, vecname, 0, H5P_DEFAULT, H5P_DEFAULT));
+#else
+    PetscStackCallHDF5Return(group,H5Gcreate,(groupS, vecname, 0));
+#endif
+    PetscStackCallHDF5(H5Gclose,(group));
+  }
+#if (H5_VERS_MAJOR * 10000 + H5_VERS_MINOR * 100 + H5_VERS_RELEASE >= 10800)
+  PetscStackCallHDF5Return(group,H5Gopen2,(groupS, vecname, H5P_DEFAULT));
+#else
+  PetscStackCallHDF5Return(group,H5Gopen,groupS, vecname);
+#endif 
+  PetscStackCallHDF5(H5Gclose,(groupS));
+
+  ierr = PetscViewerHDF5GetTimestep(viewer, &timestep);CHKERRQ(ierr);
+  ierr = PetscViewerHDF5GetBaseDimension2(viewer,&dim2);CHKERRQ(ierr);
+  ierr = PetscViewerHDF5GetSPOutput(viewer,&spoutput);CHKERRQ(ierr);
+
+#if defined(PETSC_USE_REAL_SINGLE)
+  memscalartype = H5T_NATIVE_FLOAT;
+  filescalartype = H5T_NATIVE_FLOAT;
+#elif defined(PETSC_USE_REAL___FLOAT128)
+#error "HDF5 output with 128 bit floats not supported."
+#else
+  memscalartype = H5T_NATIVE_DOUBLE;
+  if (spoutput == PETSC_TRUE) filescalartype = H5T_NATIVE_FLOAT;
+  else filescalartype = H5T_NATIVE_DOUBLE;
+#endif
+
+  /* Create the dataset with default properties and close filespace */
+  ierr = PetscObjectGetComm((PetscObject)xin,&comm);CHKERRQ(ierr);
+  ierr = MPI_Comm_size(comm,&size);CHKERRQ(ierr);
+  ierr = MPI_Comm_rank(comm,&rank);CHKERRQ(ierr);
+  if (!xi->local_sizes) {
+    ierr = PetscMalloc1(size,&xi->local_sizes);CHKERRQ(ierr);
+    ierr = MPI_Allgather(&xin->map->n,1,MPIU_INT,xi->local_sizes,1,MPIU_INT,comm);CHKERRQ(ierr);
+  }
+    /* Create the dataspace for the dataset.
+     *
+     * dims - holds the current dimensions of the dataset
+     *
+     * maxDims - holds the maximum dimensions of the dataset (unlimited
+     * for the number of time steps with the current dimensions for the
+     * other dimensions; so only additional time steps can be added).
+     *
+     * chunkDims - holds the size of a single time step (required to
+     * permit extending dataset).
+     */
+
+  for (i=0;i<size;i++) {
+    
+    sprintf(vecname_local,NAMEDOMAIN,i);
+
+    dim = 0;
+    if (timestep >= 0) {
+      dims[dim]      = timestep+1;
+      maxDims[dim]   = H5S_UNLIMITED;
+      chunkDims[dim] = 1;
+      ++dim;
+    }
+    ierr = PetscHDF5IntCast(xi->local_sizes[i],dims + dim);CHKERRQ(ierr);
+
+    maxDims[dim]   = dims[dim];
+    chunkDims[dim] = dims[dim];
+    ++dim;
+    if (bs > 1 || dim2) {
+      dims[dim]      = bs;
+      maxDims[dim]   = dims[dim];
+      chunkDims[dim] = dims[dim];
+      ++dim;
+    }
+#if defined(PETSC_USE_COMPLEX)
+    dims[dim]      = 2;
+    maxDims[dim]   = dims[dim];
+    chunkDims[dim] = dims[dim];
+    ++dim;
+#endif
+
+    if (!H5Lexists(group, vecname_local, H5P_DEFAULT)) {
+      PetscStackCallHDF5Return(filespace,H5Screate_simple,((int)dim, dims, maxDims));
+
+      /* Create chunk */
+      PetscStackCallHDF5Return(chunkspace,H5Pcreate,(H5P_DATASET_CREATE));
+      PetscStackCallHDF5(H5Pset_chunk,(chunkspace, (int)dim, chunkDims));
+
+#if (H5_VERS_MAJOR * 10000 + H5_VERS_MINOR * 100 + H5_VERS_RELEASE >= 10800)
+      PetscStackCallHDF5Return(dset_id,H5Dcreate2,(group, vecname_local, filescalartype, filespace, H5P_DEFAULT, chunkspace, H5P_DEFAULT));
+#else
+      PetscStackCallHDF5Return(dset_id,H5Dcreate,(group, vecname_local, filescalartype, filespace, H5P_DEFAULT));
+#endif
+      PetscStackCallHDF5(H5Pclose,(chunkspace));
+      PetscStackCallHDF5(H5Sclose,(filespace));
+    } else {
+      PetscStackCallHDF5Return(dset_id,H5Dopen2,(group, vecname_local, H5P_DEFAULT));
+      PetscStackCallHDF5(H5Dset_extent,(dset_id, dims));
+    }
+    PetscStackCallHDF5(H5Dclose,(dset_id));
+  }
+
+  /* write data to HDF5 file */
+  sprintf(vecname_local,NAMEDOMAIN,rank);
+  PetscStackCallHDF5Return(dset_id,H5Dopen2,(group, vecname_local, H5P_DEFAULT));
+
+  /* Each process defines a dataset and writes it to the hyperslab in the file */
+  dim = 0;
+  if (timestep >= 0) {
+    count[dim] = 1;
+    ++dim;
+  }
+  ierr = PetscHDF5IntCast(xin->map->n,count + dim);CHKERRQ(ierr);
+  ++dim;
+  if (bs > 1 || dim2) {
+    count[dim] = bs;
+    ++dim;
+  }
+#if defined(PETSC_USE_COMPLEX)
+  count[dim] = 2;
+  ++dim;
+#endif
+  if (xin->map->n > 0) {
+    PetscStackCallHDF5Return(memspace,H5Screate_simple,((int)dim, count, NULL));
+  } else {
+    /* Can't create dataspace with zero for any dimension, so create null dataspace. */
+    PetscStackCallHDF5Return(memspace,H5Screate,(H5S_NULL));
+  }
+
+  /* Select hyperslab in the file */
+  dim  = 0;
+  if (timestep >= 0) {
+    offset[dim] = timestep;
+    ++dim;
+  }
+  ierr = PetscHDF5IntCast(0,offset + dim);CHKERRQ(ierr);
+  ++dim;
+  if (bs > 1 || dim2) {
+    offset[dim] = 0;
+    ++dim;
+  }
+#if defined(PETSC_USE_COMPLEX)
+  offset[dim] = 0;
+  ++dim;
+#endif
+  if (xin->map->n > 0) {
+    PetscStackCallHDF5Return(filespace,H5Dget_space,(dset_id));
+    PetscStackCallHDF5(H5Sselect_hyperslab,(filespace, H5S_SELECT_SET, offset, NULL, count, NULL));
+  } else {
+    /* Create null filespace to match null memspace. */
+    PetscStackCallHDF5Return(filespace,H5Screate,(H5S_NULL));
+  }
+
+  /* Create property list for collective dataset write */
+  PetscStackCallHDF5Return(plist_id,H5Pcreate,(H5P_DATASET_XFER));
+#if defined(PETSC_HAVE_H5PSET_FAPL_MPIO)
+  PetscStackCallHDF5(H5Pset_dxpl_mpio,(plist_id, H5FD_MPIO_INDEPENDENT));
+#endif
+
+  ierr   = VecGetArrayRead(xi->vlocal, &x);CHKERRQ(ierr);
+  PetscStackCallHDF5(H5Dwrite,(dset_id, memscalartype, memspace, filespace, plist_id, x));
+  PetscStackCallHDF5(H5Fflush,(file_id, H5F_SCOPE_GLOBAL));
+  ierr   = VecRestoreArrayRead(xin, &x);CHKERRQ(ierr);
+
+  /* Close/release resources */
+  if (group != file_id) {
+    PetscStackCallHDF5(H5Gclose,(group));
+  }
+  PetscStackCallHDF5(H5Pclose,(plist_id));
+  PetscStackCallHDF5(H5Sclose,(filespace)); 
+  PetscStackCallHDF5(H5Sclose,(memspace));
+  PetscStackCallHDF5(H5Dclose,(dset_id));
+  ierr   = PetscInfo1(xin,"Wrote Vec object with name %s\n",vecname);CHKERRQ(ierr);
+
+  PetscFunctionReturn(0);
+}
+#endif
 
 

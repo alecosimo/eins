@@ -31,9 +31,9 @@ Printing v ...................................
 %Vec Object: 3 MPI processes
 %  type: mpiunasm
 Processor # 0 out of 3 
-%Vec Object: 1 MPI processes
+%Vec Object:DOM0000000 1 MPI processes
 %  type: seq
-Vec_0x84000004_0 = [
+DOM0000000 = [
 1.0000000000000000e+00
 2.0000000000000000e+00
 3.0000000000000000e+00
@@ -41,9 +41,9 @@ Vec_0x84000004_0 = [
 5.0000000000000000e+00
 ];
 Processor # 1 out of 3 
-%Vec Object: 1 MPI processes
+%Vec Object:DOM0000001 1 MPI processes
 %  type: seq
-Vec_0x84000004_1 = [
+DOM0000001 = [
 5.0000000000000000e+00
 4.0000000000000000e+00
 3.0000000000000000e+00
@@ -51,9 +51,9 @@ Vec_0x84000004_1 = [
 1.0000000000000000e+01
 ];
 Processor # 2 out of 3 
-%Vec Object: 1 MPI processes
+%Vec Object:DOM0000002 1 MPI processes
 %  type: seq
-Vec_0x84000004_2 = [
+DOM0000002 = [
 3.0000000000000000e+00
 5.0000000000000000e+00
 3.0000000000000000e+00
@@ -65,9 +65,9 @@ Printing v2 ...................................
 %Vec Object: 3 MPI processes
 %  type: mpiunasm
 Processor # 0 out of 3 
-%Vec Object: 1 MPI processes
+%Vec Object:DOM0000000 1 MPI processes
 %  type: seq
-Vec_0x84000004_3 = [
+DOM0000000 = [
 1.0000000000000000e+00
 2.0000000000000000e+00
 3.0000000000000000e+00
@@ -75,9 +75,9 @@ Vec_0x84000004_3 = [
 5.0000000000000000e+00
 ];
 Processor # 1 out of 3 
-%Vec Object: 1 MPI processes
+%Vec Object:DOM0000001 1 MPI processes
 %  type: seq
-Vec_0x84000004_4 = [
+DOM0000001 = [
 5.0000000000000000e+00
 4.0000000000000000e+00
 3.0000000000000000e+00
@@ -85,9 +85,9 @@ Vec_0x84000004_4 = [
 1.0000000000000000e+01
 ];
 Processor # 2 out of 3 
-%Vec Object: 1 MPI processes
+%Vec Object:DOM0000002 1 MPI processes
 %  type: seq
-Vec_0x84000004_5 = [
+DOM0000002 = [
 3.0000000000000000e+00
 5.0000000000000000e+00
 3.0000000000000000e+00
@@ -99,9 +99,9 @@ Printing v2 scaled by 3 .....................
 %Vec Object: 3 MPI processes
 %  type: mpiunasm
 Processor # 0 out of 3 
-%Vec Object:Vec_0x84000004_3 1 MPI processes
+%Vec Object:DOM0000000 1 MPI processes
 %  type: seq
-Vec_0x84000004_3 = [
+DOM0000000 = [
 3.0000000000000000e+00
 6.0000000000000000e+00
 9.0000000000000000e+00
@@ -109,9 +109,9 @@ Vec_0x84000004_3 = [
 1.5000000000000000e+01
 ];
 Processor # 1 out of 3 
-%Vec Object: 1 MPI processes
+%Vec Object:DOM0000001 1 MPI processes
 %  type: seq
-Vec_0x84000004_6 = [
+DOM0000001 = [
 1.5000000000000000e+01
 1.2000000000000000e+01
 9.0000000000000000e+00
@@ -119,9 +119,9 @@ Vec_0x84000004_6 = [
 3.0000000000000000e+01
 ];
 Processor # 2 out of 3 
-%Vec Object: 1 MPI processes
+%Vec Object:DOM0000002 1 MPI processes
 %  type: seq
-Vec_0x84000004_7 = [
+DOM0000002 = [
 9.0000000000000000e+00
 1.5000000000000000e+01
 9.0000000000000000e+00
@@ -133,9 +133,9 @@ Printing v2 AXPY, must be zero ..............
 %Vec Object: 3 MPI processes
 %  type: mpiunasm
 Processor # 0 out of 3 
-%Vec Object:Vec_0x84000004_3 1 MPI processes
+%Vec Object:DOM0000000 1 MPI processes
 %  type: seq
-Vec_0x84000004_3 = [
+DOM0000000 = [
 0.0000000000000000e+00
 0.0000000000000000e+00
 0.0000000000000000e+00
@@ -143,9 +143,9 @@ Vec_0x84000004_3 = [
 0.0000000000000000e+00
 ];
 Processor # 1 out of 3 
-%Vec Object: 1 MPI processes
+%Vec Object:DOM0000001 1 MPI processes
 %  type: seq
-Vec_0x84000004_8 = [
+DOM0000001 = [
 0.0000000000000000e+00
 0.0000000000000000e+00
 0.0000000000000000e+00
@@ -153,9 +153,9 @@ Vec_0x84000004_8 = [
 0.0000000000000000e+00
 ];
 Processor # 2 out of 3 
-%Vec Object: 1 MPI processes
+%Vec Object:DOM0000002 1 MPI processes
 %  type: seq
-Vec_0x84000004_9 = [
+DOM0000002 = [
 0.0000000000000000e+00
 0.0000000000000000e+00
 0.0000000000000000e+00
@@ -167,9 +167,9 @@ Printing VecExchange ..............
 %Vec Object: 3 MPI processes
 %  type: mpiunasm
 Processor # 0 out of 3 
-%Vec Object:Vec_0x84000004_0 1 MPI processes
+%Vec Object:DOM0000000 1 MPI processes
 %  type: seq
-Vec_0x84000004_0 = [
+DOM0000000 = [
 1.0000000000000000e+00
 2.0000000000000000e+00
 9.0000000000000000e+00
@@ -177,9 +177,9 @@ Vec_0x84000004_0 = [
 1.0000000000000000e+01
 ];
 Processor # 1 out of 3 
-%Vec Object: 1 MPI processes
+%Vec Object:DOM0000001 1 MPI processes
 %  type: seq
-Vec_0x84000004_10 = [
+DOM0000001 = [
 1.0000000000000000e+01
 8.0000000000000000e+00
 9.0000000000000000e+00
@@ -187,9 +187,9 @@ Vec_0x84000004_10 = [
 2.0000000000000000e+01
 ];
 Processor # 2 out of 3 
-%Vec Object: 1 MPI processes
+%Vec Object:DOM0000002 1 MPI processes
 %  type: seq
-Vec_0x84000004_11 = [
+DOM0000002 = [
 3.0000000000000000e+00
 5.0000000000000000e+00
 9.0000000000000000e+00

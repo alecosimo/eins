@@ -1,5 +1,7 @@
 set(path "${PROJECT_SOURCE_DIR}/test")
 
+M_ADD_TEST("${path}/vecUnasmHDF5.c"  "mpiexec -n 3 ./vecUnasmHDF5 -log_destruction" "${EinsTests_libraries}")
+
 M_ADD_TEST_CMP("${path}/testVecUAsm.c"  "mpiexec -n 3 ./testVecUAsm -log_destruction" "${EinsTests_libraries}" "res_testVecUAsm.txt")
 M_ADD_TEST_CMP("${path}/fetiContextCreation.c"  "mpiexec -n 4 ./fetiContextCreation -log_destruction" "${EinsTests_libraries}" "res_fetiContextCreation.txt")
 M_ADD_TEST_CMP("${path}/ex7.c"  "mpiexec -n 2 ./ex7 -ksp_monitor_short -ksp_gmres_cgs_refinement_type refine_always -ksp_type pjgmres -log_destruction" "${EinsTests_libraries}" "res_ex7.txt")
