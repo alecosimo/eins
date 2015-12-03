@@ -703,13 +703,11 @@ static PetscErrorCode VecView_UNASM(Vec xin,PetscViewer viewer)
       for (j=1; j<size; j++) {
 	ierr = MPI_Recv(values,(PetscMPIInt)len,MPIU_SCALAR,j,tag,comm,&status);CHKERRQ(ierr);
         ierr = MPI_Get_count(&status,MPIU_SCALAR,&n);CHKERRQ(ierr);
-	ierr = VecCreateSeq(PETSC_COMM_SELF,n,&vec);CHKERRQ(ierr);
+	ierr = VecCreateSeqWithArray(PETSC_COMM_SELF,1,n,values,&vec);CHKERRQ(ierr);
 	sprintf(str,NAMEDOMAIN,j);
 	ierr = PetscObjectSetName((PetscObject)vec,str);CHKERRQ(ierr);
-	ierr = VecPlaceArray(vec,values);CHKERRQ(ierr);
 	ierr = PetscPrintf(PETSC_COMM_SELF, "Processor # %d out of %d \n",j,size);CHKERRQ(ierr);
 	ierr = VecView(vec,PETSC_VIEWER_STDOUT_SELF);CHKERRQ(ierr);
-	ierr = VecResetArray(vec);CHKERRQ(ierr);
 	ierr = VecDestroy(&vec);CHKERRQ(ierr);
       }
       ierr = PetscFree(values);CHKERRQ(ierr);
@@ -938,5 +936,3 @@ static PetscErrorCode VecView_UNASM_HDF5(Vec xin, PetscViewer viewer)
   PetscFunctionReturn(0);
 }
 #endif
-
-
