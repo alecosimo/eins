@@ -3,6 +3,7 @@
 #include <petscblaslapack.h>
 #include <petscviewerhdf5.h>
 
+static PetscErrorCode VecCreate_UNASM_Private(Vec,const PetscScalar[]);
 static PetscErrorCode VecView_UNASM(Vec,PetscViewer);
 static PetscErrorCode VecDuplicate_UNASM(Vec,Vec*);
 static PetscErrorCode VecDestroy_UNASM(Vec);
@@ -48,6 +49,30 @@ static PetscErrorCode VecView_UNASM_HDF5(Vec,PetscViewer);
 PETSC_EXTERN PetscErrorCode VecCreate_UNASM(Vec v)
 {
   PetscErrorCode ierr;
+  
+  PetscFunctionBegin;
+  ierr = VecCreate_UNASM_Private(v,NULL);CHKERRQ(ierr);
+  PetscFunctionReturn(0);
+}
+
+
+#undef __FUNCT__
+#define __FUNCT__ "VecCreate_UNASM_Private"
+/*@ VecCreate_UNASM_Private - Creates and intializes globally
+  unassembled vector. It is called from VecCreate_UNASM and
+  VecCreateMPIUnasmWithArray.
+
+   Input Parameters:
+.  array   - array used to set create the local vector corresponding to each subdomain
+.  v       - the context of the vector to be created
+
+  Level: developer
+
+.seealso: VecCreate(), VecCreateMPIUnasmWithArray()
+@*/
+static PetscErrorCode VecCreate_UNASM_Private(Vec v,const PetscScalar array[])
+{
+  PetscErrorCode ierr;
   Vec_UNASM      *b;
   PetscMPIInt    rank;
   char           str[10];
@@ -59,7 +84,11 @@ PETSC_EXTERN PetscErrorCode VecCreate_UNASM(Vec v)
   /* create local vec */
   ierr = PetscObjectGetComm((PetscObject)v,&comm);CHKERRQ(ierr);
   if((v->map->n) == PETSC_DECIDE) { SETERRABORT(PETSC_COMM_SELF,PETSC_ERR_SUP,"Cannot set local size to PETSC_DECIDE"); }
-  ierr = VecCreateSeq(PETSC_COMM_SELF,v->map->n,&b->vlocal);CHKERRQ(ierr);
+  if(!array) {
+    ierr = VecCreateSeq(PETSC_COMM_SELF,v->map->n,&b->vlocal);CHKERRQ(ierr);
+  } else {
+    ierr = VecCreateSeqWithArray(PETSC_COMM_SELF,1,v->map->n,array,&b->vlocal);CHKERRQ(ierr);
+  }
   ierr = MPI_Comm_rank(comm,&rank);CHKERRQ(ierr);
   sprintf(str,NAMEDOMAIN,rank);
   ierr = PetscObjectSetName((PetscObject)b->vlocal,str);CHKERRQ(ierr);
@@ -733,7 +762,6 @@ static PetscErrorCode VecView_UNASM(Vec xin,PetscViewer viewer)
 #define __FUNCT__ "VecView_UNASM_HDF5"
 static PetscErrorCode VecView_UNASM_HDF5(Vec xin, PetscViewer viewer)
 {
-  /* TODO: It looks like we can remove the H5Sclose(filespace) and H5Dget_space(dset_id). Why do we do this? */
   hid_t             filespace; /* file dataspace identifier */
   hid_t             chunkspace; /* chunk dataset property identifier */
   hid_t             plist_id;  /* property list identifier */
@@ -936,3 +964,33 @@ static PetscErrorCode VecView_UNASM_HDF5(Vec xin, PetscViewer viewer)
   PetscFunctionReturn(0);
 }
 #endif
+
+
+#undef __FUNCT__
+#define __FUNCT__ "VecCreateMPIUnasmWithArray"
+/*@ VecCreateMPIUnasmWithArray - Creates a globally unassembled vector
+  using the provided array for creating the local vector.
+
+   Input Parameters:
+.  comm    - the MPI communicator
+.  n       - the local size of the vector
+.  N       - the global size of the vector
+.  array   - array used to set create the local vector corresponding to each subdomain
+
+   Output Parameters:
+.  V       - the vector to be created
+
+   Level: beginner
+
+.seealso VECMPIUNASM
+@*/
+PETSC_EXTERN PetscErrorCode VecCreateMPIUnasmWithArray(MPI_Comm comm,PetscInt n,PetscInt N,const PetscScalar array[],Vec *V)
+{
+  PetscErrorCode ierr;
+  
+  PetscFunctionBegin;
+  ierr = VecCreate(comm,V);CHKERRQ(ierr);
+  ierr = VecSetSizes(*V,n,N);CHKERRQ(ierr); 
+  ierr = VecCreate_UNASM_Private(*V,array);CHKERRQ(ierr);
+  PetscFunctionReturn(0);
+}

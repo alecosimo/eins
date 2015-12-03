@@ -2,8 +2,7 @@
 #define EINSVECUNASM_H
 
 #include <private/einsvecimpl.h>
-
-#define NAMEDOMAIN "DOM%07i"
+#include <einssys.h>
 
 typedef struct {
   Vec      vlocal;
