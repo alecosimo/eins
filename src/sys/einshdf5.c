@@ -16,14 +16,18 @@
 +   N        - number of elements in array
 .   array    - array to save in file
 .   datatype - HDF5 data type of the elements in array
-.   local_sizes  - vector of length N, whose entry i is equal to the number of elements of the array of domain "i". It can be NULL.
+.   local_sizes  - pointer to a pointer which defines a vector of length N, whose entry i 
+    is equal to the number of elements of the array of domain "i". If the double pointer 
+    local_sizes is NULL, space is allocated and freed by the routine. If the pointer to 
+    the pointer is not NULL, but the referenced pointer is NULL space is allocated but not
+    freed by the routine and the user must do it.
 -   viewer       - Petsc HDF5 viewer
 
   Level: intermediate
 
 .seealso: VecView_UNASM_HDF5()
 @*/
-PETSC_EXTERN PetscErrorCode HDF5ArrayView(PetscInt N,const void* array,hid_t datatype,PetscInt *local_sizes,PetscViewer viewer)
+PETSC_EXTERN PetscErrorCode HDF5ArrayView(PetscInt N,const void* array,hid_t datatype,PetscInt **local_sizes,PetscViewer viewer)
 {
   hid_t             filespace; /* file dataspace identifier */
   hid_t             chunkspace; /* chunk dataset property identifier */
@@ -33,10 +37,10 @@ PETSC_EXTERN PetscErrorCode HDF5ArrayView(PetscInt N,const void* array,hid_t dat
   hid_t             file_id;
   hid_t             group;
   hsize_t           dim;
-  hsize_t           maxDims[4], dims[4], chunkDims[4], count[4],offset[4];
-  PetscInt          timestep, i;
+  hsize_t           maxDims[4],dims[4],chunkDims[4],count[4],offset[4];
+  PetscInt          timestep,i,*ref;
   PetscErrorCode    ierr;
-  PetscBool         alloc=PETSC_FALSE;
+  PetscBool         dealloc=PETSC_FALSE;
   char              vecname_local[10];
   PetscMPIInt       size,rank;
   MPI_Comm          comm;
@@ -50,9 +54,13 @@ PETSC_EXTERN PetscErrorCode HDF5ArrayView(PetscInt N,const void* array,hid_t dat
   ierr = MPI_Comm_size(comm,&size);CHKERRQ(ierr);
   ierr = MPI_Comm_rank(comm,&rank);CHKERRQ(ierr);
   if (!local_sizes) {
-    alloc = PETSC_TRUE;
-    ierr = PetscMalloc1(size,&local_sizes);CHKERRQ(ierr);
-    ierr = MPI_Allgather(&N,1,MPIU_INT,local_sizes,1,MPIU_INT,comm);CHKERRQ(ierr);
+    dealloc = PETSC_TRUE;
+    ierr    = PetscMalloc1(size,&ref);CHKERRQ(ierr);
+    local_sizes = &ref;
+    ierr = MPI_Allgather(&N,1,MPIU_INT,*local_sizes,1,MPIU_INT,comm);CHKERRQ(ierr);
+  } else if (!(*local_sizes)) {
+    ierr = PetscMalloc1(size,local_sizes);CHKERRQ(ierr);
+    ierr = MPI_Allgather(&N,1,MPIU_INT,*local_sizes,1,MPIU_INT,comm);CHKERRQ(ierr);    
   }
     /* Create the dataspace for the dataset.
      *
@@ -77,7 +85,7 @@ PETSC_EXTERN PetscErrorCode HDF5ArrayView(PetscInt N,const void* array,hid_t dat
       chunkDims[dim] = 1;
       ++dim;
     }
-    ierr = PetscHDF5IntCast(local_sizes[i],dims + dim);CHKERRQ(ierr);
+    ierr = PetscHDF5IntCast((*local_sizes)[i],dims + dim);CHKERRQ(ierr);
 
     maxDims[dim]   = dims[dim];
     chunkDims[dim] = dims[dim];
@@ -156,7 +164,7 @@ PETSC_EXTERN PetscErrorCode HDF5ArrayView(PetscInt N,const void* array,hid_t dat
   PetscStackCallHDF5(H5Sclose,(filespace)); 
   PetscStackCallHDF5(H5Sclose,(memspace));
   PetscStackCallHDF5(H5Dclose,(dset_id));
-  if (alloc) { ierr = PetscFree(local_sizes);CHKERRQ(ierr);}
+  if (dealloc) { ierr = PetscFree(*local_sizes);CHKERRQ(ierr);}
   ierr   = PetscInfo(viewer,"Wrote array in HDF5 file\n");CHKERRQ(ierr);
 
   PetscFunctionReturn(0);
