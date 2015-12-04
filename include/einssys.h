@@ -21,8 +21,12 @@ PETSC_EXTERN PetscErrorCode VecSeqViewSynchronized(MPI_Comm,Vec);
 PETSC_EXTERN PetscErrorCode MatSeqViewSynchronized(MPI_Comm,Mat);
 PETSC_EXTERN PetscErrorCode ISSubsetNumbering(IS,IS,PetscInt*,IS*);
 PETSC_EXTERN PetscErrorCode ISCreateMPIVec(MPI_Comm,PetscInt,ISLocalToGlobalMapping,Vec*);
+
+/* ---------------------------------------------------------------- */
+/*   HDF5 utils */
 #if defined(PETSC_HAVE_HDF5)
 PETSC_EXTERN PetscErrorCode HDF5ArrayView(PetscInt,const void*,hid_t,PetscInt*,PetscViewer);
+PETSC_EXTERN PetscErrorCode PetscViewerHDF5WriteGroupAttribute(PetscViewer,const char[],PetscDataType,const void*);
 #endif
 
 #endif/* EINSSYS_H*/
