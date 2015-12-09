@@ -272,3 +272,26 @@ PetscErrorCode ISSubsetNumbering(IS subset, IS subset_mult, PetscInt *N_n, IS *s
   PetscFunctionReturn(0);
 }
 
+
+#undef __FUNCT__
+#define __FUNCT__ "initializeVecSeqToRank"
+/*@
+   initializeVecSeqToRank - Initializes a given sequential vector to the rank of the owner processor.
+
+   Input Parameter:
+.  vec    - The sequential vector
+
+   Level: beginner
+
+@*/
+PetscErrorCode initializeVecSeqToRank(Vec vec)
+{
+  PetscErrorCode    ierr;
+  PetscMPIInt       rank;
+  
+  PetscFunctionBeginUser;
+  PetscValidHeaderSpecific(vec,VEC_CLASSID,1);
+  ierr = MPI_Comm_rank(PetscObjectComm((PetscObject) vec),&rank);CHKERRQ(ierr);
+  ierr = VecSet(vec,rank);CHKERRQ(ierr);
+  PetscFunctionReturn(0);
+}

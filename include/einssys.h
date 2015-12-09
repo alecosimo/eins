@@ -21,6 +21,7 @@ PETSC_EXTERN PetscErrorCode VecSeqViewSynchronized(MPI_Comm,Vec);
 PETSC_EXTERN PetscErrorCode MatSeqViewSynchronized(MPI_Comm,Mat);
 PETSC_EXTERN PetscErrorCode ISSubsetNumbering(IS,IS,PetscInt*,IS*);
 PETSC_EXTERN PetscErrorCode ISCreateMPIVec(MPI_Comm,PetscInt,ISLocalToGlobalMapping,Vec*);
+PETSC_EXTERN PetscErrorCode initializeVecSeqToRank(Vec);
 
 /* ---------------------------------------------------------------- */
 /*   HDF5 utils */
