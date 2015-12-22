@@ -454,59 +454,6 @@ PetscErrorCode  FETISetUp(FETI feti)
 
 
 #undef  __FUNCT__
-#define __FUNCT__ "FETICreateGlobalWorkingVec"
-/*@
-   FETICreateGlobalWorkingVec - Creates the global (distributed) working vector by duplicating a given vector.
-
-   Input Parameter:
-.  ft  - The FETI context
-.  vec - The global vector to use in the duplication
-
-   Level: intermediate
-
-.keywords: FETI, working global vector
-@*/
-PetscErrorCode FETICreateGlobalWorkingVec(FETI ft,Vec vec)
-{
-  PetscErrorCode ierr;
-  
-  PetscFunctionBegin;
-  PetscValidHeaderSpecific(ft,FETI_CLASSID,1);
-  PetscValidHeaderSpecific(vec,VEC_CLASSID,2);
-  ierr = SubdomainCreateGlobalWorkingVec(ft->subdomain,vec);CHKERRQ(ierr);
-  PetscFunctionReturn(0);
-}
-
-
-#undef  __FUNCT__
-#define __FUNCT__ "FETISetGlobalSolutionVector"
-/*@
-   FETISetGlobalSolutionVector - Sets the global (distributed)
-   solution vector. The global working vector must be set before
-   calling FETISetUp.
-
-   Input Parameter:
-.  ft  - The FETI context
-.  vec - The global vector
-
-   Level: intermediate
-
-.keywords: FETI, working global vector
-@*/
-PetscErrorCode FETISetGlobalSolutionVector(FETI ft,Vec vec)
-{
-  PetscErrorCode ierr;
-  
-  PetscFunctionBegin;
-  PetscValidHeaderSpecific(ft,FETI_CLASSID,1);
-  PetscValidHeaderSpecific(vec,VEC_CLASSID,2);
-  ft->subdomain->vec1_global = vec;
-  ierr = PetscObjectReference((PetscObject)vec);CHKERRQ(ierr);
-  PetscFunctionReturn(0);
-}
-
-
-#undef  __FUNCT__
 #define __FUNCT__ "FETIGetKSPInterface"
 /*@
    FETIGetKSPInterface - Gets the KSP created for solving the interface problem. It increments the 
@@ -628,13 +575,16 @@ PetscErrorCode FETISetLocalRHS(FETI ft,Vec rhs)
 
 
 #undef  __FUNCT__
-#define __FUNCT__ "FETISetMapping"
+#define __FUNCT__ "FETISetMappingAndSizes"
 /*@
-   FETISetMapping - Sets the mapping from local to global numbering of DOFs
+   FETISetMappingAndSizes - Sets the mapping from local to global numbering of 
+   DOFs, and the local and global number of DOFs.
 
    Input Parameter:
 .  ft    - The FETI context
 .  isg2l - A mapping from local to global numering of DOFs
+.  n     - Local number of DOFs
+.  N     - Global number of DOFs
 
    Level: beginner
 
@@ -642,7 +592,7 @@ PetscErrorCode FETISetLocalRHS(FETI ft,Vec rhs)
 
 .seealso: FETISetLocalRHS(), FETISetLocalMat()
 @*/
-PetscErrorCode FETISetMapping(FETI ft,ISLocalToGlobalMapping isg2l)
+PetscErrorCode FETISetMapping(FETI ft,ISLocalToGlobalMapping isg2l,PetscInt n,PetscInt N)
 {
   PetscErrorCode ierr;
   
@@ -650,6 +600,7 @@ PetscErrorCode FETISetMapping(FETI ft,ISLocalToGlobalMapping isg2l)
   PetscValidHeaderSpecific(ft,FETI_CLASSID,1);
   PetscValidHeaderSpecific(isg2l,IS_LTOGM_CLASSID,2);
   ierr = SubdomainSetMapping(ft->subdomain,isg2l);CHKERRQ(ierr);
+  ierr = SubdomainSetSizes(ft->subdomain,n,N);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 

@@ -138,7 +138,6 @@ PetscErrorCode FETIScalingSetUp_rho(FETI ft)
 {
   PetscErrorCode   ierr;
   Subdomain        sd = ft->subdomain;
-  Vec              counter;
   
   PetscFunctionBegin;
   PetscValidHeaderSpecific(ft,FETI_CLASSID,1);
@@ -146,14 +145,15 @@ PetscErrorCode FETIScalingSetUp_rho(FETI ft)
   ierr = MatGetDiagonal(sd->localA,sd->vec1_N);CHKERRQ(ierr);
   ierr = VecScatterBegin(sd->N_to_B,sd->vec1_N,ft->Wscaling,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
   ierr = VecScatterEnd(sd->N_to_B,sd->vec1_N,ft->Wscaling,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
-  ierr = VecDuplicate(sd->vec1_global,&counter);CHKERRQ(ierr);
-  ierr = VecSet(counter,0.0);CHKERRQ(ierr);
-  ierr = VecScatterBegin(sd->global_to_B,ft->Wscaling,counter,ADD_VALUES,SCATTER_REVERSE);CHKERRQ(ierr);
-  ierr = VecScatterEnd(sd->global_to_B,ft->Wscaling,counter,ADD_VALUES,SCATTER_REVERSE);CHKERRQ(ierr);
-  ierr = VecScatterBegin(sd->global_to_B,counter,sd->vec1_B,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
-  ierr = VecScatterEnd(sd->global_to_B,counter,sd->vec1_B,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr); 
+
+  ierr = VecSet(sd->vec1_global,0.0);CHKERRQ(ierr);
+  ierr = VecScatterUABegin(sd->N_to_B,ft->Wscaling,sd->vec1_global,INSERT_VALUES,SCATTER_REVERSE);CHKERRQ(ierr);
+  ierr = VecScatterUAEnd(sd->N_to_B,ft->Wscaling,sd->vec1_global,INSERT_VALUES,SCATTER_REVERSE);CHKERRQ(ierr);
+  ierr = VecExchangeBegin(sd->exchange_vec1global,sd->vec1_global,ADD_VALUES);CHKERRQ(ierr);
+  ierr = VecExchangeEnd(sd->exchange_vec1global,sd->vec1_global,ADD_VALUES);CHKERRQ(ierr);
+  ierr = VecScatterUABegin(sd->N_to_B,sd->vec1_global,sd->vec1_B,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
+  ierr = VecScatterUAEnd(sd->N_to_B,sd->vec1_global,sd->vec1_B,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
   ierr = VecPointwiseDivide(ft->Wscaling,ft->Wscaling,sd->vec1_B);CHKERRQ(ierr);
-  ierr = VecDestroy(&counter);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 

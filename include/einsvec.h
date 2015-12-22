@@ -26,6 +26,9 @@ typedef struct _p_VecExchange*  VecExchange;
 
 PETSC_EXTERN PetscClassId VEC_EXCHANGE_CLASSID;
 
+/* VecScatterUA: VecScatter for unassembled vectors */
+PETSC_EXTERN PetscErrorCode VecScatterUABegin(VecScatter,Vec,Vec,InsertMode,ScatterMode);
+PETSC_EXTERN PetscErrorCode VecScatterUAEnd(VecScatter,Vec,Vec,InsertMode,ScatterMode);
 /* VecExchange functions */
 PETSC_EXTERN PetscErrorCode VecExchangeCreate(Vec,PetscInt,PetscInt*,PetscInt*,PetscInt**,PetscCopyMode,VecExchange*);
 PETSC_EXTERN PetscErrorCode VecExchangeDestroy(VecExchange*);
@@ -36,5 +39,6 @@ PETSC_EXTERN PetscErrorCode VecUnAsmSetMultiplicity(Vec,Vec);
 PETSC_EXTERN PetscErrorCode VecUnAsmCreateMPIVec(Vec,ISLocalToGlobalMapping,CompatibilityRule,Vec*);
 PETSC_EXTERN PetscErrorCode VecCreateMPIUnasmWithArray(MPI_Comm,PetscInt,PetscInt,const PetscScalar[],Vec*);
 PETSC_EXTERN PetscErrorCode VecUnAsmGetLocalVector(Vec,Vec*);
+PETSC_EXTERN PetscErrorCode VecUASum(Vec,PetscScalar*);
 
 #endif/* EINSVEC_H*/

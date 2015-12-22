@@ -63,13 +63,11 @@ PETSC_EXTERN PetscErrorCode FETISetFromOptions(FETI);
 PETSC_EXTERN PetscErrorCode FETISetInterfaceSolver(FETI,KSPType,PCType);
 PETSC_EXTERN PetscErrorCode FETIDestroy(FETI*);
 PETSC_EXTERN PetscErrorCode FETISetUp(FETI);
-PETSC_EXTERN PetscErrorCode FETISetMapping(FETI,ISLocalToGlobalMapping);
+PETSC_EXTERN PetscErrorCode FETISetMapping(FETI,ISLocalToGlobalMapping,PetscInt,PetscInt);
 PETSC_EXTERN PetscErrorCode FETISetLocalRHS(FETI,Vec);
 PETSC_EXTERN PetscErrorCode FETISetLocalMat(FETI,Mat);
-PETSC_EXTERN PetscErrorCode FETICreateGlobalWorkingVec(FETI,Vec);
 PETSC_EXTERN PetscErrorCode FETIFinalizePackage(void);
 PETSC_EXTERN PetscErrorCode FETIInitializePackage(void);
-PETSC_EXTERN PetscErrorCode FETISetGlobalSolutionVector(FETI,Vec);
 PETSC_EXTERN PetscErrorCode FETIGetKSPInterface(FETI,KSP*);
 PETSC_EXTERN PetscErrorCode FETISolve(FETI,Vec);
 /* FETI1 stuff */

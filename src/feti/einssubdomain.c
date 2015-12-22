@@ -35,13 +35,13 @@ PetscErrorCode  SubdomainDestroy(Subdomain *_sd)
   ierr = VecDestroy(&sd->vec1_B);CHKERRQ(ierr);
   ierr = VecDestroy(&sd->vec2_B);CHKERRQ(ierr);
   ierr = VecDestroy(&sd->vec1_global);CHKERRQ(ierr);
+  ierr = VecDestroy(&sd->mult_vec_global);CHKERRQ(ierr);
+  ierr = VecExchangeDestroy(&sd->exchange_vec1global);CHKERRQ(ierr);
   ierr = MatDestroy(&sd->A_II);CHKERRQ(ierr);
   ierr = MatDestroy(&sd->A_BB);CHKERRQ(ierr);
   ierr = MatDestroy(&sd->A_IB);CHKERRQ(ierr);
   ierr = MatDestroy(&sd->A_BI);CHKERRQ(ierr);
-  ierr = VecScatterDestroy(&sd->global_to_D);CHKERRQ(ierr);
   ierr = VecScatterDestroy(&sd->N_to_B);CHKERRQ(ierr);
-  ierr = VecScatterDestroy(&sd->global_to_B);CHKERRQ(ierr);
   if (sd->n_neigh > -1) {
     ierr = ISLocalToGlobalMappingRestoreInfo(sd->mapping,&(sd->n_neigh),&(sd->neigh),&(sd->n_shared),&(sd->shared));CHKERRQ(ierr);
   }
@@ -73,7 +73,6 @@ PetscErrorCode  SubdomainCheckState(Subdomain sd)
   if (!sd->localA)      SETERRQ(MPI_COMM_SELF,PETSC_ERR_ARG_WRONGSTATE,"Subdomain: Local system matrix must be first defined");
   if (!sd->localRHS)    SETERRQ(MPI_COMM_SELF,PETSC_ERR_ARG_WRONGSTATE,"Subdomain: Local system RHS must be first defined");
   if (!sd->mapping)     SETERRQ(MPI_COMM_SELF,PETSC_ERR_ARG_WRONGSTATE,"Subdomain: Mapping from local to global DOF numbering must be first defined");
-  if (!sd->vec1_global) SETERRQ(MPI_COMM_SELF,PETSC_ERR_ARG_WRONGSTATE,"Subdomain: global working vector must be first created");
   PetscFunctionReturn(0);
 }
 
@@ -107,27 +106,28 @@ PetscErrorCode SubdomainSetLocalRHS(Subdomain sd,Vec rhs)
 
 
 #undef  __FUNCT__
-#define __FUNCT__ "SubdomainCreateGlobalWorkingVec"
+#define __FUNCT__ "SubdomainSetSizes"
 /*@
-   SubdomainCreateGlobalWorkingVec - Creates the global (distributed) working vector by duplicating a given vector.
+   SubdomainSetSizes - Sets the local and global number of DOFs
 
    Input Parameter:
 .  sd  - The Subdomain context
-.  vec - The global vector to use in the duplication
+.  n   - The local number of DOFs
+.  N   - The global number of DOFs
 
    Level: developer
 
-.keywords: working global vector
+.keywords: Subdomain, local system rhs
 
+.seealso: SubdomainSetLocalMat(), SubdomainSetLocalRHS(), SubdomainSetMapping()
 @*/
-PetscErrorCode SubdomainCreateGlobalWorkingVec(Subdomain sd,Vec vec)
+PetscErrorCode SubdomainSetSizes(Subdomain sd,PetscInt n,PetscInt N)
 {
-  PetscErrorCode ierr;
   PetscFunctionBegin;
   PetscValidPointer(sd,1);
-  /* this rutine is called from outside with a valid vec*/
-  ierr = VecDestroy(&sd->vec1_global);CHKERRQ(ierr);
-  ierr = VecDuplicate(vec,&sd->vec1_global);CHKERRQ(ierr);
+  /* this rutine is called from outside with a valid rhs*/
+  sd->n = n;
+  sd->N = N;
   PetscFunctionReturn(0);
 }
 
@@ -280,14 +280,16 @@ PetscErrorCode  SubdomainCreate(MPI_Comm comm, Subdomain *_sd)
   sd->vec1_B           = 0;
   sd->vec2_B           = 0;
   sd->vec1_global      = 0;
-  sd->global_to_D      = 0;
+  sd->mult_vec_global  = 0;
+  sd->exchange_vec1global = 0;
   sd->N_to_B           = 0;
-  sd->global_to_B      = 0;
   sd->mapping          = 0;
   sd->BtoNmap          = 0;
   sd->n_neigh          = -1;
   sd->neigh            = 0;
   sd->n_shared         = 0;
+  sd->n                = -1;
+  sd->N                = -1;
   sd->shared           = 0;
   PetscFunctionReturn(0);  
 }
@@ -314,21 +316,42 @@ PetscErrorCode SubdomainSetUp(Subdomain sd, PetscBool fetisetupcalled)
   PetscFunctionBegin;
   /* first time creation, get info on substructuring */
   if (!fetisetupcalled) {
-    PetscInt    n_I;
+    PetscInt    n_I,n;
     PetscInt    *idx_I_local,*idx_B_local,*idx_I_global,*idx_B_global;
-    PetscInt    *array;
+    PetscInt    *array,*idxarray;
+    PetscScalar *arrayS;
     PetscInt    i,j,k,rank;
 
     ierr = MPI_Comm_rank(sd->comm,&rank);CHKERRQ(ierr);
     /* get info on mapping */
-    ierr = ISLocalToGlobalMappingGetSize(sd->mapping,&sd->n);CHKERRQ(ierr);
+    ierr = ISLocalToGlobalMappingGetSize(sd->mapping,&n);CHKERRQ(ierr);
+    if (n!=sd->n) SETERRQ(MPI_COMM_SELF,PETSC_ERR_ARG_SIZ,"Subdomain: Local size of LocalToGlobalMapping is different from the local size set");
     ierr = ISLocalToGlobalMappingGetInfo(sd->mapping,&(sd->n_neigh),&(sd->neigh),&(sd->n_shared),&(sd->shared));CHKERRQ(ierr);
+    /* create globally unassembled vector */
+    ierr = VecCreate(sd->comm,&sd->vec1_global);CHKERRQ(ierr);
+    ierr = VecSetSizes(sd->vec1_global,sd->n,sd->N);CHKERRQ(ierr);
+    ierr = VecSetType(sd->vec1_global,VECMPIUNASM);CHKERRQ(ierr);
+    ierr = VecCreateSeq(PETSC_COMM_SELF,sd->n,&sd->mult_vec_global);CHKERRQ(ierr);
     /* Identifying interior and interface nodes, in local numbering */
-    ierr = PetscMalloc1(sd->n,&array);CHKERRQ(ierr);
-    ierr = PetscMemzero(array,sd->n*sizeof(PetscInt));CHKERRQ(ierr);
+    ierr = PetscCalloc1(sd->n,&array);CHKERRQ(ierr);
+    ierr = PetscCalloc1(sd->n,&arrayS);CHKERRQ(ierr);
+    ierr = PetscMalloc1(sd->n,&idxarray);CHKERRQ(ierr);
+    for (i=0;i<sd->n;i++) idxarray[i] = i;
     for (i=0;i<sd->n_neigh;i++)
-      for (j=0;j<sd->n_shared[i];j++)
+      for (j=0;j<sd->n_shared[i];j++) {
 	array[sd->shared[i][j]] += 1;
+	arrayS[sd->shared[i][j]] += 1;
+	PetscPrintf(PETSC_COMM_SELF,"scalar_value : %g, %d \n", arrayS[sd->shared[i][j]],array[sd->shared[i][j]]);
+      }
+    /* set multiplicity */
+    ierr = VecSetValues(sd->mult_vec_global,sd->n,idxarray,arrayS,INSERT_VALUES);CHKERRQ(ierr);
+    ierr = VecAssemblyBegin(sd->mult_vec_global);CHKERRQ(ierr);
+    ierr = VecAssemblyEnd(sd->mult_vec_global);CHKERRQ(ierr);
+    ierr = PetscFree(idxarray);CHKERRQ(ierr);
+    ierr = PetscFree(arrayS);CHKERRQ(ierr);
+    ierr = VecUnAsmSetMultiplicity(sd->vec1_global,sd->mult_vec_global);CHKERRQ(ierr);
+    /* create VecExchange for vec1_global */
+    ierr = VecExchangeCreate(sd->vec1_global,sd->n_neigh,sd->neigh,sd->n_shared,sd->shared,PETSC_USE_POINTER,&sd->exchange_vec1global);CHKERRQ(ierr);
     /* Creating local and global index sets for interior and inteface nodes. */
     ierr = PetscMalloc1(sd->n,&idx_I_local);CHKERRQ(ierr);
     ierr = PetscMalloc1(sd->n,&idx_B_local);CHKERRQ(ierr);
@@ -393,8 +416,6 @@ PetscErrorCode SubdomainSetUp(Subdomain sd, PetscBool fetisetupcalled)
     ierr = VecCreateSeq(PETSC_COMM_SELF,sd->n-sd->n_B,&sd->vec1_D);CHKERRQ(ierr);
     /* Creating the scatter contexts */
     ierr = VecScatterCreate(sd->vec1_N,sd->is_B_local,sd->vec1_B,(IS)0,&sd->N_to_B);CHKERRQ(ierr);
-    ierr = VecScatterCreate(sd->vec1_global,sd->is_I_global,sd->vec1_D,(IS)0,&sd->global_to_D);CHKERRQ(ierr);
-    ierr = VecScatterCreate(sd->vec1_global,sd->is_B_global,sd->vec1_B,(IS)0,&sd->global_to_B);CHKERRQ(ierr);
     /* map from boundary to local */
     ierr = ISLocalToGlobalMappingCreateIS(sd->is_B_local,&sd->BtoNmap);CHKERRQ(ierr);
   }

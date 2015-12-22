@@ -330,9 +330,12 @@ static PetscErrorCode FETI1BuildLambdaAndB_Private(FETI ft)
   
   /* compute ft->n_lambda */
   ierr = VecSet(sd->vec1_global,0.0);CHKERRQ(ierr);
-  ierr = VecScatterBegin(sd->global_to_B,sd->vec1_B,sd->vec1_global,ADD_VALUES,SCATTER_REVERSE);CHKERRQ(ierr);
-  ierr = VecScatterEnd(sd->global_to_B,sd->vec1_B,sd->vec1_global,ADD_VALUES,SCATTER_REVERSE);CHKERRQ(ierr);
-  ierr = VecSum(sd->vec1_global,&scalar_value);CHKERRQ(ierr);
+  ierr = VecScatterUABegin(sd->N_to_B,sd->vec1_B,sd->vec1_global,INSERT_VALUES,SCATTER_REVERSE);CHKERRQ(ierr);
+  ierr = VecScatterUAEnd(sd->N_to_B,sd->vec1_B,sd->vec1_global,INSERT_VALUES,SCATTER_REVERSE);CHKERRQ(ierr);
+  ierr = VecExchangeBegin(sd->exchange_vec1global,sd->vec1_global,ADD_VALUES);CHKERRQ(ierr);
+  ierr = VecExchangeEnd(sd->exchange_vec1global,sd->vec1_global,ADD_VALUES);CHKERRQ(ierr);
+  ierr = VecUASum(sd->vec1_global,&scalar_value);CHKERRQ(ierr);
+  PetscPrintf(PETSC_COMM_SELF,"scalar_value : %g \n", scalar_value);
   ft->n_lambda = (PetscInt)PetscRealPart(scalar_value);
   
   /* compute global ordering of lagrange multipliers and associate l2g map */

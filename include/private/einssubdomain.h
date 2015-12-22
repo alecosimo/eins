@@ -2,6 +2,7 @@
 #define SUBDOMAIN_H
 
 #include <petscmat.h>
+#include <einsvec.h>
 
 typedef struct _n_Subdomain *Subdomain;
 
@@ -21,6 +22,7 @@ struct _n_Subdomain {
   Mat A_II,A_BB,A_IB,A_BI;
   
   PetscInt n;                /* number of nodes (interior+interface) in this subdomain */
+  PetscInt N;                /* global number of nodes */
   PetscInt n_B;              /* number of interface nodes in this subdomain */
   IS       is_B_local,       /* local (sequential) index sets for interface (B) and interior (I) nodes */
            is_I_local,
@@ -32,15 +34,15 @@ struct _n_Subdomain {
 
   /* working vectors */
   Vec vec1_N,
-      vec2_N,
-      vec1_D,
-      vec1_B,
-      vec2_B,
-      vec1_global;
+    vec2_N,
+    vec1_D,
+    vec1_B,
+    vec2_B,
+    vec1_global, /* This is a globally unassembled vector. Vector type is MPIUNASM */
+    mult_vec_global; /* Vector defining the multiplicity of the a globally unassembled vector. */
   
-  VecScatter  global_to_D;        /* scattering context from global to local interior nodes */
   VecScatter  N_to_B;             /* scattering context from all local nodes to local interface nodes */
-  VecScatter  global_to_B;        /* scattering context from global to local interface nodes */
+  VecExchange exchange_vec1global;
   
   ISLocalToGlobalMapping mapping; /* mapping from local to global numbering of nodes */
   ISLocalToGlobalMapping BtoNmap;
@@ -62,7 +64,7 @@ PETSC_EXTERN PetscErrorCode SubdomainSetLocalMat(Subdomain,Mat);
 PETSC_EXTERN PetscErrorCode SubdomainSetLocalRHS(Subdomain,Vec);
 PETSC_EXTERN PetscErrorCode SubdomainSetMapping(Subdomain,ISLocalToGlobalMapping);
 PETSC_EXTERN PetscErrorCode SubdomainSetUp(Subdomain,PetscBool);
-PETSC_EXTERN PetscErrorCode SubdomainCreateGlobalWorkingVec(Subdomain,Vec);
+PETSC_EXTERN PetscErrorCode SubdomainSetSizes(Subdomain,PetscInt,PetscInt);
 PETSC_EXTERN PetscErrorCode SubdomainComputeSubmatrices(Subdomain,MatReuse,PetscBool);
   
 #endif/* SUBDOMAIN_H*/

@@ -56,6 +56,7 @@ PETSC_EXTERN PetscErrorCode VecCreate_UNASM(Vec v)
 }
 
 
+
 #undef __FUNCT__
 #define __FUNCT__ "VecCreate_UNASM_Private"
 /*@ VecCreate_UNASM_Private - Creates and intializes globally
@@ -162,6 +163,76 @@ static PetscErrorCode VecSetValues_UNASM(Vec xin,PetscInt ni,const PetscInt ix[]
     }
   }
   ierr = VecRestoreArray(pxin,&xx);CHKERRQ(ierr);
+  PetscFunctionReturn(0);
+}
+
+
+#undef __FUNCT__
+#define __FUNCT__ "VecScatterUABegin"
+/*@ VecScatterUABegin - Performs a VecScatter with one or both of the intervenient 
+  vectors of type MPIUNASM. The layout of the local vectors comprising the considered 
+  globally unassembled vectors must matched the layout of the vectors used for 
+  creating the VecScatter. 
+
+  Input Parameter:
+.  vecscatter  -  The VecScatter context.
+.  v1          -  Vector of origin for performing the scatter.
+.  v2          -  Vector of destination for performing the scatter.
+.  imode       -  Insert mode
+.  smode       -  Scatter mode
+
+  Level: basic
+
+@*/
+PETSC_EXTERN PetscErrorCode VecScatterUABegin(VecScatter vecscatter,Vec v1,Vec v2,InsertMode imode,ScatterMode smode)
+{
+  PetscBool      flg;
+  Vec            va1,va2;
+  PetscErrorCode ierr;
+  
+  PetscFunctionBegin;
+  PetscValidHeaderSpecific(v1,VEC_CLASSID,1);
+  PetscValidHeaderSpecific(v2,VEC_CLASSID,2);
+  ierr = PetscObjectTypeCompare((PetscObject)v1,VECMPIUNASM,&flg);CHKERRQ(ierr);
+  va1  = (flg)? ((Vec_UNASM*)v1->data)->vlocal: v1;
+  ierr = PetscObjectTypeCompare((PetscObject)v2,VECMPIUNASM,&flg);CHKERRQ(ierr);
+  va2  = (flg)? ((Vec_UNASM*)v2->data)->vlocal: v2;
+  ierr = VecScatterBegin(vecscatter,va1,va2,imode,smode);CHKERRQ(ierr);
+  PetscFunctionReturn(0);
+}
+
+
+#undef __FUNCT__
+#define __FUNCT__ "VecScatterUAEnd"
+/*@ VecScatterUAEnd - Performs a VecScatter with one or both of the intervenient 
+  vectors of type MPIUNASM. The layout of the local vectors comprising the considered 
+  globally unassembled vectors must matched the layout of the vectors used for 
+  creating the VecScatter. 
+
+  Input Parameter:
+.  vecscatter  -  The VecScatter context.
+.  v1          -  Vector of origin for performing the scatter.
+.  v2          -  Vector of destination for performing the scatter.
+.  imode       -  Insert mode
+.  smode       -  Scatter mode
+
+  Level: basic
+
+@*/
+PETSC_EXTERN PetscErrorCode VecScatterUAEnd(VecScatter vecscatter,Vec v1,Vec v2,InsertMode imode,ScatterMode smode)
+{
+  PetscBool      flg;
+  Vec            va1,va2;
+  PetscErrorCode ierr;
+  
+  PetscFunctionBegin;
+  PetscValidHeaderSpecific(v1,VEC_CLASSID,1);
+  PetscValidHeaderSpecific(v2,VEC_CLASSID,2);
+  ierr = PetscObjectTypeCompare((PetscObject)v1,VECMPIUNASM,&flg);CHKERRQ(ierr);
+  va1  = (flg)? ((Vec_UNASM*)v1->data)->vlocal: v1;
+  ierr = PetscObjectTypeCompare((PetscObject)v2,VECMPIUNASM,&flg);CHKERRQ(ierr);
+  va2  = (flg)? ((Vec_UNASM*)v2->data)->vlocal: v2;
+  ierr = VecScatterEnd(vecscatter,va1,va2,imode,smode);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 
@@ -992,5 +1063,50 @@ PETSC_EXTERN PetscErrorCode VecCreateMPIUnasmWithArray(MPI_Comm comm,PetscInt n,
   ierr = VecCreate(comm,V);CHKERRQ(ierr);
   ierr = VecSetSizes(*V,n,N);CHKERRQ(ierr); 
   ierr = VecCreate_UNASM_Private(*V,array);CHKERRQ(ierr);
+  PetscFunctionReturn(0);
+}
+
+
+#undef __FUNCT__
+#define __FUNCT__ "VecUASum"
+/*@
+   VecUASum - Computes the sum of all the components of a globally unassembled vector.
+
+   Collective on Vec
+
+   Input Parameter:
+.  v - the vector
+
+   Output Parameter:
+.  sum - the result
+
+   Level: beginner
+
+   Concepts: sum^of vector entries
+
+.seealso: VecNorm()
+@*/
+PetscErrorCode  VecUASum(Vec v,PetscScalar *sum)
+{
+  PetscErrorCode    ierr;
+  PetscInt          i,n;
+  Vec               vi;
+  PetscScalar       lsum = 0.0;
+  const PetscScalar *x,*m;
+  Vec_UNASM         *xi;
+  
+  PetscFunctionBegin;
+  PetscValidHeaderSpecific(v,VEC_CLASSID,1);
+  PetscValidScalarPointer(sum,2);
+  xi   = (Vec_UNASM*)v->data;
+  if (!xi->multiplicity) SETERRQ(PetscObjectComm((PetscObject)v),PETSC_ERR_SUP,"You should first call VecUnAsmSetMultiplicity");
+  vi   = xi->vlocal;
+  ierr = VecGetLocalSize(vi,&n);CHKERRQ(ierr);
+  ierr = VecGetArrayRead(vi,&x);CHKERRQ(ierr);
+  ierr = VecGetArrayRead(xi->multiplicity,&m);CHKERRQ(ierr);
+  for (i=0; i<n; i++) lsum += x[i]/m[i];
+  ierr = MPIU_Allreduce(&lsum,sum,1,MPIU_SCALAR,MPIU_SUM,PetscObjectComm((PetscObject)v));CHKERRQ(ierr);
+  ierr = VecRestoreArrayRead(v,&x);CHKERRQ(ierr);
+  ierr = VecRestoreArrayRead(xi->multiplicity,&m);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
