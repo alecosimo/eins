@@ -459,7 +459,7 @@ static PetscErrorCode ComputeMatrixAndRHS(DomainData dd,Mat* localA,Vec* localRH
 {
   PetscErrorCode         ierr;
   GLLData                gll;
-  PetscInt               localsize,*dirichlet,n_dirichlet;
+  PetscInt               localsize,*dirichlet=0,n_dirichlet=0;
   Vec                    tempRHS,vfix;
   
   PetscFunctionBeginUser;
@@ -496,7 +496,7 @@ static PetscErrorCode ComputeMatrixAndRHS(DomainData dd,Mat* localA,Vec* localRH
   ierr = PetscFree(gll.rhoGL);CHKERRQ(ierr);
   ierr = PetscFree(gll.A[0]);CHKERRQ(ierr);
   ierr = PetscFree(gll.A);CHKERRQ(ierr);
-  ierr = PetscFree(dirichlet);CHKERRQ(ierr);
+  if(dirichlet) {ierr = PetscFree(dirichlet);CHKERRQ(ierr);}
   ierr = MatDestroy(&gll.elem_mat);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }

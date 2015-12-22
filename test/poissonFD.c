@@ -142,7 +142,7 @@ static PetscErrorCode ComputeDirichletLocalRows(DomainData dd,PetscInt **dirichl
 static PetscErrorCode ComputeMatrixAndRHS(DomainData dd,Mat* localA,Vec* localRHS)
 {
   PetscErrorCode         ierr;
-  PetscInt               localsize,*dirichlet,n_dirichlet;
+  PetscInt               localsize,*dirichlet=0,n_dirichlet=0;
   Vec                    tempRHS,vfix;
   PetscInt               n,m,i,j,Ii,Jj;
   PetscScalar            hx,hy;
@@ -225,7 +225,7 @@ static PetscErrorCode ComputeMatrixAndRHS(DomainData dd,Mat* localA,Vec* localRH
   }
   *localRHS = tempRHS;
   /* free allocated workspace */
-  ierr = PetscFree(dirichlet);CHKERRQ(ierr);
+  if(dirichlet) { ierr = PetscFree(dirichlet);CHKERRQ(ierr);}
   PetscFunctionReturn(0);
 }
 

@@ -192,7 +192,8 @@ PetscErrorCode PetscViewerHDF5WriteGroupAttribute(PetscViewer viewer, const char
 {
   hid_t          h5, dataspace, group, attribute, dtype;
   PetscErrorCode ierr;
-
+  htri_t         hhas;
+  
   PetscFunctionBegin;
   PetscValidHeaderSpecific(viewer,PETSC_VIEWER_CLASSID,1);
   PetscValidPointer(name, 3);
@@ -205,11 +206,16 @@ PetscErrorCode PetscViewerHDF5WriteGroupAttribute(PetscViewer viewer, const char
   }
   ierr = PetscViewerHDF5OpenGroup(viewer, &h5, &group);CHKERRQ(ierr);
   PetscStackCallHDF5Return(dataspace,H5Screate,(H5S_SCALAR)); 
+  PetscStackCall("H5Aexists",hhas = H5Aexists(group, name));
+  if(!hhas) {
 #if (H5_VERS_MAJOR * 10000 + H5_VERS_MINOR * 100 + H5_VERS_RELEASE >= 10800)
-  PetscStackCallHDF5Return(attribute,H5Acreate2,(group, name, dtype, dataspace, H5P_DEFAULT, H5P_DEFAULT));
+    PetscStackCallHDF5Return(attribute,H5Acreate2,(group, name, dtype, dataspace, H5P_DEFAULT, H5P_DEFAULT));
 #else
-  PetscStackCallHDF5Return(attribute,H5Acreate,(group, name, dtype, dataspace, H5P_DEFAULT));
+    PetscStackCallHDF5Return(attribute,H5Acreate,(group, name, dtype, dataspace, H5P_DEFAULT));
 #endif
+  } else {
+    PetscStackCallHDF5Return(attribute,H5Aopen_name,(group, name));
+  }
   PetscStackCallHDF5(H5Awrite,(attribute, dtype, value));
   if (datatype == PETSC_STRING) PetscStackCallHDF5(H5Tclose,(dtype));
   if (group != h5) {
@@ -220,3 +226,37 @@ PetscErrorCode PetscViewerHDF5WriteGroupAttribute(PetscViewer viewer, const char
   PetscFunctionReturn(0);
 }
 #endif
+
+
+#if defined(PETSC_HAVE_HDF5)
+#undef __FUNCT__
+#define __FUNCT__ "PetscViewerHDF5CreateSoftLink"
+/*@
+ PetscViewerHDF5CreateSoftLink - Creates an HDF5 soft link
+
+  Input Parameters:
++ viewer       - The HDF5 viewer
+. target_path  - The target path relative to the current HDF5 group for output
+- link_name    - The link name relative to the current HDF5 group for output
+
+  Level: advanced
+
+.seealso: PetscViewerHDF5Open(), PetscViewerHDF5ReadAttribute(), PetscViewerHDF5HasAttribute()
+@*/
+PetscErrorCode PetscViewerHDF5CreateSoftLink(PetscViewer viewer, const char target_path[], const char link_name[])
+{
+  hid_t          h5, group;
+  PetscErrorCode ierr;
+  
+  PetscFunctionBegin;
+  PetscValidPointer(target_path, 2);
+  PetscValidPointer(link_name, 3);
+  ierr = PetscViewerHDF5OpenGroup(viewer, &h5, &group);CHKERRQ(ierr);
+  PetscStackCallHDF5(H5Lcreate_soft,(target_path, group, link_name, H5P_DEFAULT, H5P_DEFAULT));
+  if (group != h5) {
+    PetscStackCallHDF5(H5Gclose,(group));
+  }
+  PetscFunctionReturn(0);
+}
+#endif
+

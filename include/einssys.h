@@ -28,6 +28,7 @@ PETSC_EXTERN PetscErrorCode initializeVecSeqToRank(MPI_Comm,Vec);
 #if defined(PETSC_HAVE_HDF5)
 PETSC_EXTERN PetscErrorCode HDF5ArrayView(PetscInt,const void*,hid_t,PetscInt**,PetscViewer);
 PETSC_EXTERN PetscErrorCode PetscViewerHDF5WriteGroupAttribute(PetscViewer,const char[],PetscDataType,const void*);
+PETSC_EXTERN PetscErrorCode PetscViewerHDF5CreateSoftLink(PetscViewer,const char[],const char[]);
 #endif
 
 #endif/* EINSSYS_H*/

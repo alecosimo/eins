@@ -52,6 +52,9 @@ int main(int argc,char **argv)
   ierr = VecScale(v,3);CHKERRQ(ierr);
   ierr = VecView(v,PETSC_VIEWER_STDOUT_WORLD);CHKERRQ(ierr);
   ierr = VecView(v,viewer);CHKERRQ(ierr);
+
+  ierr = PetscViewerHDF5CreateSoftLink(viewer,"/CONNECTIVITY","/LINK_CONNECTIVITY");CHKERRQ(ierr);
+  
   ierr = PetscViewerHDF5PopGroup(viewer);CHKERRQ(ierr);
   ierr = PetscViewerDestroy(&viewer);CHKERRQ(ierr);
 #endif
