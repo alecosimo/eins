@@ -335,7 +335,6 @@ static PetscErrorCode FETI1BuildLambdaAndB_Private(FETI ft)
   ierr = VecExchangeBegin(sd->exchange_vec1global,sd->vec1_global,ADD_VALUES);CHKERRQ(ierr);
   ierr = VecExchangeEnd(sd->exchange_vec1global,sd->vec1_global,ADD_VALUES);CHKERRQ(ierr);
   ierr = VecUASum(sd->vec1_global,&scalar_value);CHKERRQ(ierr);
-  PetscPrintf(PETSC_COMM_SELF,"scalar_value : %g \n", scalar_value);
   ft->n_lambda = (PetscInt)PetscRealPart(scalar_value);
   
   /* compute global ordering of lagrange multipliers and associate l2g map */

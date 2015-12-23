@@ -341,22 +341,13 @@ PetscErrorCode SubdomainSetUp(Subdomain sd, PetscBool fetisetupcalled)
       for (j=0;j<sd->n_shared[i];j++) {
 	array[sd->shared[i][j]] += 1;
 	arrayS[sd->shared[i][j]] += 1;
-	PetscPrintf(PETSC_COMM_SELF,"scalar_value : %g, %d \n", arrayS[sd->shared[i][j]],array[sd->shared[i][j]]);
       }
-    /* set multiplicity */
-    ierr = VecSetValues(sd->mult_vec_global,sd->n,idxarray,arrayS,INSERT_VALUES);CHKERRQ(ierr);
-    ierr = VecAssemblyBegin(sd->mult_vec_global);CHKERRQ(ierr);
-    ierr = VecAssemblyEnd(sd->mult_vec_global);CHKERRQ(ierr);
-    ierr = PetscFree(idxarray);CHKERRQ(ierr);
-    ierr = PetscFree(arrayS);CHKERRQ(ierr);
-    ierr = VecUnAsmSetMultiplicity(sd->vec1_global,sd->mult_vec_global);CHKERRQ(ierr);
-    /* create VecExchange for vec1_global */
-    ierr = VecExchangeCreate(sd->vec1_global,sd->n_neigh,sd->neigh,sd->n_shared,sd->shared,PETSC_USE_POINTER,&sd->exchange_vec1global);CHKERRQ(ierr);
     /* Creating local and global index sets for interior and inteface nodes. */
     ierr = PetscMalloc1(sd->n,&idx_I_local);CHKERRQ(ierr);
     ierr = PetscMalloc1(sd->n,&idx_B_local);CHKERRQ(ierr);
     for (i=0, sd->n_B=0, n_I=0; i<sd->n; i++) {
       if (!array[i]) {
+	arrayS[i] = 1;
         idx_I_local[n_I] = i;
         n_I++;
       } else {
@@ -366,6 +357,17 @@ PetscErrorCode SubdomainSetUp(Subdomain sd, PetscBool fetisetupcalled)
       }
     }
     ierr = PetscCalloc1((size_t)sd->n_B,&sd->count);CHKERRQ(ierr);
+
+    /* set multiplicity */
+    ierr = VecSetValues(sd->mult_vec_global,sd->n,idxarray,arrayS,INSERT_VALUES);CHKERRQ(ierr);
+    ierr = VecAssemblyBegin(sd->mult_vec_global);CHKERRQ(ierr);
+    ierr = VecAssemblyEnd(sd->mult_vec_global);CHKERRQ(ierr);
+    ierr = PetscFree(idxarray);CHKERRQ(ierr);
+    ierr = PetscFree(arrayS);CHKERRQ(ierr);
+    ierr = VecUnAsmSetMultiplicity(sd->vec1_global,sd->mult_vec_global);CHKERRQ(ierr);
+    /* create VecExchange for vec1_global */
+    ierr = VecExchangeCreate(sd->vec1_global,sd->n_neigh,sd->neigh,sd->n_shared,sd->shared,PETSC_USE_POINTER,&sd->exchange_vec1global);CHKERRQ(ierr);
+
     /* Count total number of neigh per node */
     k=0;
     for (i=1;i<sd->n_neigh;i++) {//not count myself

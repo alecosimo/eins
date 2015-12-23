@@ -1,3 +1,5 @@
+* HAVE A LOOK TO THE BUILDING OF MULTIPLICITY OF LAMBDAS
+
 * Take into consideration cases in which none of the subdomains has
   rigid body modes.
 

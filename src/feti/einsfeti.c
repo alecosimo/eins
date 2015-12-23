@@ -592,7 +592,7 @@ PetscErrorCode FETISetLocalRHS(FETI ft,Vec rhs)
 
 .seealso: FETISetLocalRHS(), FETISetLocalMat()
 @*/
-PetscErrorCode FETISetMapping(FETI ft,ISLocalToGlobalMapping isg2l,PetscInt n,PetscInt N)
+PetscErrorCode FETISetMappingAndSizes(FETI ft,ISLocalToGlobalMapping isg2l,PetscInt n,PetscInt N)
 {
   PetscErrorCode ierr;
   
