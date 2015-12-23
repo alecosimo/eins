@@ -575,15 +575,14 @@ PetscErrorCode FETISetLocalRHS(FETI ft,Vec rhs)
 
 
 #undef  __FUNCT__
-#define __FUNCT__ "FETISetMappingAndSizes"
+#define __FUNCT__ "FETISetMappingAndGlobalSize"
 /*@
-   FETISetMappingAndSizes - Sets the mapping from local to global numbering of 
-   DOFs, and the local and global number of DOFs.
+   FETISetMappingAndGlobalSize - Sets the mapping from local to global numbering of 
+   DOFs, and the global number of DOFs.
 
    Input Parameter:
 .  ft    - The FETI context
 .  isg2l - A mapping from local to global numering of DOFs
-.  n     - Local number of DOFs
 .  N     - Global number of DOFs
 
    Level: beginner
@@ -592,7 +591,7 @@ PetscErrorCode FETISetLocalRHS(FETI ft,Vec rhs)
 
 .seealso: FETISetLocalRHS(), FETISetLocalMat()
 @*/
-PetscErrorCode FETISetMappingAndSizes(FETI ft,ISLocalToGlobalMapping isg2l,PetscInt n,PetscInt N)
+PetscErrorCode FETISetMappingAndGlobalSize(FETI ft,ISLocalToGlobalMapping isg2l,PetscInt N)
 {
   PetscErrorCode ierr;
   
@@ -600,7 +599,7 @@ PetscErrorCode FETISetMappingAndSizes(FETI ft,ISLocalToGlobalMapping isg2l,Petsc
   PetscValidHeaderSpecific(ft,FETI_CLASSID,1);
   PetscValidHeaderSpecific(isg2l,IS_LTOGM_CLASSID,2);
   ierr = SubdomainSetMapping(ft->subdomain,isg2l);CHKERRQ(ierr);
-  ierr = SubdomainSetSizes(ft->subdomain,n,N);CHKERRQ(ierr);
+  ierr = SubdomainSetGlobalSize(ft->subdomain,N);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 

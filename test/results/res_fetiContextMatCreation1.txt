@@ -68,10 +68,10 @@ Reports information only for process 0.
 
 --- Event Stage 0: Main Stage
 
-     Vector Exchange     1              1
+     Vector Exchange     2              2
               Matrix    16             16
-              Vector   129            129
-      Vector Scatter     4              4
+              Vector   133            133
+      Vector Scatter     3              3
     Distributed Mesh     1              1
 Star Forest Bipartite Graph     3              3
      Discrete System     1              1

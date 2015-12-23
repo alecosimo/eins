@@ -63,7 +63,7 @@ PETSC_EXTERN PetscErrorCode FETISetFromOptions(FETI);
 PETSC_EXTERN PetscErrorCode FETISetInterfaceSolver(FETI,KSPType,PCType);
 PETSC_EXTERN PetscErrorCode FETIDestroy(FETI*);
 PETSC_EXTERN PetscErrorCode FETISetUp(FETI);
-PETSC_EXTERN PetscErrorCode FETISetMappingAndSizes(FETI,ISLocalToGlobalMapping,PetscInt,PetscInt);
+PETSC_EXTERN PetscErrorCode FETISetMappingAndGlobalSize(FETI,ISLocalToGlobalMapping,PetscInt);
 PETSC_EXTERN PetscErrorCode FETISetLocalRHS(FETI,Vec);
 PETSC_EXTERN PetscErrorCode FETISetLocalMat(FETI,Mat);
 PETSC_EXTERN PetscErrorCode FETIFinalizePackage(void);

@@ -67,14 +67,14 @@ Reports information only for process 0.
 
 --- Event Stage 0: Main Stage
 
-     Vector Exchange     1              1
+     Vector Exchange     2              2
               Matrix    17             17
-              Vector   139            139
-      Vector Scatter    16             16
+              Vector   145            145
+      Vector Scatter    15             15
     Distributed Mesh     1              1
 Star Forest Bipartite Graph     3              3
      Discrete System     1              1
-           Index Set    69             69
+           Index Set    71             71
    IS L to G Mapping     4              4
    Application Order     1              1
                 FETI     1              1

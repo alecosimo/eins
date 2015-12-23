@@ -64,7 +64,7 @@ PETSC_EXTERN PetscErrorCode SubdomainSetLocalMat(Subdomain,Mat);
 PETSC_EXTERN PetscErrorCode SubdomainSetLocalRHS(Subdomain,Vec);
 PETSC_EXTERN PetscErrorCode SubdomainSetMapping(Subdomain,ISLocalToGlobalMapping);
 PETSC_EXTERN PetscErrorCode SubdomainSetUp(Subdomain,PetscBool);
-PETSC_EXTERN PetscErrorCode SubdomainSetSizes(Subdomain,PetscInt,PetscInt);
+PETSC_EXTERN PetscErrorCode SubdomainSetGlobalSize(Subdomain,PetscInt);
 PETSC_EXTERN PetscErrorCode SubdomainComputeSubmatrices(Subdomain,MatReuse,PetscBool);
   
 #endif/* SUBDOMAIN_H*/

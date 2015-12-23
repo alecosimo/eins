@@ -106,13 +106,12 @@ PetscErrorCode SubdomainSetLocalRHS(Subdomain sd,Vec rhs)
 
 
 #undef  __FUNCT__
-#define __FUNCT__ "SubdomainSetSizes"
+#define __FUNCT__ "SubdomainSetGlobalSize"
 /*@
-   SubdomainSetSizes - Sets the local and global number of DOFs
+   SubdomainSetGlobalSize - Sets the global number of DOFs
 
    Input Parameter:
 .  sd  - The Subdomain context
-.  n   - The local number of DOFs
 .  N   - The global number of DOFs
 
    Level: developer
@@ -121,12 +120,11 @@ PetscErrorCode SubdomainSetLocalRHS(Subdomain sd,Vec rhs)
 
 .seealso: SubdomainSetLocalMat(), SubdomainSetLocalRHS(), SubdomainSetMapping()
 @*/
-PetscErrorCode SubdomainSetSizes(Subdomain sd,PetscInt n,PetscInt N)
+PetscErrorCode SubdomainSetGlobalSize(Subdomain sd,PetscInt N)
 {
   PetscFunctionBegin;
   PetscValidPointer(sd,1);
   /* this rutine is called from outside with a valid rhs*/
-  sd->n = n;
   sd->N = N;
   PetscFunctionReturn(0);
 }
@@ -316,7 +314,7 @@ PetscErrorCode SubdomainSetUp(Subdomain sd, PetscBool fetisetupcalled)
   PetscFunctionBegin;
   /* first time creation, get info on substructuring */
   if (!fetisetupcalled) {
-    PetscInt    n_I,n;
+    PetscInt    n_I;
     PetscInt    *idx_I_local,*idx_B_local,*idx_I_global,*idx_B_global;
     PetscInt    *array,*idxarray;
     PetscScalar *arrayS;
@@ -324,8 +322,7 @@ PetscErrorCode SubdomainSetUp(Subdomain sd, PetscBool fetisetupcalled)
 
     ierr = MPI_Comm_rank(sd->comm,&rank);CHKERRQ(ierr);
     /* get info on mapping */
-    ierr = ISLocalToGlobalMappingGetSize(sd->mapping,&n);CHKERRQ(ierr);
-    if (n!=sd->n) SETERRQ(MPI_COMM_SELF,PETSC_ERR_ARG_SIZ,"Subdomain: Local size of LocalToGlobalMapping is different from the local size set");
+    ierr = ISLocalToGlobalMappingGetSize(sd->mapping,&sd->n);CHKERRQ(ierr);
     ierr = ISLocalToGlobalMappingGetInfo(sd->mapping,&(sd->n_neigh),&(sd->neigh),&(sd->n_shared),&(sd->shared));CHKERRQ(ierr);
     /* create globally unassembled vector */
     ierr = VecCreate(sd->comm,&sd->vec1_global);CHKERRQ(ierr);
