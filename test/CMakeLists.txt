@@ -6,7 +6,8 @@ M_ADD_TEST("${path}/vecUnasmHDF5.c"  "mpiexec -n 3 ./vecUnasmHDF5 -log_destructi
 
 M_ADD_TEST_CMP("${path}/testVecUAsm.c"  "mpiexec -n 3 ./testVecUAsm -log_destruction" "${EinsTests_libraries}" "res_testVecUAsm.txt")
 M_ADD_TEST_CMP("${path}/fetiContextCreation.c"  "mpiexec -n 4 ./fetiContextCreation -log_destruction" "${EinsTests_libraries}" "res_fetiContextCreation.txt")
-M_ADD_TEST_CMP("${path}/ex7.c"  "mpiexec -n 2 ./ex7 -ksp_monitor_short -ksp_gmres_cgs_refinement_type refine_always -ksp_type pjgmres -log_destruction" "${EinsTests_libraries}" "res_ex7.txt")
+
+#M_ADD_TEST_CMP("${path}/ex7.c"  "mpiexec -n 2 ./ex7 -ksp_monitor_short -ksp_gmres_cgs_refinement_type refine_always -ksp_type pjgmres -log_destruction" "${EinsTests_libraries}" "res_ex7.txt")
 
 M_ADD_BINARY_TEST("${path}/poissonFD.c" "${EinsTests_libraries}")
 M_ADD_COMMAND_TEST_CMP("${path}/poissonFD.c" "1" "mpiexec -n 4 ./poissonFD -npx 2 -npy 2 -nex 4 -ney 4 -feti_interface_ksp_monitor_short -log_destruction" "res_poissonFD1.txt")
