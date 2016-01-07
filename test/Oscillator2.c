@@ -207,7 +207,6 @@ int main(int argc, char *argv[])
   PetscErrorCode ierr;
 
   ierr = EinsInitialize(&argc,&argv,0,0);CHKERRQ(ierr);
-  ierr = TSRegister(TSALPHA2,TSCreate_Alpha2);CHKERRQ(ierr);
 
   ierr = PetscOptionsBegin(PETSC_COMM_SELF,"","Oscillator2 Options","TS");CHKERRQ(ierr);
   ierr = PetscOptionsReal("-frequency","Frequency",__FILE__,user.Omega,&user.Omega,NULL);CHKERRQ(ierr);
