@@ -40,7 +40,7 @@ static void Exact(double t,
 
 #undef  __FUNCT__
 #define __FUNCT__ "Solution"
-PetscErrorCode Solution(TS ts,PetscReal t,Vec X,void *ctx)
+static PetscErrorCode Solution(PETSC_UNUSED TS ts, PetscReal t,Vec X,void *ctx)
 {
   UserParams     *user = (UserParams*)ctx;
   double         Omega = (double)user->Omega;
@@ -60,7 +60,7 @@ PetscErrorCode Solution(TS ts,PetscReal t,Vec X,void *ctx)
 
 #undef  __FUNCT__
 #define __FUNCT__ "Residual1"
-PetscErrorCode Residual1(TS ts,PetscReal t,Vec X,Vec A,Vec R,void *ctx)
+static PetscErrorCode Residual1(PETSC_UNUSED TS ts,PETSC_UNUSED PetscReal t,Vec X,Vec A,Vec R,void *ctx)
 {
   UserParams        *user = (UserParams*)ctx;
   PetscReal         Omega = user->Omega;
@@ -85,7 +85,8 @@ PetscErrorCode Residual1(TS ts,PetscReal t,Vec X,Vec A,Vec R,void *ctx)
 
 #undef  __FUNCT__
 #define __FUNCT__ "Tangent1"
-PetscErrorCode Tangent1(TS ts,PetscReal t,Vec X,Vec A,PetscReal shiftA,Mat J,Mat P,void *ctx)
+static PetscErrorCode Tangent1(PETSC_UNUSED TS ts,PETSC_UNUSED PetscReal t,
+			       PETSC_UNUSED Vec X,PETSC_UNUSED Vec A,PetscReal shiftA,Mat J,Mat P,void *ctx)
 {
   UserParams     *user = (UserParams*)ctx;
   PetscReal      Omega = user->Omega;
@@ -113,7 +114,7 @@ PetscErrorCode Tangent1_Legacy(TS ts,PetscReal t,Vec U,Vec V,PetscReal shift,Mat
 
 #undef  __FUNCT__
 #define __FUNCT__ "Residual2"
-PetscErrorCode Residual2(TS ts,PetscReal t,Vec X,Vec V,Vec A,Vec R,void *ctx)
+static PetscErrorCode Residual2(PETSC_UNUSED TS ts,PETSC_UNUSED PetscReal t,Vec X,Vec V,Vec A,Vec R,void *ctx)
 {
   UserParams         *user = (UserParams*)ctx;
   PetscReal          Omega = user->Omega, Xi = user->Xi;
@@ -140,7 +141,8 @@ PetscErrorCode Residual2(TS ts,PetscReal t,Vec X,Vec V,Vec A,Vec R,void *ctx)
 
 #undef  __FUNCT__
 #define __FUNCT__ "Tangent2"
-PetscErrorCode Tangent2(TS ts,PetscReal t,Vec X,Vec V,Vec A,PetscReal shiftV,PetscReal shiftA,Mat J,Mat P,void *ctx)
+static PetscErrorCode Tangent2(PETSC_UNUSED TS ts,PETSC_UNUSED PetscReal t,PETSC_UNUSED Vec X,
+			       PETSC_UNUSED Vec V,PETSC_UNUSED Vec A,PetscReal shiftV,PetscReal shiftA,Mat J,Mat P,void *ctx)
 {
   UserParams     *user = (UserParams*)ctx;
   PetscReal      Omega = user->Omega, Xi = user->Xi;
@@ -163,7 +165,7 @@ PetscErrorCode Tangent2(TS ts,PetscReal t,Vec X,Vec V,Vec A,PetscReal shiftV,Pet
 
 #undef  __FUNCT__
 #define __FUNCT__ "Monitor"
-PetscErrorCode Monitor(TS ts,PetscInt i,PetscReal t,Vec U,void *ctx)
+static PetscErrorCode Monitor(TS ts,PETSC_UNUSED PetscInt i,PetscReal t,PETSC_UNUSED Vec U,void *ctx)
 {
   const char        *filename = (const char*)ctx;
   static FILE       *fp = NULL;
