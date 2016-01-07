@@ -1,5 +1,7 @@
 set(path "${PROJECT_SOURCE_DIR}/test")
 
+M_ADD_TEST("${path}/Oscillator2.c"  "mpiexec -n 4 ./Oscillator2 -ts_max_steps 10 -ts_alpha_adapt -damping 0.1" "${EinsTests_libraries}")
+
 M_ADD_TEST("${path}/vecUnasmHDF5.c"  "mpiexec -n 3 ./vecUnasmHDF5 -log_destruction" "${EinsTests_libraries}")
 
 M_ADD_TEST_CMP("${path}/testVecUAsm.c"  "mpiexec -n 3 ./testVecUAsm -log_destruction" "${EinsTests_libraries}" "res_testVecUAsm.txt")

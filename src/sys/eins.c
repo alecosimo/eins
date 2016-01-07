@@ -1,10 +1,12 @@
 #include <eins.h>
 #include <einsmat.h>
 #include <private/einsfetiimpl.h>
+#include <private/einstsimpl.h>
 #include <private/einskspimpl.h>
 #include <private/einspcimpl.h>
 #include <private/einsvecimpl.h>
 #include <petsc/private/matimpl.h>
+#include <petsc/private/tsimpl.h>
 
 PETSC_EXTERN PetscBool EinsInitializeCalled;
 PETSC_EXTERN PetscBool EinsFinalizeCalled;
@@ -45,6 +47,8 @@ static PetscErrorCode EinsRegisterAll(void)
   ierr = PCRegister(PCFETI_DIRICHLET,PCCreate_DIRICHLET);CHKERRQ(ierr);
   ierr = PCRegister(PCFETI_LUMPED,PCCreate_LUMPED);CHKERRQ(ierr);
   /*Register TS*/
+  ierr = TSRegisterAll();CHKERRQ(ierr);
+  ierr = TSRegister(TSALPHA2,TSCreate_Alpha2);CHKERRQ(ierr);
   /*Register SNES*/
   PetscFunctionReturn(0);
 }
