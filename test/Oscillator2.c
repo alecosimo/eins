@@ -187,9 +187,6 @@ static PetscErrorCode Monitor(TS ts,PETSC_UNUSED PetscInt i,PetscReal t,PETSC_UN
   PetscFunctionReturn(0);
 }
 
-EXTERN_C_BEGIN
-extern PetscErrorCode TSCreate_Alpha2(TS);
-EXTERN_C_END
 
 #undef  __FUNCT__
 #define __FUNCT__ "main"
