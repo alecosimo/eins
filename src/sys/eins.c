@@ -5,8 +5,10 @@
 #include <private/einskspimpl.h>
 #include <private/einspcimpl.h>
 #include <private/einsvecimpl.h>
+#include <private/einssnesimpl.h>
 #include <petsc/private/matimpl.h>
 #include <petsc/private/tsimpl.h>
+#include <petsc/private/snesimpl.h>
 
 PETSC_EXTERN PetscBool EinsInitializeCalled;
 PETSC_EXTERN PetscBool EinsFinalizeCalled;
@@ -50,6 +52,8 @@ static PetscErrorCode EinsRegisterAll(void)
   ierr = TSRegisterAll();CHKERRQ(ierr);
   ierr = TSRegister(TSALPHA2,TSCreate_Alpha2);CHKERRQ(ierr);
   /*Register SNES*/
+  ierr = SNESRegisterAll();CHKERRQ(ierr);
+  ierr = SNESRegister(SNESFETIONLY,SNESCreate_FETIONLY);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 
