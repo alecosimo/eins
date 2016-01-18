@@ -200,7 +200,6 @@ PetscErrorCode FETIBuildInterfaceKSP(FETI ft)
   if(!ft->F) SETERRQ(comm,PETSC_ERR_ARG_WRONGSTATE,"Error: Matrix F for the interface problem must be first defined");
   if(!ft->ksp_type_interface) SETERRQ(comm,PETSC_ERR_ARG_WRONGSTATE,"Error: KSP type for the interface problem must be first defined");
   if(!ft->pc_type_interface) SETERRQ(comm,PETSC_ERR_ARG_WRONGSTATE,"Error: PC type for the interface problem must be first defined");
-  ierr = KSPCreate(comm,&ft->ksp_interface);CHKERRQ(ierr);
   ierr = PetscObjectIncrementTabLevel((PetscObject)ft->ksp_interface,(PetscObject)ft,1);CHKERRQ(ierr);
   ierr = PetscLogObjectParent((PetscObject)ft,(PetscObject)ft->ksp_interface);CHKERRQ(ierr);
   ierr = KSPSetType(ft->ksp_interface,ft->ksp_type_interface);CHKERRQ(ierr);
@@ -659,7 +658,6 @@ PetscErrorCode  FETICreate(MPI_Comm comm,FETI *newfeti)
   feti->n_lambda             = -1;
   feti->F                    = 0;
   feti->d                    = 0;
-  feti->ksp_interface        = 0;
   feti->ksp_type_interface   = 0;
   feti->pc_type_interface    = 0;
   feti->B_delta              = 0;
@@ -673,6 +671,8 @@ PetscErrorCode  FETICreate(MPI_Comm comm,FETI *newfeti)
   feti->Wscaling             = 0;
   feti->scaling_factor       = 1.;
   feti->scaling_type         = SCUNK;
+
+  ierr = KSPCreate(comm,&feti->ksp_interface);CHKERRQ(ierr);
   
   *newfeti = feti;
   PetscFunctionReturn(0);
