@@ -8,4 +8,5 @@ Reports information only for process 0.
 --- Event Stage 0: Main Stage
 
                 FETI     1              1
+       Krylov Solver     1              1
               Viewer     1              0
