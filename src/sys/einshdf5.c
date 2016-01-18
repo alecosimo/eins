@@ -154,7 +154,7 @@ PETSC_EXTERN PetscErrorCode HDF5ArrayView(PetscInt N,const void* array,hid_t dat
 #endif
 
   PetscStackCallHDF5(H5Dwrite,(dset_id, datatype, memspace, filespace, plist_id, array));
-  PetscStackCallHDF5(H5Fflush,(file_id, H5F_SCOPE_GLOBAL));
+  /*  PetscStackCallHDF5(H5Fflush,(file_id, H5F_SCOPE_GLOBAL)); */
 
   /* Close/release resources */
   if (group != file_id) {
