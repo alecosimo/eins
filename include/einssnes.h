@@ -5,6 +5,6 @@
         
 #define SNESFETIONLY      "fetionly"
 
-PETSC_EXTERN PetscErrorCode SNESGetFETI(SNES,FETI*);
+PETSC_EXTERN PetscErrorCode SNESGetFETIContext(SNES,FETI*);
 
 #endif/* EINSSNES_H*/

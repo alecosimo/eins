@@ -2,9 +2,9 @@
 
 
 #undef __FUNCT__
-#define __FUNCT__ "SNESGetFETI"
+#define __FUNCT__ "SNESGetFETIContext"
 /*@
-   SNESGetFETI - Gets the FETI context. It increments the object count, so it must 
+   SNESGetFETIContext - Gets the FETI context. It increments the object count, so it must 
    be destroyed by the user.
 
    Input Parameters:
@@ -17,8 +17,8 @@
 
 .seealso: SNESGetFETI()
 @*/
-PetscErrorCode SNESGetFETI(SNES snes,FETI *feti);
-PetscErrorCode SNESGetFETI(SNES snes,FETI *feti)
+PetscErrorCode SNESGetFETIContext(SNES snes,FETI *feti);
+PetscErrorCode SNESGetFETIContext(SNES snes,FETI *feti)
 {
   SNES_FETIONLY    *sf = (SNES_FETIONLY*)snes->data;
 
