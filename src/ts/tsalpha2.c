@@ -421,6 +421,7 @@ static PetscErrorCode TSDestroy_Alpha(TS ts)
   ierr = PetscObjectComposeFunction((PetscObject)ts,"TSComputeIJacobian2_C",NULL);CHKERRQ(ierr);
   ierr = PetscObjectComposeFunction((PetscObject)ts,"TSSetSolution2_C",NULL);CHKERRQ(ierr);
   ierr = PetscObjectComposeFunction((PetscObject)ts,"TSGetSolution2_C",NULL);CHKERRQ(ierr);
+  ierr = PetscObjectComposeFunction((PetscObject)ts,"TSGetSolution3_C",NULL);CHKERRQ(ierr);
   ierr = PetscObjectComposeFunction((PetscObject)ts,"TSSolve2_C",NULL);CHKERRQ(ierr);
   ierr = PetscObjectComposeFunction((PetscObject)ts,"TSInterpolate2_C",NULL);CHKERRQ(ierr);
   ierr = PetscObjectComposeFunction((PetscObject)ts,"TSEvaluateStep2_C",NULL);CHKERRQ(ierr);
@@ -676,6 +677,25 @@ static PetscErrorCode TSGetSolution2_Alpha(TS ts,Vec *X, Vec *V)
   PetscFunctionReturn(0);
 }
 
+
+#undef __FUNCT__
+#define __FUNCT__ "TSGetSolution3_Alpha"
+static PetscErrorCode TSGetSolution3_Alpha(TS ts,Vec *X, Vec *V, Vec *A)
+{
+  TS_Alpha       *th = (TS_Alpha*)ts->data;
+  PetscErrorCode ierr;
+
+  PetscFunctionBegin;
+  if (!th->vec_dot && ts->vec_sol) {
+    ierr = VecDuplicate(ts->vec_sol,&th->vec_dot);CHKERRQ(ierr);
+  }
+  if (X) {ierr = TSGetSolution(ts,X);CHKERRQ(ierr);}
+  if (V) {*V = th->vec_dot;}
+  if (A) {*A = th->A1;}
+  PetscFunctionReturn(0);
+}
+
+
 #undef __FUNCT__
 #define __FUNCT__ "TSSolve2_Alpha"
 static PetscErrorCode TSSolve2_Alpha(TS ts,Vec X,Vec V)
@@ -846,6 +866,7 @@ PetscErrorCode TSCreate_Alpha2(TS ts)
   ierr = PetscObjectComposeFunction((PetscObject)ts,"TSComputeIJacobian2_C",TSComputeIJacobian2_Alpha);CHKERRQ(ierr);
   ierr = PetscObjectComposeFunction((PetscObject)ts,"TSSetSolution2_C",TSSetSolution2_Alpha);CHKERRQ(ierr);
   ierr = PetscObjectComposeFunction((PetscObject)ts,"TSGetSolution2_C",TSGetSolution2_Alpha);CHKERRQ(ierr);
+  ierr = PetscObjectComposeFunction((PetscObject)ts,"TSGetSolution3_C",TSGetSolution3_Alpha);CHKERRQ(ierr);
   ierr = PetscObjectComposeFunction((PetscObject)ts,"TSSolve2_C",TSSolve2_Alpha);CHKERRQ(ierr);
   ierr = PetscObjectComposeFunction((PetscObject)ts,"TSInterpolate2_C",TSInterpolate2_Alpha);CHKERRQ(ierr);
   ierr = PetscObjectComposeFunction((PetscObject)ts,"TSEvaluateStep2_C",TSEvaluateStep2_Alpha);CHKERRQ(ierr);
@@ -1068,6 +1089,45 @@ PetscErrorCode TSGetSolution2(TS ts,Vec *X, Vec *V)
   ierr = PetscUseMethod(ts,"TSGetSolution2_C",(TS,Vec*,Vec*),(ts,X,V));CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
+
+
+#undef __FUNCT__
+#define __FUNCT__ "TSGetSolution3"
+/*@
+   TSGetSolution3 - Returns the solution and first and second
+   time-derivative vectors at the present timestep. It is valid to
+   call this routine inside the function that you are evaluating in
+   order to move to the new timestep. This vector not changed until
+   the solution at the next timestep has been calculated.
+
+   Not Collective, but Vec returned is parallel if TS is parallel
+
+   Input Parameter:
+.  ts - the TS context
+
+   Output Parameter:
++  X - the vector containing the solution
+.  V - the vector containing the first time-derivative
+-  A - the vector containing the second time-derivative
+
+   Level: intermediate
+
+.seealso: TSGetTimeStep()
+
+.keywords: TS, TSALPHA2, timestep, get, solution
+@*/
+PetscErrorCode TSGetSolution3(TS ts,Vec *X, Vec *V, Vec *A)
+{
+  PetscErrorCode ierr;
+  PetscFunctionBegin;
+  PetscValidHeaderSpecific(ts,TS_CLASSID,1);
+  if (X) PetscValidPointer(X,2);
+  if (V) PetscValidPointer(V,3);
+  if (A) PetscValidPointer(A,4);
+  ierr = PetscUseMethod(ts,"TSGetSolution3_C",(TS,Vec*,Vec*,Vec*),(ts,X,V,A));CHKERRQ(ierr);
+  PetscFunctionReturn(0);
+}
+
 
 #undef __FUNCT__
 #define __FUNCT__ "TSSolve2"
