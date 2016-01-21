@@ -1,3 +1,6 @@
+* MANAGEMENT OF INITIALIZATION OF ACCELERATION IN TSALPHA2. How to
+  communicate initial acceleration to application?
+
 * HAVE A LOOK TO THE BUILDING OF MULTIPLICITY OF LAMBDAS
 
 * Take into consideration cases in which none of the subdomains has

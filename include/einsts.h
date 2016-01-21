@@ -11,8 +11,10 @@ PETSC_EXTERN PetscErrorCode TSComputeIFunction2(TS,PetscReal,Vec,Vec,Vec,Vec,Pet
 PETSC_EXTERN PetscErrorCode TSComputeIJacobian2(TS,PetscReal,Vec,Vec,Vec,PetscReal,PetscReal,Mat,Mat,PetscBool);
 PETSC_EXTERN PetscErrorCode TSSetSolution2(TS,Vec,Vec);
 PETSC_EXTERN PetscErrorCode TSGetSolution2(TS,Vec*,Vec*);
+PETSC_EXTERN PetscErrorCode TSSetSolution3(TS,Vec,Vec,Vec);
 PETSC_EXTERN PetscErrorCode TSGetSolution3(TS,Vec*,Vec*,Vec*);
 PETSC_EXTERN PetscErrorCode TSSolve2(TS,Vec,Vec);
+PETSC_EXTERN PetscErrorCode TSSolve3(TS,Vec,Vec,Vec);
 PETSC_EXTERN PetscErrorCode TSInterpolate2(TS,PetscReal,Vec,Vec);
 PETSC_EXTERN PetscErrorCode TSEvaluateStep2(TS,PetscInt,Vec,Vec,PetscBool*);
 
