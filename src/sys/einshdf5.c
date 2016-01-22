@@ -150,7 +150,7 @@ PETSC_EXTERN PetscErrorCode HDF5ArrayView(PetscInt N,const void* array,hid_t dat
   /* Create property list for collective dataset write */
   PetscStackCallHDF5Return(plist_id,H5Pcreate,(H5P_DATASET_XFER));
 #if defined(PETSC_HAVE_H5PSET_FAPL_MPIO)
-  PetscStackCallHDF5(H5Pset_dxpl_mpio,(plist_id, H5FD_MPIO_INDEPENDENT));
+  PetscStackCallHDF5(H5Pset_dxpl_mpio,(plist_id, H5FD_MPIO_INDEPENDENT));/*COLLECTIVE*/
 #endif
 
   PetscStackCallHDF5(H5Dwrite,(dset_id, datatype, memspace, filespace, plist_id, array));
