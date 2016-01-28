@@ -28,6 +28,7 @@ J*/
 typedef const char* FETIType;
 #define FETINONE            "none"
 #define FETI1               "feti1"
+#define FETI2               "feti2"
 
 /*
     FETIList contains the list of FETI methods currently registered
@@ -72,6 +73,8 @@ PETSC_EXTERN PetscErrorCode FETIGetKSPInterface(FETI,KSP*);
 PETSC_EXTERN PetscErrorCode FETISolve(FETI,Vec);
 /* FETI1 stuff */
 PETSC_EXTERN PetscErrorCode FETI1SetDefaultOptions(int*,char***,const char[]);
+/* FETI2 stuff */
+PETSC_EXTERN PetscErrorCode FETI2SetDefaultOptions(int*,char***,const char[]);
 /* scaling */
 PETSC_EXTERN PetscErrorCode FETIScalingSetUp(FETI);
 PETSC_EXTERN PetscErrorCode FETIScalingSetScalingFactor(FETI,PetscScalar);

@@ -1,9 +1,9 @@
-#if !defined(FETI1_H)
-#define FETI1_H
+#if !defined(FETI2_H)
+#define FETI2_H
 
 #include <private/einsfetiimpl.h>
 
-/* Private context for the FETI-1 method.  */
+/* Private context for the FETI-2 method.  */
 typedef struct {
   Mat          F_neumann; /* matrix object specifically suited for symbolic factorization: it must not be destroyed with MatDestroy() */
   Vec          res_interface;   /* residual of the interface problem, i.e., r=d-F*lambda */
@@ -20,7 +20,7 @@ typedef struct {
   PetscInt     max_n_rbm;       /* the maximum of the number of rbm from me and my neighbours */
   Mat          localG;          /* local G matrix (current processor) */
   Mat          rbm;             /* matrix storing rigid body modes */ 
-  Mat          *Gholder;        /* each entry is one neighbour's localG matrix. The order follows, the order of ft1->neighs_lb. */
+  Mat          *Gholder;        /* each entry is one neighbour's localG matrix. The order follows, the order of ft2->neighs_lb. */
                                 /* The actual values are stored in the array "PetscScalar  *matrices" */
   PetscScalar  *matrices;       /* array for storing the values of the matrices in Gholder */
   PetscInt     n_Gholder;       /* number of floating neighbours */
@@ -32,7 +32,7 @@ typedef struct {
   KSP          ksp_coarse;
   PetscBool    destroy_coarse;  /* destroy coarse matrix after factorization? */
   
-} FETI_1;
+} FETI_2;
 
 
-#endif /* FETI1_H */
+#endif /* FETI2_H */
