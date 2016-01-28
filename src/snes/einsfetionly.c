@@ -21,10 +21,12 @@ PetscErrorCode SNESGetFETIContext(SNES snes,FETI *feti);
 PetscErrorCode SNESGetFETIContext(SNES snes,FETI *feti)
 {
   SNES_FETIONLY    *sf = (SNES_FETIONLY*)snes->data;
-
+  PetscErrorCode   ierr;
+  
   PetscFunctionBegin;
   PetscValidHeaderSpecific(snes,SNES_CLASSID,1);
   *feti = sf->feti;
+  ierr = PetscObjectReference((PetscObject)sf->feti);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 
