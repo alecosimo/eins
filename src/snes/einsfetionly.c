@@ -4,8 +4,7 @@
 #undef __FUNCT__
 #define __FUNCT__ "SNESGetFETIContext"
 /*@
-   SNESGetFETIContext - Gets the FETI context. It increments the object count, so it must 
-   be destroyed by the user.
+   SNESGetFETIContext - Gets the FETI context. 
 
    Input Parameters:
 .  snes   - the SNES context
@@ -21,12 +20,10 @@ PetscErrorCode SNESGetFETIContext(SNES snes,FETI *feti);
 PetscErrorCode SNESGetFETIContext(SNES snes,FETI *feti)
 {
   SNES_FETIONLY    *sf = (SNES_FETIONLY*)snes->data;
-  PetscErrorCode   ierr;
   
   PetscFunctionBegin;
   PetscValidHeaderSpecific(snes,SNES_CLASSID,1);
   *feti = sf->feti;
-  ierr = PetscObjectReference((PetscObject)sf->feti);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 

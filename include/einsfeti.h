@@ -74,7 +74,9 @@ PETSC_EXTERN PetscErrorCode FETISolve(FETI,Vec);
 /* FETI1 stuff */
 PETSC_EXTERN PetscErrorCode FETI1SetDefaultOptions(int*,char***,const char[]);
 /* FETI2 stuff */
+typedef PetscErrorCode      (*FETI2IStiffness)(FETI,Mat,void*);
 PETSC_EXTERN PetscErrorCode FETI2SetDefaultOptions(int*,char***,const char[]);
+PETSC_EXTERN PetscErrorCode FETI2SetStiffness(FETI,Mat,FETI2IStiffness,void*);
 /* scaling */
 PETSC_EXTERN PetscErrorCode FETIScalingSetUp(FETI);
 PETSC_EXTERN PetscErrorCode FETIScalingSetScalingFactor(FETI,PetscScalar);

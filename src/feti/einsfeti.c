@@ -457,8 +457,7 @@ PetscErrorCode  FETISetUp(FETI feti)
 #undef  __FUNCT__
 #define __FUNCT__ "FETIGetKSPInterface"
 /*@
-   FETIGetKSPInterface - Gets the KSP created for solving the interface problem. It increments the 
-   reference count of the KSP object, so the returned object must be destroyed.
+   FETIGetKSPInterface - Gets the KSP created for solving the interface problem. 
 
    Input: 
 .  ft - the FETI context
@@ -474,13 +473,11 @@ PetscErrorCode  FETISetUp(FETI feti)
 @*/
 PetscErrorCode FETIGetKSPInterface(FETI ft,KSP *ksp_interface)
 {
-  PetscErrorCode ierr;
   
   PetscFunctionBegin;
   PetscValidHeaderSpecific(ft,FETI_CLASSID,1);
   if (!ft->ksp_interface) SETERRQ(PetscObjectComm((PetscObject)ft),PETSC_ERR_ARG_WRONGSTATE,"Error: ksp_interface has not been yet created.");
   *ksp_interface = ft->ksp_interface;
-  ierr = PetscObjectReference((PetscObject)ft->ksp_interface);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 

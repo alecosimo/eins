@@ -621,7 +621,6 @@ int main(int argc,char **args)
   
   ierr = FETIDestroy(&feti);CHKERRQ(ierr);
   ierr = MatDestroy(&localA);CHKERRQ(ierr);
-  ierr = KSPDestroy(&ksp_interface);CHKERRQ(ierr);
   ierr = VecDestroy(&u_local);CHKERRQ(ierr);
   ierr = VecDestroy(&localRHS);CHKERRQ(ierr);
   ierr = VecDestroy(&global_sol);CHKERRQ(ierr);

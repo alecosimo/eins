@@ -327,7 +327,6 @@ int main(int argc,char **args)
 
   ierr = SNESDestroy(&snes);CHKERRQ(ierr);
   ierr = FETIDestroy(&feti);CHKERRQ(ierr);
-  ierr = KSPDestroy(&ksp_interface);CHKERRQ(ierr);
   ierr = VecDestroy(&u_local);CHKERRQ(ierr);
   ierr = ISLocalToGlobalMappingDestroy(&mapping);CHKERRQ(ierr);
   ierr = EinsFinalize();CHKERRQ(ierr);

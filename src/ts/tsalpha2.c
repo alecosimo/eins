@@ -199,7 +199,6 @@ static PetscErrorCode TSAlpha_InitStep(TS ts,PetscBool *initok)
     ierr = VecAXPY(th->vec_dot_prev,-4,V1);CHKERRQ(ierr);
     ierr = VecAXPY(th->vec_dot_prev,+2,V0);CHKERRQ(ierr);
   }
-  VecView(th->X0,PETSC_VIEWER_STDOUT_SELF);
   
  finally:
   if (initok) *initok = stageok;
@@ -931,6 +930,7 @@ PetscErrorCode TSCreate_Alpha2(TS ts)
   PetscFunctionReturn(0);
 }
 EXTERN_C_END
+
 
 /* ------------------------------------------------------------ */
 
