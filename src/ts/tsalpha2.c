@@ -223,13 +223,16 @@ static PetscErrorCode TSStep_Alpha(TS ts)
   PetscFunctionBegin;
   ierr = PetscCitationsRegister(citation,&cited);CHKERRQ(ierr);
 
-  ierr = VecCopy(ts->vec_sol,th->X0);CHKERRQ(ierr);
+  /* The following is needed here in order to be hable to impose CB which depend on time */
+  ierr = TSPreStep(ts);CHKERRQ(ierr);
+  ierr = VecCopy(ts->vec_sol,th->X0);CHKERRQ(ierr); 
   ierr = VecCopy(th->vec_dot,th->V0);CHKERRQ(ierr);
   ierr = VecCopy(th->A1,th->A0);CHKERRQ(ierr);
   th->status = TS_STEP_INCOMPLETE;
 
   while (!ts->reason && th->status != TS_STEP_COMPLETE) {
     ierr = TSPreStep(ts);CHKERRQ(ierr);
+
     if (ts->steps == 0) {
       ierr = TSAlpha_InitStep(ts,&stageok);CHKERRQ(ierr);
       if (!stageok) {accept = PETSC_FALSE; goto reject_step;}
