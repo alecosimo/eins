@@ -1328,7 +1328,8 @@ static PetscErrorCode FETIComputeSolution_FETI1(FETI ft, Vec u){
 
 .keywords: FETI1
 @*/
-static PetscErrorCode FETI1ComputeAlpha_Private(FETI ft){
+static PetscErrorCode FETI1ComputeAlpha_Private(FETI ft)
+{
   PetscErrorCode    ierr;
   FETI_1            *ft1 = (FETI_1*)ft->data;
   Vec               alpha_g,asm_g; 

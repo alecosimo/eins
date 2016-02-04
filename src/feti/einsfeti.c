@@ -223,9 +223,10 @@ PetscErrorCode FETIBuildInterfaceKSP(FETI ft)
    FETICreateFETIMatContext - Creates the matrix F for FETI interface problem (it is implemented as a MatShell).
 
    Input Parameter:
-.  feti            - the FETI context
++  feti            - the FETI context
 .  FETIMatMult     - pointer to function for performing the matrix vector product
 .  FETIDestroyMatF - pointer to function for performing the destruction of the matrix context
+-  FETIMatGetVecs  - pointer to function for getting vector(s) compatible with the matrix
 
    Level: intermediate
 

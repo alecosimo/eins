@@ -56,6 +56,12 @@ typedef enum {
 } QMatrixType;
 
 
+typedef enum {
+  NO_COARSE_GRID,
+  RIGID_BODY_MODES
+} CoarseGridType;
+PETSC_EXTERN const char *const CoarseGridTypes[];
+
 PETSC_EXTERN PetscErrorCode FETICreate(MPI_Comm,FETI*);
 PETSC_EXTERN PetscErrorCode FETIRegister(const char[],PetscErrorCode(*)(FETI));
 PETSC_EXTERN PetscErrorCode FETISetType(FETI,FETIType);
@@ -77,6 +83,8 @@ PETSC_EXTERN PetscErrorCode FETI1SetDefaultOptions(int*,char***,const char[]);
 typedef PetscErrorCode      (*FETI2IStiffness)(FETI,Mat,void*);
 PETSC_EXTERN PetscErrorCode FETI2SetDefaultOptions(int*,char***,const char[]);
 PETSC_EXTERN PetscErrorCode FETI2SetStiffness(FETI,Mat,FETI2IStiffness,void*);
+PETSC_EXTERN PetscErrorCode FETI2SetComputeRBM(FETI,PetscBool);
+PETSC_EXTERN PetscErrorCode FETI2SetCoarseGridType(FETI,CoarseGridType);
 /* scaling */
 PETSC_EXTERN PetscErrorCode FETIScalingSetUp(FETI);
 PETSC_EXTERN PetscErrorCode FETIScalingSetScalingFactor(FETI,PetscScalar);

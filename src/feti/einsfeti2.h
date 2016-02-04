@@ -5,7 +5,6 @@
 
 /* Private context for the FETI-2 method.  */
 typedef struct {
-  Mat          F_neumann; /* matrix object specifically suited for symbolic factorization: it must not be destroyed with MatDestroy() */
   Vec          res_interface;   /* residual of the interface problem, i.e., r=d-F*lambda */
   Vec          alpha_local;
   
@@ -36,6 +35,11 @@ typedef struct {
   FETI2IStiffness stiffnessFun;
   Mat             stiffness_mat;
   void            *stiffness_ctx;
+  PetscBool       computeRBM;
+  Mat             F_rbm; /* matrix object specifically suited for symbolic factorization: it must not be destroyed with MatDestroy() */
+  KSP             ksp_rbm;
+
+  CoarseGridType  coarseGType;
   
 } FETI_2;
 

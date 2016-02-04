@@ -5,21 +5,23 @@
 #include <einssys.h>
 
 
+const char *const CoarseGridTypes[] = {"NO_COARSE_GRID","RIGID_BODY_MODES",0};
+
 /* private functions*/
 static PetscErrorCode FETI2BuildLambdaAndB_Private(FETI);
 static PetscErrorCode FETI2SetUpNeumannSolver_Private(FETI);
-static PetscErrorCode FETI2ComputeMatrixGandRhsE_Private(FETI);
+static PetscErrorCode FETI2ComputeMatrixG_Private(FETI);
 static PetscErrorCode FETI2BuildInterfaceProblem_Private(FETI);
 static PetscErrorCode FETIDestroy_FETI2(FETI);
 static PetscErrorCode FETISetUp_FETI2(FETI);
 static PetscErrorCode FETI2DestroyMatF_Private(Mat);
 static PetscErrorCode FETI2MatMult_Private(Mat,Vec,Vec);
 static PetscErrorCode FETISetFromOptions_FETI2(PetscOptionItems*,FETI);
-static PetscErrorCode FETI2SetUpCoarseProblem_Private(FETI);
+static PetscErrorCode FETI2SetUpCoarseProblem_RBM(FETI);
 static PetscErrorCode FETI2FactorizeCoarseProblem_Private(FETI);
 static PetscErrorCode FETI2ApplyCoarseProblem_Private(FETI,Vec,Vec);
-static PetscErrorCode FETI2ComputeInitialCondition_Private(FETI);
-static PetscErrorCode FETI2ComputeAlpha_Private(FETI);
+static PetscErrorCode FETI2ComputeInitialCondition_RBM(FETI);
+static PetscErrorCode FETI2ComputeInitialCondition_NOCOARSE(FETI);
 static PetscErrorCode FETIComputeSolution_FETI2(FETI,Vec);
 
 PetscErrorCode FETI2Project_RBM(void*,Vec,Vec);
@@ -79,20 +81,37 @@ static PetscErrorCode FETIDestroy_FETI2(FETI ft)
 @*/
 static PetscErrorCode FETISetUp_FETI2(FETI ft)
 {
-  PetscErrorCode ierr;   
+  PetscErrorCode ierr;
+  FETI_2         *ft2 = (FETI_2*)ft->data;
+  
   PetscFunctionBegin;
-  ierr = FETIScalingSetUp(ft);CHKERRQ(ierr);
-  ierr = FETI2BuildLambdaAndB_Private(ft);CHKERRQ(ierr);
-  ierr = FETI2SetUpNeumannSolver_Private(ft);CHKERRQ(ierr);
-  ierr = FETI2ComputeMatrixGandRhsE_Private(ft);CHKERRQ(ierr);
-  ierr = FETI2BuildInterfaceProblem_Private(ft);CHKERRQ(ierr);
-  ierr = FETIBuildInterfaceKSP(ft);CHKERRQ(ierr);
-  /* set projection in ksp */
-  ierr = KSPSetProjection(ft->ksp_interface,FETI2Project_RBM,(void*)ft);CHKERRQ(ierr);
-  ierr = KSPSetReProjection(ft->ksp_interface,FETI2Project_RBM,(void*)ft);CHKERRQ(ierr);
-  ierr = FETI2SetUpCoarseProblem_Private(ft);CHKERRQ(ierr);
-  ierr = FETI2FactorizeCoarseProblem_Private(ft);CHKERRQ(ierr);
-  ierr = FETI2ComputeInitialCondition_Private(ft);CHKERRQ(ierr);
+  if (!ft->setupcalled) {
+    ierr = FETIScalingSetUp(ft);CHKERRQ(ierr);
+    ierr = FETI2BuildLambdaAndB_Private(ft);CHKERRQ(ierr);
+    ierr = FETI2SetUpNeumannSolver_Private(ft);CHKERRQ(ierr);
+    if (ft2->computeRBM && ft2->coarseGType == RIGID_BODY_MODES) {
+      ierr = FETI2ComputeMatrixG_Private(ft);CHKERRQ(ierr);
+      ft2->computeRBM = PETSC_FALSE;
+    }
+    ierr = FETI2BuildInterfaceProblem_Private(ft);CHKERRQ(ierr);
+    ierr = FETIBuildInterfaceKSP(ft);CHKERRQ(ierr);
+    /* set projection in ksp */
+    if (ft2->coarseGType == RIGID_BODY_MODES) {
+      ierr = KSPSetProjection(ft->ksp_interface,FETI2Project_RBM,(void*)ft);CHKERRQ(ierr);
+      ierr = KSPSetReProjection(ft->ksp_interface,FETI2Project_RBM,(void*)ft);CHKERRQ(ierr);
+      ierr = FETI2SetUpCoarseProblem_RBM(ft);CHKERRQ(ierr);
+    }
+    if (ft2->coarseGType != NO_COARSE_GRID) {
+      ierr = FETI2FactorizeCoarseProblem_Private(ft);CHKERRQ(ierr);
+    }
+  }
+  
+  if (ft2->coarseGType == RIGID_BODY_MODES) {
+    ierr = FETI2ComputeInitialCondition_RBM(ft);CHKERRQ(ierr);
+  } else {
+    ierr = FETI2ComputeInitialCondition_NOCOARSE(ft);CHKERRQ(ierr);
+  }
+  
 
 #if defined(FETI_DEBUG)
   {
@@ -184,7 +203,11 @@ static PetscErrorCode FETISetFromOptions_FETI2(PetscOptionItems *PetscOptionsObj
   ierr = PetscOptionsHead(PetscOptionsObject,"FETI2 options");CHKERRQ(ierr);
 
   /* Primal space cumstomization */
-  ierr = PetscOptionsBool("-feti2_destroy_coarse","If set, the matrix of the coarse problem, that is (G^T*G) or (G^T*Q*G), will be destroyed","none",ft2->destroy_coarse,&ft2->destroy_coarse,NULL);CHKERRQ(ierr);
+  ierr = PetscOptionsBool("-feti2_destroy_coarse","If set, the matrix of the coarse problem, that is (G^T*G) or (G^T*Q*G), will be destroyed",
+			  "none",ft2->destroy_coarse,&ft2->destroy_coarse,NULL);CHKERRQ(ierr);
+
+  ierr = PetscOptionsEnum("-feti2_coarse_grid_type","Type of coarse grid to use","FETI2SetCoarseGridType",
+			  CoarseGridTypes,(PetscEnum)ft2->coarseGType,(PetscEnum*)&ft2->coarseGType,NULL);CHKERRQ(ierr);
 
   ierr = PetscOptionsTail();CHKERRQ(ierr);
   PetscFunctionReturn(0);
@@ -222,7 +245,13 @@ PetscErrorCode FETICreate_FETI2(FETI ft)
   ierr      = PetscNewLog(ft,&feti2);CHKERRQ(ierr);
   ft->data  = (void*)feti2;
 
+
+  feti2->coarseGType           = NO_COARSE_GRID;
+  feti2->ksp_rbm               = 0;
+  feti2->stiffness_mat         = 0;
+  feti2->computeRBM            = PETSC_TRUE;
   feti2->stiffnessFun          = 0;
+  feti2->stiffness_ctx         = 0;
   feti2->stiffness_mat         = 0;
   feti2->res_interface         = 0;
   feti2->alpha_local           = 0;
@@ -515,7 +544,6 @@ static PetscErrorCode FETI2MatMult_Private(Mat F, Vec lambda_global, Vec y) /* y
 {
   FETIMat_ctx  mat_ctx;
   FETI         ft;
-  FETI_2       *ft2;
   Subdomain    sd;
   Vec          lambda_local,y_local;
   
@@ -524,7 +552,6 @@ static PetscErrorCode FETI2MatMult_Private(Mat F, Vec lambda_global, Vec y) /* y
   PetscFunctionBegin;
   ierr = MatShellUnAsmGetContext(F,(void**)&mat_ctx);CHKERRQ(ierr);
   ft   = mat_ctx->ft;
-  ft2  = (FETI_2*)ft->data;
   sd   = ft->subdomain;
   ierr = VecUnAsmGetLocalVector(lambda_global,&lambda_local);CHKERRQ(ierr);
   ierr = VecUnAsmGetLocalVector(y,&y_local);CHKERRQ(ierr);
@@ -534,8 +561,7 @@ static PetscErrorCode FETI2MatMult_Private(Mat F, Vec lambda_global, Vec y) /* y
   ierr = VecScatterBegin(sd->N_to_B,sd->vec1_B,sd->vec1_N,INSERT_VALUES,SCATTER_REVERSE);CHKERRQ(ierr);
   ierr = VecScatterEnd(sd->N_to_B,sd->vec1_B,sd->vec1_N,INSERT_VALUES,SCATTER_REVERSE);CHKERRQ(ierr);
   /* Application of the already factorized pseudo-inverse */
-  ierr = MatMumpsSetIcntl(ft2->F_neumann,25,0);CHKERRQ(ierr);
-  ierr = MatSolve(ft2->F_neumann,sd->vec1_N,sd->vec2_N);CHKERRQ(ierr);
+  ierr = KSPSolve(ft->ksp_neumann,sd->vec1_N,sd->vec2_N);CHKERRQ(ierr);
   /* Application of B_delta */
   ierr = VecScatterBegin(sd->N_to_B,sd->vec2_N,sd->vec1_B,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
   ierr = VecScatterEnd(sd->N_to_B,sd->vec2_N,sd->vec1_B,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
@@ -598,21 +624,15 @@ static PetscErrorCode FETI2BuildInterfaceProblem_Private(FETI ft)
 {
   PetscErrorCode ierr;
   Subdomain      sd = ft->subdomain;
-  PetscInt       rank;
-  MPI_Comm       comm;
-  FETI_2         *ft2 = (FETI_2*)ft->data;
   Vec            d_local;
   
   PetscFunctionBegin;
-  ierr = PetscObjectGetComm((PetscObject)ft,&comm);CHKERRQ(ierr);
-  ierr = MPI_Comm_rank(comm,&rank);CHKERRQ(ierr);
   /* Create the MatShell for F */
   ierr = FETICreateFMat(ft,(void (*)(void))FETI2MatMult_Private,(void (*)(void))FETI2DestroyMatF_Private,(void (*)(void))FETI2MatGetVecs_Private);CHKERRQ(ierr);
   /* Creating vector d for the interface problem */
   ierr = MatCreateVecs(ft->F,NULL,&ft->d);CHKERRQ(ierr);
   /** Application of the already factorized pseudo-inverse */
-  ierr = MatMumpsSetIcntl(ft2->F_neumann,25,0);CHKERRQ(ierr);
-  ierr = MatSolve(ft2->F_neumann,sd->localRHS,sd->vec1_N);CHKERRQ(ierr);
+  ierr = KSPSolve(ft->ksp_neumann,sd->localRHS,sd->vec1_N);CHKERRQ(ierr);
   /** Application of B_delta */
   ierr = VecUnAsmGetLocalVector(ft->d,&d_local);CHKERRQ(ierr);
   ierr = VecScatterBegin(sd->N_to_B,sd->vec1_N,sd->vec1_B,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
@@ -626,17 +646,16 @@ static PetscErrorCode FETI2BuildInterfaceProblem_Private(FETI ft)
 
 
 #undef __FUNCT__
-#define __FUNCT__ "FETI2ComputeMatrixGandRhsE_Private"
+#define __FUNCT__ "FETI2ComputeMatrixG_Private"
 /*@
-   FETI2ComputeMatrixGandRhsE_Private - Computes the local matrix
-   G=B*R, where R are the Rigid Body Modes, and the rhs term e=R^T*f from
-   the interface problem.
+   FETI2ComputeMatrixG_Private - Computes the local matrix
+   G=B*R, where R are the Rigid Body Modes.
 
    Input Parameters:
 .  ft - the FETI context
 
 @*/
-static PetscErrorCode FETI2ComputeMatrixGandRhsE_Private(FETI ft)
+static PetscErrorCode FETI2ComputeMatrixG_Private(FETI ft)
 {
   PetscErrorCode ierr;
   Subdomain      sd = ft->subdomain;
@@ -644,34 +663,74 @@ static PetscErrorCode FETI2ComputeMatrixGandRhsE_Private(FETI ft)
   MPI_Comm       comm;
   Mat            x; 
   FETI_2         *ft2 = (FETI_2*)ft->data;
+  PC             pc;
+  PetscBool      issbaij;
   
   PetscFunctionBegin;
   ierr   = PetscObjectGetComm((PetscObject)ft,&comm);CHKERRQ(ierr);
   ierr   = MPI_Comm_rank(comm,&rank);CHKERRQ(ierr);
   ierr   = MatDestroy(&ft2->localG);CHKERRQ(ierr);
-  ierr   = VecDestroy(&ft2->local_e);CHKERRQ(ierr);
-  /* get number of rigid body modes */
-  ierr   = MatMumpsGetInfog(ft2->F_neumann,28,&ft2->n_rbm);CHKERRQ(ierr);
+  /* Solve system and get number of rigid body modes */
+  if (!ft2->stiffness_mat) {
+    ierr = MatDuplicate(sd->localA,MAT_SHARE_NONZERO_PATTERN,&ft2->stiffness_mat);CHKERRQ(ierr);
+  }
+  if (!ft2->stiffnessFun) SETERRQ(((PetscObject)ft)->comm,PETSC_ERR_USER,"Must call FETI2SetStiffness()");
+  ierr = (*ft2->stiffnessFun)(ft,ft2->stiffness_mat,ft2->stiffness_ctx);CHKERRQ(ierr);
+
+  if (!ft2->ksp_rbm) {
+    ierr = KSPCreate(PETSC_COMM_SELF,&ft2->ksp_rbm);CHKERRQ(ierr);
+    ierr = PetscObjectIncrementTabLevel((PetscObject)ft2->ksp_rbm,(PetscObject)ft,1);CHKERRQ(ierr);
+    ierr = PetscLogObjectParent((PetscObject)ft,(PetscObject)ft2->ksp_rbm);CHKERRQ(ierr);
+    ierr = KSPSetType(ft2->ksp_rbm,KSPPREONLY);CHKERRQ(ierr);
+    ierr = KSPGetPC(ft2->ksp_rbm,&pc);CHKERRQ(ierr);
+    ierr = PetscObjectTypeCompare((PetscObject)(ft2->stiffness_mat),MATSEQSBAIJ,&issbaij);CHKERRQ(ierr);
+    if (issbaij) {
+      ierr = PCSetType(pc,PCCHOLESKY);CHKERRQ(ierr);
+    } else {
+      ierr = PCSetType(pc,PCLU);CHKERRQ(ierr);
+    }
+    ierr = PCFactorSetMatSolverPackage(pc,MATSOLVERMUMPS);CHKERRQ(ierr);
+    ierr = KSPSetOperators(ft2->ksp_rbm,ft2->stiffness_mat,ft2->stiffness_mat);CHKERRQ(ierr);
+    /* prefix for setting options */
+    ierr = KSPSetOptionsPrefix(ft2->ksp_rbm,"feti2_rbm_");CHKERRQ(ierr);
+    ierr = MatSetOptionsPrefix(ft2->stiffness_mat,"feti2_rbm_");CHKERRQ(ierr);
+    ierr = PCFactorSetUpMatSolverPackage(pc);CHKERRQ(ierr);
+    ierr = PCFactorGetMatrix(pc,&ft2->F_rbm);CHKERRQ(ierr);
+    /* sequential ordering */
+    ierr = MatMumpsSetIcntl(ft2->F_rbm,7,2);CHKERRQ(ierr);
+    /* Null row pivot detection */
+    ierr = MatMumpsSetIcntl(ft2->F_rbm,24,1);CHKERRQ(ierr);
+    /* threshhold for row pivot detection */
+    ierr = MatMumpsSetCntl(ft2->F_rbm,3,1.e-6);CHKERRQ(ierr);
+
+    /* Maybe the following two options should be given as external options and not here*/
+    ierr = KSPSetFromOptions(ft2->ksp_rbm);CHKERRQ(ierr);
+    ierr = PCFactorSetReuseFill(pc,PETSC_TRUE);CHKERRQ(ierr);
+  } else {
+    ierr = KSPSetOperators(ft2->ksp_rbm,ft2->stiffness_mat,ft2->stiffness_mat);CHKERRQ(ierr);
+  }
+  /* Set Up KSP for Neumann problem: here the factorization takes place!!! */
+  ierr  = KSPSetUp(ft2->ksp_rbm);CHKERRQ(ierr);
+  ierr  = MatMumpsGetInfog(ft2->F_rbm,28,&ft2->n_rbm);CHKERRQ(ierr);
   if(ft2->n_rbm){
     /* Compute rigid body modes */
     ierr = MatCreateSeqDense(PETSC_COMM_SELF,sd->n,ft2->n_rbm,NULL,&ft2->rbm);CHKERRQ(ierr);
     ierr = MatDuplicate(ft2->rbm,MAT_DO_NOT_COPY_VALUES,&x);CHKERRQ(ierr);
     ierr = MatAssemblyBegin(ft2->rbm,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
     ierr = MatAssemblyEnd(ft2->rbm,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
-    ierr = MatMumpsSetIcntl(ft2->F_neumann,25,-1);CHKERRQ(ierr);
-    ierr = MatMatSolve(ft2->F_neumann,x,ft2->rbm);CHKERRQ(ierr);
+    ierr = MatMumpsSetIcntl(ft2->F_rbm,25,-1);CHKERRQ(ierr);
+    ierr = MatMatSolve(ft2->F_rbm,x,ft2->rbm);CHKERRQ(ierr);
     ierr = MatDestroy(&x);CHKERRQ(ierr);
 
     /* compute matrix localG */
     ierr = MatGetSubMatrix(ft2->rbm,sd->is_B_local,NULL,MAT_INITIAL_MATRIX,&x);CHKERRQ(ierr);
     ierr = MatCreateSeqDense(PETSC_COMM_SELF,ft->n_lambda_local,ft2->n_rbm,NULL,&ft2->localG);CHKERRQ(ierr);
     ierr = MatMatMult(ft->B_delta,x,MAT_REUSE_MATRIX,PETSC_DEFAULT,&ft2->localG);CHKERRQ(ierr);    
-
-    /* compute matrix local_e */
-    ierr = VecCreateSeq(PETSC_COMM_SELF,ft2->n_rbm,&ft2->local_e);CHKERRQ(ierr);
-    ierr = MatMultTranspose(ft2->rbm,sd->localRHS,ft2->local_e);CHKERRQ(ierr);
     ierr = MatDestroy(&x);CHKERRQ(ierr);
   }
+  ierr = KSPDestroy(&ft2->ksp_rbm);CHKERRQ(ierr);
+  ierr = MatDestroy(&ft2->stiffness_mat);CHKERRQ(ierr);
+  
   PetscFunctionReturn(0);
 }
 
@@ -698,18 +757,20 @@ static PetscErrorCode FETI2SetUpNeumannSolver_Private(FETI ft)
   PetscErrorCode ierr;
   PC             pc;
   PetscBool      issbaij;
-  FETI_2         *ft2 = (FETI_2*)ft->data;
   Subdomain      sd = ft->subdomain;
   
   PetscFunctionBegin;
 #if !defined(PETSC_HAVE_MUMPS)
     SETERRQ(PetscObjectComm((PetscObject)ft),1,"EINS only supports MUMPS for the solution of the Neumann problem");
 #endif
+
   if (!ft->ksp_neumann) {
     ierr = KSPCreate(PETSC_COMM_SELF,&ft->ksp_neumann);CHKERRQ(ierr);
     ierr = PetscObjectIncrementTabLevel((PetscObject)ft->ksp_neumann,(PetscObject)ft,1);CHKERRQ(ierr);
     ierr = PetscLogObjectParent((PetscObject)ft,(PetscObject)ft->ksp_neumann);CHKERRQ(ierr);
     ierr = KSPSetType(ft->ksp_neumann,KSPPREONLY);CHKERRQ(ierr);
+    ierr = KSPSetOptionsPrefix(ft->ksp_neumann,"feti2_neumann_");CHKERRQ(ierr);
+    ierr = MatSetOptionsPrefix(sd->localA,"feti2_neumann_");CHKERRQ(ierr);
     ierr = KSPGetPC(ft->ksp_neumann,&pc);CHKERRQ(ierr);
     ierr = PetscObjectTypeCompare((PetscObject)(sd->localA),MATSEQSBAIJ,&issbaij);CHKERRQ(ierr);
     if (issbaij) {
@@ -717,37 +778,20 @@ static PetscErrorCode FETI2SetUpNeumannSolver_Private(FETI ft)
     } else {
       ierr = PCSetType(pc,PCLU);CHKERRQ(ierr);
     }
-    ierr = PCFactorSetMatSolverPackage(pc,MATSOLVERMUMPS);CHKERRQ(ierr);
-    ierr = KSPSetOperators(ft->ksp_neumann,sd->localA,sd->localA);CHKERRQ(ierr);
-    /* prefix for setting options */
-    ierr = KSPSetOptionsPrefix(ft->ksp_neumann,"feti2_neumann_");CHKERRQ(ierr);
-    ierr = MatSetOptionsPrefix(sd->localA,"feti2_neumann_");CHKERRQ(ierr);
-    ierr = PCFactorSetUpMatSolverPackage(pc);CHKERRQ(ierr);
-    ierr = PCFactorGetMatrix(pc,&ft2->F_neumann);CHKERRQ(ierr);
-    /* sequential ordering */
-    ierr = MatMumpsSetIcntl(ft2->F_neumann,7,2);CHKERRQ(ierr);
-    /* Null row pivot detection */
-    ierr = MatMumpsSetIcntl(ft2->F_neumann,24,1);CHKERRQ(ierr);
-    /* threshhold for row pivot detection */
-    ierr = MatMumpsSetCntl(ft2->F_neumann,3,1.e-6);CHKERRQ(ierr);
-
-    /* Maybe the following two options should be given as external options and not here*/
     ierr = KSPSetFromOptions(ft->ksp_neumann);CHKERRQ(ierr);
     ierr = PCFactorSetReuseFill(pc,PETSC_TRUE);CHKERRQ(ierr);
-  } else {
-    ierr = KSPSetOperators(ft->ksp_neumann,sd->localA,sd->localA);CHKERRQ(ierr);
   }
-  /* Set Up KSP for Neumann problem: here the factorization takes place!!! */
+  ierr = KSPSetOperators(ft->ksp_neumann,sd->localA,sd->localA);CHKERRQ(ierr);
   ierr = KSPSetUp(ft->ksp_neumann);CHKERRQ(ierr);
-
+    
   PetscFunctionReturn(0);
 }
 
 
 #undef __FUNCT__
-#define __FUNCT__ "FETI2SetUpCoarseProblem_Private"
+#define __FUNCT__ "FETI2SetUpCoarseProblem_RBM"
 /*@
-   FETI2SetUpCoarseProblem_Private - It mainly configures the coarse problem and factorizes it. It also creates alpha_local vector.
+   FETI2SetUpCoarseProblem_RBM - It mainly configures the coarse using RBM problem and factorizes it. It also creates alpha_local vector.
 
    Input Parameter:
 .  feti - the FETI context
@@ -761,10 +805,8 @@ static PetscErrorCode FETI2SetUpNeumannSolver_Private(FETI ft)
    Level: developer
 
 .keywords: FETI2
-
-.seealso: FETI2SetUpCoarseProblem_FETI2()
 @*/
-static PetscErrorCode FETI2SetUpCoarseProblem_Private(FETI ft)
+static PetscErrorCode FETI2SetUpCoarseProblem_RBM(FETI ft)
 {
   PetscErrorCode ierr;
   FETI_2         *ft2 = (FETI_2*)ft->data;
@@ -1172,9 +1214,9 @@ static PetscErrorCode FETI2ApplyCoarseProblem_Private(FETI ft,Vec v,Vec r)
 
 
 #undef __FUNCT__
-#define __FUNCT__ "FETI2ComputeInitialCondition_Private"
+#define __FUNCT__ "FETI2ComputeInitialCondition_RBM"
 /*@
-   FETI2ComputeInitialCondition_Private - Computes initial condition
+   FETI2ComputeInitialCondition_RBM - Computes initial condition
    for the interface problem. Once the initial condition is computed
    local_e is destroyed.
 
@@ -1186,7 +1228,7 @@ static PetscErrorCode FETI2ApplyCoarseProblem_Private(FETI ft,Vec v,Vec r)
 .keywords: FETI2
 
 @*/
-static PetscErrorCode FETI2ComputeInitialCondition_Private(FETI ft)
+static PetscErrorCode FETI2ComputeInitialCondition_RBM(FETI ft)
 {
   PetscErrorCode    ierr;
   FETI_2            *ft2 = (FETI_2*)ft->data;
@@ -1207,6 +1249,31 @@ static PetscErrorCode FETI2ComputeInitialCondition_Private(FETI ft)
   ierr = FETI2ApplyCoarseProblem_Private(ft,asm_e,ft->lambda_global);CHKERRQ(ierr);
   if (ft2->n_rbm) { ierr = VecDestroy(&ft2->local_e);CHKERRQ(ierr);}
   ierr = VecDestroy(&asm_e);CHKERRQ(ierr);
+  PetscFunctionReturn(0);
+}
+
+
+#undef __FUNCT__
+#define __FUNCT__ "FETI2ComputeInitialCondition_NOCOARSE"
+/*@
+   FETI2ComputeInitialCondition_NOCOARSE - Computes initial condition
+   for the interface problem. Once the initial condition is computed
+   local_e is destroyed.
+
+   Input Parameter:
+.  ft - the FETI context
+
+   Level: developer
+
+.keywords: FETI2
+
+@*/
+static PetscErrorCode FETI2ComputeInitialCondition_NOCOARSE(FETI ft)
+{
+  PetscErrorCode    ierr;
+  
+  PetscFunctionBegin;
+  ierr = VecSet(ft->lambda_global, 0.0);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 
@@ -1288,17 +1355,12 @@ PetscErrorCode FETI2Project_RBM(void* ft_ctx, Vec g_global, Vec y)
 @*/
 static PetscErrorCode FETIComputeSolution_FETI2(FETI ft, Vec u){
   PetscErrorCode    ierr;
-  FETI_2            *ft2 = (FETI_2*)ft->data;
   Subdomain         sd = ft->subdomain;
   Vec               lambda_local;
   
   PetscFunctionBegin;
   /* Solve interface problem */
   ierr = KSPSolve(ft->ksp_interface,ft->d,ft->lambda_global);CHKERRQ(ierr);
-  /* Get residual of the interface problem */
-  ierr = KSPGetResidual(ft->ksp_interface,&ft2->res_interface);CHKERRQ(ierr);
-  /* compute alpha_local */
-  ierr = FETI2ComputeAlpha_Private(ft);CHKERRQ(ierr);
   /* computing B_delta^T*lambda */
   ierr = VecUnAsmGetLocalVector(ft->lambda_global,&lambda_local);CHKERRQ(ierr);
   ierr = MatMultTranspose(ft->B_delta,lambda_local,sd->vec1_B);CHKERRQ(ierr);
@@ -1308,64 +1370,7 @@ static PetscErrorCode FETIComputeSolution_FETI2(FETI ft, Vec u){
   /* computing f - B_delta^T*lambda */
   ierr = VecAYPX(sd->vec1_N,-1.0,sd->localRHS);CHKERRQ(ierr);   
   /* Application of the already factorized pseudo-inverse */
-  ierr = MatMumpsSetIcntl(ft2->F_neumann,25,0);CHKERRQ(ierr);
-  ierr = MatSolve(ft2->F_neumann,sd->vec1_N,u);CHKERRQ(ierr);
-  if (ft2->n_rbm) {
-    /* computing R*alpha */
-    ierr = MatMult(ft2->rbm,ft2->alpha_local,sd->vec1_N);CHKERRQ(ierr);
-    /* computing u = A^+*(f - B_delta^T*lambda) + R*alpha */
-    ierr = VecAXPY(u,-1.0,sd->vec1_N);CHKERRQ(ierr);
-  }
-  PetscFunctionReturn(0);
-}
-
-
-#undef __FUNCT__
-#define __FUNCT__ "FETI2ComputeAlpha_Private"
-/*@
-   FETI2ComputeAlpha_Private - Computes the local coefficients multiplying the correspoding local vector with Rigid Body Modes.
-
-   Input: 
-.  ft - the FETI context
-
-   Level: beginner
-
-.keywords: FETI2
-@*/
-static PetscErrorCode FETI2ComputeAlpha_Private(FETI ft){
-  PetscErrorCode    ierr;
-  FETI_2            *ft2 = (FETI_2*)ft->data;
-  Vec               alpha_g,asm_g; 
-  PetscMPIInt       rank;
-  PetscScalar       *rbuff;
-  const PetscScalar *sbuff;
-  Vec               lambda_local;
-  
-  PetscFunctionBegin;
-  ierr = VecUnAsmGetLocalVector(ft2->res_interface,&lambda_local);CHKERRQ(ierr);
-  if (!ft2->n_rbm)  PetscFunctionReturn(0);
-  ierr = MPI_Comm_rank(ft2->floatingComm,&rank);CHKERRQ(ierr);
-  ierr = VecCreateSeq(PETSC_COMM_SELF,ft2->total_rbm,&alpha_g);CHKERRQ(ierr);
-  ierr = VecCreateSeq(PETSC_COMM_SELF,ft2->total_rbm,&asm_g);CHKERRQ(ierr);  
-  ierr = MatMultTranspose(ft2->localG,lambda_local,ft2->alpha_local);CHKERRQ(ierr);   
-  ierr = VecGetArrayRead(ft2->alpha_local,&sbuff);CHKERRQ(ierr);
-  ierr = VecGetArray(asm_g,&rbuff);CHKERRQ(ierr);
-  ierr = MPI_Allgatherv(sbuff,ft2->n_rbm,MPIU_SCALAR,rbuff,ft2->count_f_rbm,ft2->displ_f,MPIU_SCALAR,ft2->floatingComm);CHKERRQ(ierr);
-  ierr = VecRestoreArray(asm_g,&rbuff);CHKERRQ(ierr);
-  ierr = VecRestoreArrayRead(ft2->alpha_local,&sbuff);CHKERRQ(ierr);
-
-#if defined(PETSC_HAVE_MUMPS)
-  ierr = MatMumpsSetIcntl(ft2->F_coarse,25,0);CHKERRQ(ierr);
-#endif
-  ierr = MatSolve(ft2->F_coarse,asm_g,alpha_g);CHKERRQ(ierr);
-
-  ierr = VecGetArrayRead(alpha_g,&sbuff);CHKERRQ(ierr);
-  ierr = VecGetArray(ft2->alpha_local,&rbuff);CHKERRQ(ierr);
-  ierr = PetscMemcpy(rbuff,sbuff+ft2->displ_f[rank],sizeof(PetscScalar)*ft2->count_f_rbm[rank]);CHKERRQ(ierr);
-  ierr = VecRestoreArray(ft2->alpha_local,&rbuff);CHKERRQ(ierr);
-  ierr = VecRestoreArrayRead(alpha_g,&sbuff);CHKERRQ(ierr);
-  ierr = VecDestroy(&asm_g);CHKERRQ(ierr);
-  ierr = VecDestroy(&alpha_g);CHKERRQ(ierr);
+  ierr = KSPSolve(ft->ksp_neumann,sd->vec1_N,u);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 
@@ -1393,6 +1398,8 @@ PetscErrorCode FETI2SetDefaultOptions(int *argc,char ***args,const char file[])
   PetscErrorCode    ierr;
   char mumps_options[]        = "-feti_pc_dirichlet_pc_factor_mat_solver_package mumps \
                                  -feti_pc_dirichlet_mat_mumps_icntl_7 2                \
+                                 -feti2_neumann_pc_factor_mat_solver_package mumps     \
+                                 -feti2_neumann_mat_mumps_icntl_7 2                    \
                                  -feti2_pc_coarse_pc_factor_mat_solver_package mumps   \
                                  -feti2_pc_coarse_mat_mumps_icntl_7 2";
   char other_options[]        = "-feti_fullyredundant             \
@@ -1452,3 +1459,56 @@ PetscErrorCode FETI2SetStiffness(FETI ft,Mat S,FETI2IStiffness fun,void *ctx)
   ft2->stiffness_ctx = ctx;
   PetscFunctionReturn(0);
 }
+
+
+#undef __FUNCT__
+#define __FUNCT__ "FETI2SetComputeRBM"
+/*@C
+   FETI2SetComputeRBM - Sets the value of the flag controlling the recomputatio of RBMs
+
+   Input Parameters:
++  ft     - the FETI context 
+-  cmpRBM - boolean value to set
+
+   Level: beginner
+
+.keywords: FETI2, stiffness matrix, rigid body modes
+
+@*/
+PetscErrorCode FETI2SetComputeRBM(FETI ft,PetscBool cmpRBM)
+{
+  FETI_2         *ft2;
+  
+  PetscFunctionBegin;
+  PetscValidHeaderSpecific(ft,FETI_CLASSID,1); 
+  ft2             = (FETI_2*)ft->data;
+  ft2->computeRBM = cmpRBM;
+  PetscFunctionReturn(0);
+}
+
+
+#undef __FUNCT__
+#define __FUNCT__ "FETI2SetCoarseGridType"
+/*@C
+   FETI2SetCoarseGridType - Sets the coarse grid type to use
+
+   Input Parameters:
++  ft   - the FETI context 
+-  ct   - the coarse grid type
+
+   Level: beginner
+
+.keywords: FETI2
+
+@*/
+PetscErrorCode FETI2SetCoarseGridType(FETI ft,CoarseGridType ct)
+{
+  FETI_2         *ft2;
+  
+  PetscFunctionBegin;
+  PetscValidHeaderSpecific(ft,FETI_CLASSID,1); 
+  ft2              = (FETI_2*)ft->data;
+  ft2->coarseGType = ct;
+  PetscFunctionReturn(0);
+}
+
