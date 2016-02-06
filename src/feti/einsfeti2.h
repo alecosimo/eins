@@ -40,6 +40,7 @@ typedef struct {
   KSP             ksp_rbm;
 
   CoarseGridType  coarseGType;
+  PetscBool       recomputeTangent;
   
 } FETI_2;
 

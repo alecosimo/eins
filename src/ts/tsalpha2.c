@@ -150,6 +150,7 @@ static PetscErrorCode TSAlpha_InitStep(TS ts,PetscBool *initok)
   PetscErrorCode ierr;
 
   PetscFunctionBegin;
+   
   ierr = VecDuplicate(X0,&X1);CHKERRQ(ierr);
   ierr = VecDuplicate(X0,&V1);CHKERRQ(ierr);
   ierr = TSAlpha2GetParams(ts,&alpha_m,&alpha_f,&gamma,&beta);CHKERRQ(ierr);

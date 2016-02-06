@@ -85,6 +85,7 @@ PETSC_EXTERN PetscErrorCode FETI2SetDefaultOptions(int*,char***,const char[]);
 PETSC_EXTERN PetscErrorCode FETI2SetStiffness(FETI,Mat,FETI2IStiffness,void*);
 PETSC_EXTERN PetscErrorCode FETI2SetComputeRBM(FETI,PetscBool);
 PETSC_EXTERN PetscErrorCode FETI2SetCoarseGridType(FETI,CoarseGridType);
+PETSC_EXTERN PetscErrorCode FETI2SetRecomputeTangentMatrix(FETI,PetscBool);
 /* scaling */
 PETSC_EXTERN PetscErrorCode FETIScalingSetUp(FETI);
 PETSC_EXTERN PetscErrorCode FETIScalingSetScalingFactor(FETI,PetscScalar);

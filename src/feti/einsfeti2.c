@@ -23,6 +23,7 @@ static PetscErrorCode FETI2ApplyCoarseProblem_Private(FETI,Vec,Vec);
 static PetscErrorCode FETI2ComputeInitialCondition_RBM(FETI);
 static PetscErrorCode FETI2ComputeInitialCondition_NOCOARSE(FETI);
 static PetscErrorCode FETIComputeSolution_FETI2(FETI,Vec);
+static PetscErrorCode FETI2SetInterfaceProblemRHS_Private(FETI);
 
 PetscErrorCode FETI2Project_RBM(void*,Vec,Vec);
 
@@ -94,6 +95,7 @@ static PetscErrorCode FETISetUp_FETI2(FETI ft)
       ft2->computeRBM = PETSC_FALSE;
     }
     ierr = FETI2BuildInterfaceProblem_Private(ft);CHKERRQ(ierr);
+    ierr = FETI2SetInterfaceProblemRHS_Private(ft);CHKERRQ(ierr);
     ierr = FETIBuildInterfaceKSP(ft);CHKERRQ(ierr);
     /* set projection in ksp */
     if (ft2->coarseGType == RIGID_BODY_MODES) {
@@ -104,6 +106,9 @@ static PetscErrorCode FETISetUp_FETI2(FETI ft)
     if (ft2->coarseGType != NO_COARSE_GRID) {
       ierr = FETI2FactorizeCoarseProblem_Private(ft);CHKERRQ(ierr);
     }
+  } else {
+    if (ft2->recomputeTangent) { ierr = FETI2SetUpNeumannSolver_Private(ft);CHKERRQ(ierr);}
+    ierr = FETI2SetInterfaceProblemRHS_Private(ft);CHKERRQ(ierr);
   }
   
   if (ft2->coarseGType == RIGID_BODY_MODES) {
@@ -245,7 +250,7 @@ PetscErrorCode FETICreate_FETI2(FETI ft)
   ierr      = PetscNewLog(ft,&feti2);CHKERRQ(ierr);
   ft->data  = (void*)feti2;
 
-
+  feti2->recomputeTangent      = PETSC_TRUE;
   feti2->coarseGType           = NO_COARSE_GRID;
   feti2->ksp_rbm               = 0;
   feti2->stiffness_mat         = 0;
@@ -612,6 +617,36 @@ static PetscErrorCode FETI2MatGetVecs_Private(Mat mat,Vec *right,Vec *left)
 
 
 #undef __FUNCT__
+#define __FUNCT__ "FETI2SetInterfaceProblemRHS_Private"
+/*@
+   FETI2SetInterfaceProblemRHS_Private - Set vector d, that is the RHS vector of the interface problem.
+
+   Input Parameters:
+.  ft - the FETI context
+
+@*/
+static PetscErrorCode FETI2SetInterfaceProblemRHS_Private(FETI ft)
+{
+  PetscErrorCode ierr;
+  Subdomain      sd = ft->subdomain;
+  Vec            d_local;
+  
+  PetscFunctionBegin;
+  /** Application of the already factorized pseudo-inverse */
+  ierr = KSPSolve(ft->ksp_neumann,sd->localRHS,sd->vec1_N);CHKERRQ(ierr);
+  /** Application of B_delta */
+  ierr = VecUnAsmGetLocalVector(ft->d,&d_local);CHKERRQ(ierr);
+  ierr = VecScatterBegin(sd->N_to_B,sd->vec1_N,sd->vec1_B,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
+  ierr = VecScatterEnd(sd->N_to_B,sd->vec1_N,sd->vec1_B,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
+  ierr = MatMult(ft->B_delta,sd->vec1_B,d_local);CHKERRQ(ierr);
+  /*** Communication with other processes is performed for the following operation */
+  ierr = VecExchangeBegin(ft->exchange_lambda,ft->d,ADD_VALUES);CHKERRQ(ierr);
+  ierr = VecExchangeEnd(ft->exchange_lambda,ft->d,ADD_VALUES);CHKERRQ(ierr);
+  PetscFunctionReturn(0);
+}
+
+
+#undef __FUNCT__
 #define __FUNCT__ "FETI2BuildInterfaceProblem_Private"
 /*@
    FETI2BuildInterfaceProblem_Private - Builds the interface problem, that is the matrix F and the vector d.
@@ -623,24 +658,12 @@ static PetscErrorCode FETI2MatGetVecs_Private(Mat mat,Vec *right,Vec *left)
 static PetscErrorCode FETI2BuildInterfaceProblem_Private(FETI ft)
 {
   PetscErrorCode ierr;
-  Subdomain      sd = ft->subdomain;
-  Vec            d_local;
   
   PetscFunctionBegin;
   /* Create the MatShell for F */
   ierr = FETICreateFMat(ft,(void (*)(void))FETI2MatMult_Private,(void (*)(void))FETI2DestroyMatF_Private,(void (*)(void))FETI2MatGetVecs_Private);CHKERRQ(ierr);
   /* Creating vector d for the interface problem */
   ierr = MatCreateVecs(ft->F,NULL,&ft->d);CHKERRQ(ierr);
-  /** Application of the already factorized pseudo-inverse */
-  ierr = KSPSolve(ft->ksp_neumann,sd->localRHS,sd->vec1_N);CHKERRQ(ierr);
-  /** Application of B_delta */
-  ierr = VecUnAsmGetLocalVector(ft->d,&d_local);CHKERRQ(ierr);
-  ierr = VecScatterBegin(sd->N_to_B,sd->vec1_N,sd->vec1_B,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
-  ierr = VecScatterEnd(sd->N_to_B,sd->vec1_N,sd->vec1_B,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
-  ierr = MatMult(ft->B_delta,sd->vec1_B,d_local);CHKERRQ(ierr);
-  /*** Communication with other processes is performed for the following operation */
-  ierr = VecExchangeBegin(ft->exchange_lambda,ft->d,ADD_VALUES);CHKERRQ(ierr);
-  ierr = VecExchangeEnd(ft->exchange_lambda,ft->d,ADD_VALUES);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 
@@ -1357,8 +1380,13 @@ static PetscErrorCode FETIComputeSolution_FETI2(FETI ft, Vec u){
   PetscErrorCode    ierr;
   Subdomain         sd = ft->subdomain;
   Vec               lambda_local;
+  PetscInt          rank;
+  MPI_Comm          comm;
   
   PetscFunctionBegin;
+    ierr = PetscObjectGetComm((PetscObject)ft,&comm);CHKERRQ(ierr);
+    ierr = MPI_Comm_rank(comm,&rank);CHKERRQ(ierr);
+
   /* Solve interface problem */
   ierr = KSPSolve(ft->ksp_interface,ft->d,ft->lambda_global);CHKERRQ(ierr);
   /* computing B_delta^T*lambda */
@@ -1368,7 +1396,7 @@ static PetscErrorCode FETIComputeSolution_FETI2(FETI ft, Vec u){
   ierr = VecScatterBegin(sd->N_to_B,sd->vec1_B,sd->vec1_N,INSERT_VALUES,SCATTER_REVERSE);CHKERRQ(ierr);
   ierr = VecScatterEnd(sd->N_to_B,sd->vec1_B,sd->vec1_N,INSERT_VALUES,SCATTER_REVERSE);CHKERRQ(ierr);
   /* computing f - B_delta^T*lambda */
-  ierr = VecAYPX(sd->vec1_N,-1.0,sd->localRHS);CHKERRQ(ierr);   
+  ierr = VecAYPX(sd->vec1_N,-1.0,sd->localRHS);CHKERRQ(ierr);
   /* Application of the already factorized pseudo-inverse */
   ierr = KSPSolve(ft->ksp_neumann,sd->vec1_N,u);CHKERRQ(ierr);
   PetscFunctionReturn(0);
@@ -1462,9 +1490,35 @@ PetscErrorCode FETI2SetStiffness(FETI ft,Mat S,FETI2IStiffness fun,void *ctx)
 
 
 #undef __FUNCT__
+#define __FUNCT__ "FETI2SetRecomputeTangentMatrix"
+/*@C
+   FETI2SetRecomputeTangentMatrix - Sets the value of the flag controlling the recomputation of the tangent matrix
+
+   Input Parameters:
++  ft               - the FETI context 
+-  recomputeTangent - boolean value to set
+
+   Level: beginner
+
+.keywords: FETI2, stiffness matrix, rigid body modes
+
+@*/
+PetscErrorCode FETI2SetRecomputeTangentMatrix(FETI ft,PetscBool recomputeTangent)
+{
+  FETI_2         *ft2;
+  
+  PetscFunctionBegin;
+  PetscValidHeaderSpecific(ft,FETI_CLASSID,1); 
+  ft2                   = (FETI_2*)ft->data;
+  ft2->recomputeTangent = recomputeTangent;
+  PetscFunctionReturn(0);
+}
+
+
+#undef __FUNCT__
 #define __FUNCT__ "FETI2SetComputeRBM"
 /*@C
-   FETI2SetComputeRBM - Sets the value of the flag controlling the recomputatio of RBMs
+   FETI2SetComputeRBM - Sets the value of the flag controlling the recomputation of RBMs
 
    Input Parameters:
 +  ft     - the FETI context 
