@@ -96,7 +96,7 @@ static PetscErrorCode FETISetUp_FETI2(FETI ft)
     }
     ierr = FETI2BuildInterfaceProblem_Private(ft);CHKERRQ(ierr);
     ierr = FETI2SetInterfaceProblemRHS_Private(ft);CHKERRQ(ierr);
-    ierr = FETIBuildInterfaceKSP(ft);CHKERRQ(ierr);
+    ierr = FETIBuildInterfaceKSP(ft);CHKERRQ(ierr); /* the PC for the interface problem is setup here */
     /* set projection in ksp */
     if (ft2->coarseGType == RIGID_BODY_MODES) {
       ierr = KSPSetProjection(ft->ksp_interface,FETI2Project_RBM,(void*)ft);CHKERRQ(ierr);
@@ -104,7 +104,7 @@ static PetscErrorCode FETISetUp_FETI2(FETI ft)
       ierr = FETI2SetUpCoarseProblem_RBM(ft);CHKERRQ(ierr);
     }
     if (ft2->coarseGType != NO_COARSE_GRID) {
-      ierr = FETI2FactorizeCoarseProblem_Private(ft);CHKERRQ(ierr);
+      /*  ierr = FETI2FactorizeCoarseProblem_Private(ft);CHKERRQ(ierr); */
     }
   } else {
     if (ft2->recomputeTangent) { ierr = FETI2SetUpNeumannSolver_Private(ft);CHKERRQ(ierr);}
@@ -112,7 +112,7 @@ static PetscErrorCode FETISetUp_FETI2(FETI ft)
   }
   
   if (ft2->coarseGType == RIGID_BODY_MODES) {
-    ierr = FETI2ComputeInitialCondition_RBM(ft);CHKERRQ(ierr);
+    /* ierr = FETI2ComputeInitialCondition_RBM(ft);CHKERRQ(ierr); */
   } else {
     ierr = FETI2ComputeInitialCondition_NOCOARSE(ft);CHKERRQ(ierr);
   }
@@ -846,13 +846,31 @@ static PetscErrorCode FETI2SetUpCoarseProblem_RBM(FETI ft)
   /* result: result of the local multiplication G^T*G*/
   Mat            *submat,result,aux_mat;
   
+  PetscInt       *neighs2,*n_neighs2; /* arrays to save which are the neighbours of neighbours */
+  
   PetscFunctionBegin;  
   /* in the following rankG and sizeG are related to the MPI_Comm comm */
   /* whereas rank and size are related to the MPI_Comm floatingComm */
   ierr = PetscObjectGetComm((PetscObject)ft,&comm);CHKERRQ(ierr);
   ierr = MPI_Comm_rank(comm,&rankG);CHKERRQ(ierr);
   ierr = MPI_Comm_size(comm,&sizeG);CHKERRQ(ierr);
-  
+
+  /* Computing infromation of neighbours of neighbours */
+  ierr         = PetscMalloc1(ft->n_neigh_lb,&n_neighs2);CHKERRQ(ierr);
+  ierr         = PetscMalloc1(ft->n_neigh_lb-1,&send_reqs);CHKERRQ(ierr);
+  ierr         = PetscMalloc1(ft->n_neigh_lb-1,&recv_reqs);CHKERRQ(ierr);
+  n_neighs2[0] = ft->n_neigh_lb;
+  for (i=1; i<ft->n_neigh_lb; i++){
+    ierr = PetscMPIIntCast(ft->neigh_lb[i],&i_mpi);CHKERRQ(ierr);   
+    ierr = MPI_Isend(&ft->n_neigh_lb,1,MPIU_INT,i_mpi,0,comm,&send_reqs[i-1]);CHKERRQ(ierr);
+    ierr = MPI_Irecv(&n_neighs2[i],1,MPIU_INT,i_mpi,0,comm,&recv_reqs[i-1]);CHKERRQ(ierr);    
+  }
+  ierr = MPI_Waitall(ft->n_neigh_lb-1,recv_reqs,MPI_STATUSES_IGNORE);CHKERRQ(ierr);
+  ierr = MPI_Waitall(ft->n_neigh_lb-1,send_reqs,MPI_STATUSES_IGNORE);CHKERRQ(ierr);
+
+  ierr = PetscFree(send_reqs);CHKERRQ(ierr);
+  ierr = PetscFree(recv_reqs);CHKERRQ(ierr);
+
   /* computing n_rbm_comm that is number of rbm per subdomain and the communicator of floating structures */
   ierr = PetscMalloc1(sizeG,&n_rbm_comm);CHKERRQ(ierr);
   ierr = MPI_Allgather(&ft2->n_rbm,1,MPIU_INT,n_rbm_comm,1,MPIU_INT,comm);CHKERRQ(ierr);
@@ -898,13 +916,16 @@ static PetscErrorCode FETI2SetUpCoarseProblem_RBM(FETI ft)
   ft2->max_n_rbm      = ft2->n_rbm;
   n_send              = (ft->n_neigh_lb-1)*(ft2->n_rbm>0);
   n_recv              = 0;
+
   if(ft2->n_rbm) {
+    
     for (i=1;i<ft->n_neigh_lb;i++){
       i_mpi                = n_rbm_comm[ft->neigh_lb[i]];
+      localnnz            += i_mpi*(ft->neigh_lb[i]>rankG);
+      
       n_recv              += (i_mpi>0);
       ft2->max_n_rbm       = (ft2->max_n_rbm > i_mpi) ? ft2->max_n_rbm : i_mpi;
       total_size_matrices += i_mpi*ft->n_shared_lb[i];
-      localnnz            += i_mpi*(ft->neigh_lb[i]>rankG);
     }
   } else {
     for (i=1;i<ft->n_neigh_lb;i++){
@@ -915,6 +936,12 @@ static PetscErrorCode FETI2SetUpCoarseProblem_RBM(FETI ft)
     }
   }
 
+
+  /* <<<<<<<============================================================================>>>>>>> */
+  /* You can use: PetscSortRemoveDupsInt() or PetscSortRemoveDupsMPIInt() */
+  
+#if (0)
+  
   ierr = PetscMalloc1(ft2->total_rbm,&nnz);CHKERRQ(ierr);
   ierr = PetscMalloc1(size_floating,&idxm);CHKERRQ(ierr);
   ierr = PetscMalloc1(sizeG,&c_displ);CHKERRQ(ierr);
@@ -1100,6 +1127,9 @@ static PetscErrorCode FETI2SetUpCoarseProblem_RBM(FETI ft)
   ierr = PetscFree(send_reqs);CHKERRQ(ierr);
   ierr = PetscFree(recv_reqs);CHKERRQ(ierr);
   ierr = PetscFree(n_rbm_comm);CHKERRQ(ierr);
+
+  # endif
+  
   PetscFunctionReturn(0);
 }
 
@@ -1380,12 +1410,11 @@ static PetscErrorCode FETIComputeSolution_FETI2(FETI ft, Vec u){
   PetscErrorCode    ierr;
   Subdomain         sd = ft->subdomain;
   Vec               lambda_local;
-  PetscInt          rank;
-  MPI_Comm          comm;
   
   PetscFunctionBegin;
-    ierr = PetscObjectGetComm((PetscObject)ft,&comm);CHKERRQ(ierr);
-    ierr = MPI_Comm_rank(comm,&rank);CHKERRQ(ierr);
+
+  /* AC modified */
+  PetscFunctionReturn(0);
 
   /* Solve interface problem */
   ierr = KSPSolve(ft->ksp_interface,ft->d,ft->lambda_global);CHKERRQ(ierr);
