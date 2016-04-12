@@ -84,7 +84,7 @@ static PetscErrorCode FETISetUp_FETI2(FETI ft)
 {
   PetscErrorCode ierr;
   FETI_2         *ft2 = (FETI_2*)ft->data;
-  
+
   PetscFunctionBegin;
   if (!ft->setupcalled) {
     ierr = FETIScalingSetUp(ft);CHKERRQ(ierr);
@@ -1412,9 +1412,6 @@ static PetscErrorCode FETIComputeSolution_FETI2(FETI ft, Vec u){
   Vec               lambda_local;
   
   PetscFunctionBegin;
-
-  /* AC modified */
-  PetscFunctionReturn(0);
 
   /* Solve interface problem */
   ierr = KSPSolve(ft->ksp_interface,ft->d,ft->lambda_global);CHKERRQ(ierr);
