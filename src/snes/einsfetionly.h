@@ -3,6 +3,7 @@
 
 typedef struct {
   FETI           feti;
+  PetscBool      refresh_jacobian;
 } SNES_FETIONLY;
 
 

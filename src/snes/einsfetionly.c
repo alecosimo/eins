@@ -79,9 +79,10 @@ static PetscErrorCode SNESSolve_FETIONLY(SNES snes)
 
   /* Take the computed step. */
   ierr = VecAXPY(X,-1.0,Y);CHKERRQ(ierr);
-  ierr = SNESComputeFunction(snes,X,F);CHKERRQ(ierr);
+
   if (snes->numbermonitors) {
     PetscReal fnorm;
+    ierr = SNESComputeFunction(snes,X,F);CHKERRQ(ierr);
     ierr = VecNorm(F,NORM_2,&fnorm);CHKERRQ(ierr);
     ierr = SNESMonitor(snes,1,fnorm);CHKERRQ(ierr);
   }
@@ -144,8 +145,9 @@ PETSC_EXTERN PetscErrorCode SNESCreate_FETIONLY(SNES snes)
   snes->usesksp = PETSC_FALSE;
   snes->usespc  = PETSC_FALSE;
 
-  ierr          = PetscNewLog(snes,&sf);CHKERRQ(ierr);
-  snes->data    = (void*)sf;
-  ierr          = FETICreate(PetscObjectComm((PetscObject)snes),&sf->feti);CHKERRQ(ierr);
+  ierr                 = PetscNewLog(snes,&sf);CHKERRQ(ierr);
+  snes->data           = (void*)sf;
+  ierr                 = FETICreate(PetscObjectComm((PetscObject)snes),&sf->feti);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
+

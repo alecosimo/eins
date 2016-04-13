@@ -220,22 +220,25 @@ static PetscErrorCode TSStep_Alpha(TS ts)
   PetscInt       next_scheme,rejections = 0;
   PetscReal      next_time_step;
   PetscErrorCode ierr;
-
+  PetscBool      problem_type_prev; /* For handling linear problems */
+  
   PetscFunctionBegin;
   ierr = PetscCitationsRegister(citation,&cited);CHKERRQ(ierr);
 
   /* The following is needed here in order to be hable to impose CB which depend on time */
-  ierr = TSPreStep(ts);CHKERRQ(ierr);
-  ierr = VecCopy(ts->vec_sol,th->X0);CHKERRQ(ierr); 
-  ierr = VecCopy(th->vec_dot,th->V0);CHKERRQ(ierr);
-  ierr = VecCopy(th->A1,th->A0);CHKERRQ(ierr);
-  th->status = TS_STEP_INCOMPLETE;
-
+  ierr              = TSPreStep(ts);CHKERRQ(ierr);
+  ierr              = VecCopy(ts->vec_sol,th->X0);CHKERRQ(ierr); 
+  ierr              = VecCopy(th->vec_dot,th->V0);CHKERRQ(ierr);
+  ierr              = VecCopy(th->A1,th->A0);CHKERRQ(ierr);
+  th->status        = TS_STEP_INCOMPLETE;
+  problem_type_prev = ts->problem_type;
+ 
   while (!ts->reason && th->status != TS_STEP_COMPLETE) {
     ierr = TSPreStep(ts);CHKERRQ(ierr);
 
     if (ts->steps == 0) {
-      ierr = TSAlpha_InitStep(ts,&stageok);CHKERRQ(ierr);
+      ts->problem_type = TS_NONLINEAR;
+      ierr             = TSAlpha_InitStep(ts,&stageok);CHKERRQ(ierr);
       if (!stageok) {accept = PETSC_FALSE; goto reject_step;}
     }
     
@@ -273,9 +276,11 @@ static PetscErrorCode TSStep_Alpha(TS ts)
       ierr = PetscInfo2(ts,"Step=%D, step rejections %D greater than current TS allowed, stopping solve\n",ts->steps,rejections);CHKERRQ(ierr);
     }
   }
-
+  ts->problem_type = problem_type_prev;
+  
   if (th->vec_sol_prev && !ts->reason) {ierr = VecCopy(th->X0,th->vec_sol_prev);CHKERRQ(ierr);}
   if (th->vec_dot_prev && !ts->reason) {ierr = VecCopy(th->V0,th->vec_dot_prev);CHKERRQ(ierr);}
+  
   PetscFunctionReturn(0);
 }
 
@@ -898,7 +903,8 @@ PetscErrorCode TSCreate_Alpha2(TS ts)
   ts->ops->interpolate    = TSInterpolate_Alpha;
   ts->ops->snesfunction   = SNESTSFormFunction_Alpha;
   ts->ops->snesjacobian   = SNESTSFormJacobian_Alpha;
-
+  ts->problem_type        = TS_NONLINEAR;
+  
   ierr = PetscObjectComposeFunction((PetscObject)ts,"TSSetIFunction2_C",TSSetIFunction2_Alpha);CHKERRQ(ierr);
   ierr = PetscObjectComposeFunction((PetscObject)ts,"TSSetIJacobian2_C",TSSetIJacobian2_Alpha);CHKERRQ(ierr);
   ierr = PetscObjectComposeFunction((PetscObject)ts,"TSComputeIFunction2_C",TSComputeIFunction2_Alpha);CHKERRQ(ierr);

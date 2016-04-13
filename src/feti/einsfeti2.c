@@ -107,7 +107,7 @@ static PetscErrorCode FETISetUp_FETI2(FETI ft)
       /*  ierr = FETI2FactorizeCoarseProblem_Private(ft);CHKERRQ(ierr); */
     }
   } else {
-    if (ft2->recomputeTangent) { ierr = FETI2SetUpNeumannSolver_Private(ft);CHKERRQ(ierr);}
+    if (ft2->factor_local_problem) { ierr = FETI2SetUpNeumannSolver_Private(ft);CHKERRQ(ierr);}
     ierr = FETI2SetInterfaceProblemRHS_Private(ft);CHKERRQ(ierr);
   }
   
@@ -250,7 +250,7 @@ PetscErrorCode FETICreate_FETI2(FETI ft)
   ierr      = PetscNewLog(ft,&feti2);CHKERRQ(ierr);
   ft->data  = (void*)feti2;
 
-  feti2->recomputeTangent      = PETSC_TRUE;
+  feti2->factor_local_problem  = PETSC_TRUE;
   feti2->coarseGType           = NO_COARSE_GRID;
   feti2->ksp_rbm               = 0;
   feti2->stiffness_mat         = 0;
@@ -1516,27 +1516,28 @@ PetscErrorCode FETI2SetStiffness(FETI ft,Mat S,FETI2IStiffness fun,void *ctx)
 
 
 #undef __FUNCT__
-#define __FUNCT__ "FETI2SetRecomputeTangentMatrix"
+#define __FUNCT__ "FETI2SetFactorizeLocalProblem"
 /*@C
-   FETI2SetRecomputeTangentMatrix - Sets the value of the flag controlling the recomputation of the tangent matrix
+   FETI2SetFactorizeLocalProblem - Sets the value of the flag controlling the factorization of the local problem
 
    Input Parameters:
-+  ft               - the FETI context 
--  recomputeTangent - boolean value to set
++  ft                    - the FETI context 
+-  factor_local_problem  - boolean value to set
 
    Level: beginner
 
 .keywords: FETI2, stiffness matrix, rigid body modes
 
 @*/
-PetscErrorCode FETI2SetRecomputeTangentMatrix(FETI ft,PetscBool recomputeTangent)
+PETSC_EXTERN PetscErrorCode FETI2SetFactorizeLocalProblem(FETI ft,PetscBool factor_local_problem);
+PETSC_EXTERN PetscErrorCode FETI2SetFactorizeLocalProblem(FETI ft,PetscBool factor_local_problem)
 {
   FETI_2         *ft2;
   
   PetscFunctionBegin;
   PetscValidHeaderSpecific(ft,FETI_CLASSID,1); 
-  ft2                   = (FETI_2*)ft->data;
-  ft2->recomputeTangent = recomputeTangent;
+  ft2                       = (FETI_2*)ft->data;
+  ft2->factor_local_problem = factor_local_problem;
   PetscFunctionReturn(0);
 }
 
@@ -1555,7 +1556,8 @@ PetscErrorCode FETI2SetRecomputeTangentMatrix(FETI ft,PetscBool recomputeTangent
 .keywords: FETI2, stiffness matrix, rigid body modes
 
 @*/
-PetscErrorCode FETI2SetComputeRBM(FETI ft,PetscBool cmpRBM)
+PETSC_EXTERN PetscErrorCode FETI2SetComputeRBM(FETI ft,PetscBool cmpRBM);
+PETSC_EXTERN PetscErrorCode FETI2SetComputeRBM(FETI ft,PetscBool cmpRBM)
 {
   FETI_2         *ft2;
   
