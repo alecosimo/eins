@@ -604,6 +604,30 @@ PetscErrorCode FETISetMappingAndGlobalSize(FETI ft,ISLocalToGlobalMapping isg2l,
 
 
 #undef __FUNCT__
+#define __FUNCT__ "FETISetFactorizeLocalProblem"
+/*@C
+   FETISetFactorizeLocalProblem - Sets the value of the flag controlling the factorization of the local problem
+
+   Input Parameters:
++  ft                    - the FETI context 
+-  factor_local_problem  - boolean value to set
+
+   Level: beginner
+
+.keywords: FETI
+
+@*/
+PETSC_EXTERN PetscErrorCode FETISetFactorizeLocalProblem(FETI ft,PetscBool factor_local_problem);
+PETSC_EXTERN PetscErrorCode FETISetFactorizeLocalProblem(FETI ft,PetscBool factor_local_problem)
+{
+  PetscFunctionBegin;
+  PetscValidHeaderSpecific(ft,FETI_CLASSID,1);
+  ft->factor_local_problem = factor_local_problem;
+  PetscFunctionReturn(0);
+}
+
+
+#undef __FUNCT__
 #define __FUNCT__ "FETICreate"
 /*@
    FETICreate - Creates a FETI context.
@@ -667,11 +691,12 @@ PetscErrorCode  FETICreate(MPI_Comm comm,FETI *newfeti)
   feti->neigh_lb             = 0;
   feti->n_shared_lb          = 0;
   feti->shared_lb            = 0;
+  feti->factor_local_problem = PETSC_TRUE;
   /* scaling variables initialization*/
   feti->Wscaling             = 0;
   feti->scaling_factor       = 1.;
   feti->scaling_type         = SCUNK;
-
+  
   ierr = KSPCreate(comm,&feti->ksp_interface);CHKERRQ(ierr);
   
   *newfeti = feti;

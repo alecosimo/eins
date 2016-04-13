@@ -107,7 +107,10 @@ static PetscErrorCode FETISetUp_FETI2(FETI ft)
       /*  ierr = FETI2FactorizeCoarseProblem_Private(ft);CHKERRQ(ierr); */
     }
   } else {
-    if (ft2->factor_local_problem) { ierr = FETI2SetUpNeumannSolver_Private(ft);CHKERRQ(ierr);}
+    if (ft->factor_local_problem) {
+      ierr = FETI2SetUpNeumannSolver_Private(ft);CHKERRQ(ierr);
+      ft->factor_local_problem = PETSC_FALSE;
+    }
     ierr = FETI2SetInterfaceProblemRHS_Private(ft);CHKERRQ(ierr);
   }
   
@@ -250,7 +253,6 @@ PetscErrorCode FETICreate_FETI2(FETI ft)
   ierr      = PetscNewLog(ft,&feti2);CHKERRQ(ierr);
   ft->data  = (void*)feti2;
 
-  feti2->factor_local_problem  = PETSC_TRUE;
   feti2->coarseGType           = NO_COARSE_GRID;
   feti2->ksp_rbm               = 0;
   feti2->stiffness_mat         = 0;
@@ -1511,33 +1513,6 @@ PetscErrorCode FETI2SetStiffness(FETI ft,Mat S,FETI2IStiffness fun,void *ctx)
   ft2->stiffnessFun  = fun;
   ft2->stiffness_mat = S;
   ft2->stiffness_ctx = ctx;
-  PetscFunctionReturn(0);
-}
-
-
-#undef __FUNCT__
-#define __FUNCT__ "FETI2SetFactorizeLocalProblem"
-/*@C
-   FETI2SetFactorizeLocalProblem - Sets the value of the flag controlling the factorization of the local problem
-
-   Input Parameters:
-+  ft                    - the FETI context 
--  factor_local_problem  - boolean value to set
-
-   Level: beginner
-
-.keywords: FETI2, stiffness matrix, rigid body modes
-
-@*/
-PETSC_EXTERN PetscErrorCode FETI2SetFactorizeLocalProblem(FETI ft,PetscBool factor_local_problem);
-PETSC_EXTERN PetscErrorCode FETI2SetFactorizeLocalProblem(FETI ft,PetscBool factor_local_problem)
-{
-  FETI_2         *ft2;
-  
-  PetscFunctionBegin;
-  PetscValidHeaderSpecific(ft,FETI_CLASSID,1); 
-  ft2                       = (FETI_2*)ft->data;
-  ft2->factor_local_problem = factor_local_problem;
   PetscFunctionReturn(0);
 }
 

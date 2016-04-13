@@ -40,7 +40,6 @@ typedef struct {
   KSP             ksp_rbm;
 
   CoarseGridType  coarseGType;
-  PetscBool       factor_local_problem;
   
 } FETI_2;
 

@@ -220,7 +220,6 @@ static PetscErrorCode TSStep_Alpha(TS ts)
   PetscInt       next_scheme,rejections = 0;
   PetscReal      next_time_step;
   PetscErrorCode ierr;
-  PetscBool      problem_type_prev; /* For handling linear problems */
   
   PetscFunctionBegin;
   ierr = PetscCitationsRegister(citation,&cited);CHKERRQ(ierr);
@@ -231,14 +230,12 @@ static PetscErrorCode TSStep_Alpha(TS ts)
   ierr              = VecCopy(th->vec_dot,th->V0);CHKERRQ(ierr);
   ierr              = VecCopy(th->A1,th->A0);CHKERRQ(ierr);
   th->status        = TS_STEP_INCOMPLETE;
-  problem_type_prev = ts->problem_type;
  
   while (!ts->reason && th->status != TS_STEP_COMPLETE) {
     ierr = TSPreStep(ts);CHKERRQ(ierr);
 
     if (ts->steps == 0) {
-      ts->problem_type = TS_NONLINEAR;
-      ierr             = TSAlpha_InitStep(ts,&stageok);CHKERRQ(ierr);
+      ierr = TSAlpha_InitStep(ts,&stageok);CHKERRQ(ierr);
       if (!stageok) {accept = PETSC_FALSE; goto reject_step;}
     }
     
@@ -276,7 +273,14 @@ static PetscErrorCode TSStep_Alpha(TS ts)
       ierr = PetscInfo2(ts,"Step=%D, step rejections %D greater than current TS allowed, stopping solve\n",ts->steps,rejections);CHKERRQ(ierr);
     }
   }
-  ts->problem_type = problem_type_prev;
+
+  /* preventing linear problems from recomputing the jacobian */
+  if(ts->problem_type == TS_LINEAR) {
+    Mat   J,P;
+    void* ctx;
+    ierr = TSGetIJacobian(ts,&J,&P,NULL,&ctx);CHKERRQ(ierr);
+    ierr = TSSetIJacobian2(ts,J,P,TSComputeIJacobian2ConstantInvariant,ctx);CHKERRQ(ierr);
+  }
   
   if (th->vec_sol_prev && !ts->reason) {ierr = VecCopy(th->X0,th->vec_sol_prev);CHKERRQ(ierr);}
   if (th->vec_dot_prev && !ts->reason) {ierr = VecCopy(th->V0,th->vec_dot_prev);CHKERRQ(ierr);}

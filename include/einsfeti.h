@@ -77,6 +77,7 @@ PETSC_EXTERN PetscErrorCode FETIFinalizePackage(void);
 PETSC_EXTERN PetscErrorCode FETIInitializePackage(void);
 PETSC_EXTERN PetscErrorCode FETIGetKSPInterface(FETI,KSP*);
 PETSC_EXTERN PetscErrorCode FETISolve(FETI,Vec);
+PETSC_EXTERN PetscErrorCode FETISetFactorizeLocalProblem(FETI,PetscBool);
 /* FETI1 stuff */
 PETSC_EXTERN PetscErrorCode FETI1SetDefaultOptions(int*,char***,const char[]);
 /* FETI2 stuff */
@@ -85,7 +86,6 @@ PETSC_EXTERN PetscErrorCode FETI2SetDefaultOptions(int*,char***,const char[]);
 PETSC_EXTERN PetscErrorCode FETI2SetStiffness(FETI,Mat,FETI2IStiffness,void*);
 PETSC_EXTERN PetscErrorCode FETI2SetComputeRBM(FETI,PetscBool);
 PETSC_EXTERN PetscErrorCode FETI2SetCoarseGridType(FETI,CoarseGridType);
-PETSC_EXTERN PetscErrorCode FETI2SetFactorizeLocalProblem(FETI,PetscBool);
 /* scaling */
 PETSC_EXTERN PetscErrorCode FETIScalingSetUp(FETI);
 PETSC_EXTERN PetscErrorCode FETIScalingSetScalingFactor(FETI,PetscScalar);

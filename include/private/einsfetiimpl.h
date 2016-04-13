@@ -65,6 +65,7 @@ struct _p_FETI {
   PetscInt         setupcalled;
   PetscInt         setfromoptionscalled;
   void             *data;
+  PetscBool        factor_local_problem;
 };
 
 PETSC_EXTERN PetscLogEvent FETI_SetUp;
