@@ -518,6 +518,9 @@ static PetscErrorCode TSSetUp_Alpha(TS ts)
   PetscErrorCode ierr;
 
   PetscFunctionBegin;
+  if (th->adapt && ts->problem_type==TS_LINEAR) {
+    SETERRQ(PetscObjectComm((PetscObject)ts),PETSC_ERR_ORDER,"Time adaptivity not supported for linear problems");
+  }
   if (!th->vec_dot) {ierr = VecDuplicate(ts->vec_sol,&th->vec_dot);CHKERRQ(ierr);}
   ierr = VecDuplicate(ts->vec_sol,&th->X0);CHKERRQ(ierr);
   ierr = VecDuplicate(ts->vec_sol,&th->Xa);CHKERRQ(ierr);

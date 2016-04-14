@@ -14,11 +14,14 @@
 
 @*/
 PETSC_EXTERN PetscErrorCode TSComputeIJacobian2ConstantInvariant(TS,PetscReal,Vec,Vec,Vec,PetscReal,PetscReal,Mat,Mat,void*);
-PETSC_EXTERN PetscErrorCode TSComputeIJacobian2ConstantInvariant(PETSC_UNUSED TS a,PETSC_UNUSED PetscReal b,
+PETSC_EXTERN PetscErrorCode TSComputeIJacobian2ConstantInvariant(PETSC_UNUSED TS ts,PETSC_UNUSED PetscReal b,
 								 PETSC_UNUSED Vec c, PETSC_UNUSED Vec d, PETSC_UNUSED Vec e,
 								 PETSC_UNUSED PetscReal f, PETSC_UNUSED PetscReal g, PETSC_UNUSED Mat h,
 								 PETSC_UNUSED Mat i, PETSC_UNUSED void* j)
 {
-  PetscFunctionBegin;
+  PetscErrorCode ierr;
+
+  PetscFunctionBegin; 
+  ierr = SNESNoJacobianIsComputed(ts->snes);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }

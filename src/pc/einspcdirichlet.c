@@ -63,7 +63,8 @@ static PetscErrorCode PCSetUp_DIRICHLET(PC pc)
   
   /* create local Schur complement matrix */
   ierr = MatCreateSchurComplement(sd->A_II,sd->A_II,sd->A_IB,sd->A_BI,sd->A_BB,&pcd->Sj);CHKERRQ(ierr);
-  ierr = MatSchurComplementSetKSP(pcd->Sj,pcd->ksp_D);CHKERRQ(ierr); 
+  ierr = MatSchurComplementSetKSP(pcd->Sj,pcd->ksp_D);CHKERRQ(ierr);
+
   PetscFunctionReturn(0);
 }
 

@@ -39,7 +39,9 @@ static PetscErrorCode SNESSolve_FETIONLY(SNES snes)
   Vec                Y,X,F;
 
   PetscFunctionBegin;
-  if (snes->xl || snes->xu || snes->ops->computevariablebounds) SETERRQ1(PetscObjectComm((PetscObject)snes),PETSC_ERR_ARG_WRONGSTATE, "SNES solver %s does not support bounds", ((PetscObject)snes)->type_name);
+  if (snes->xl || snes->xu || snes->ops->computevariablebounds) {
+    SETERRQ1(PetscObjectComm((PetscObject)snes),PETSC_ERR_ARG_WRONGSTATE, "SNES solver %s does not support bounds", ((PetscObject)snes)->type_name);
+  }
   
   snes->numFailures            = 0;
   snes->numLinearSolveFailures = 0;
@@ -103,6 +105,19 @@ static PetscErrorCode SNESSetUp_FETIONLY(SNES snes)
 
 
 #undef __FUNCT__
+#define __FUNCT__ "SNESNoJacobianIsComputed_FETIONLY"
+static PetscErrorCode SNESNoJacobianIsComputed_FETIONLY(SNES snes)
+{
+  PetscErrorCode ierr;
+  SNES_FETIONLY *sf = (SNES_FETIONLY*)snes->data;
+  
+  PetscFunctionBegin;
+  ierr = FETISetFactorizeLocalProblem(sf->feti,PETSC_FALSE);CHKERRQ(ierr);
+  PetscFunctionReturn(0);
+}
+
+
+#undef __FUNCT__
 #define __FUNCT__ "SNESDestroy_FETIONLY"
 static PetscErrorCode SNESDestroy_FETIONLY(SNES snes)
 {
@@ -111,6 +126,7 @@ static PetscErrorCode SNESDestroy_FETIONLY(SNES snes)
   
   PetscFunctionBegin;
   if(sf->feti) {ierr = FETIDestroy(&sf->feti);CHKERRQ(ierr);}
+  ierr = PetscObjectComposeFunction((PetscObject)snes,"SNESNoJacobianIsComputed_C",NULL);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 
@@ -145,6 +161,8 @@ PETSC_EXTERN PetscErrorCode SNESCreate_FETIONLY(SNES snes)
   snes->usesksp = PETSC_FALSE;
   snes->usespc  = PETSC_FALSE;
 
+  ierr = PetscObjectComposeFunction((PetscObject)snes,"SNESNoJacobianIsComputed_C",SNESNoJacobianIsComputed_FETIONLY);CHKERRQ(ierr);
+  
   ierr                 = PetscNewLog(snes,&sf);CHKERRQ(ierr);
   snes->data           = (void*)sf;
   ierr                 = FETICreate(PetscObjectComm((PetscObject)snes),&sf->feti);CHKERRQ(ierr);

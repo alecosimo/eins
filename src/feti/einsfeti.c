@@ -271,6 +271,7 @@ PetscErrorCode FETICreateFMat(FETI ft,void (*FETIMatMult)(void),void (*FETIDestr
    Options Database:
 .   -feti_type: speciefies the FETI method
 .   -feti_interface_<ksp_option>: options for the KSP for the interface problem
+.   -feti_resetup_pc_interface: if set, PCSetUp of the PC for interface problem is called everytime that the local problem is factorized
 
    Level: begginer
 
@@ -296,6 +297,9 @@ PetscErrorCode  FETISetFromOptions(FETI feti)
     ierr = FETISetType(feti,def);CHKERRQ(ierr);
   }
 
+  ierr = PetscOptionsBool("-feti_resetup_pc_interface","If set, PCSetUp of the PC for interface problem is called everytime that the local problem is factorized",
+			  "none",feti->resetup_pc_interface,&feti->resetup_pc_interface,NULL);CHKERRQ(ierr);
+  
   if (feti->ops->setfromoptions) {
     ierr = (*feti->ops->setfromoptions)(PetscOptionsObject,feti);CHKERRQ(ierr);
   }
@@ -604,6 +608,32 @@ PetscErrorCode FETISetMappingAndGlobalSize(FETI ft,ISLocalToGlobalMapping isg2l,
 
 
 #undef __FUNCT__
+#define __FUNCT__ "FETISetReSetupPCInterface"
+/*@C 
+   FETISetReSetupPCInterface - Sets the value of the flag
+   controlling the call to PCSetUp of the PC corresponding to
+   interface problem.
+
+   Input Parameters:
++  ft                    - the FETI context 
+-  resetup_pc_interface  - boolean value to set
+
+   Level: beginner
+
+.keywords: FETI
+
+@*/
+PETSC_EXTERN PetscErrorCode FETISetReSetupPCInterface(FETI ft,PetscBool resetup_pc_interface);
+PETSC_EXTERN PetscErrorCode FETISetReSetupPCInterface(FETI ft,PetscBool resetup_pc_interface)
+{
+  PetscFunctionBegin;
+  PetscValidHeaderSpecific(ft,FETI_CLASSID,1);
+  ft->resetup_pc_interface = resetup_pc_interface;
+  PetscFunctionReturn(0);
+}
+
+
+#undef __FUNCT__
 #define __FUNCT__ "FETISetFactorizeLocalProblem"
 /*@C
    FETISetFactorizeLocalProblem - Sets the value of the flag controlling the factorization of the local problem
@@ -692,6 +722,7 @@ PetscErrorCode  FETICreate(MPI_Comm comm,FETI *newfeti)
   feti->n_shared_lb          = 0;
   feti->shared_lb            = 0;
   feti->factor_local_problem = PETSC_TRUE;
+  feti->resetup_pc_interface = PETSC_TRUE;
   /* scaling variables initialization*/
   feti->Wscaling             = 0;
   feti->scaling_factor       = 1.;

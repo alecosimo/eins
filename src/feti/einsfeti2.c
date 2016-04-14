@@ -108,8 +108,12 @@ static PetscErrorCode FETISetUp_FETI2(FETI ft)
     }
   } else {
     if (ft->factor_local_problem) {
+      if (ft->resetup_pc_interface) {
+	PC pc;
+	ierr = KSPGetPC(ft->ksp_interface,&pc);CHKERRQ(ierr);
+	ierr = PCSetUp(pc);CHKERRQ(ierr);
+      }
       ierr = FETI2SetUpNeumannSolver_Private(ft);CHKERRQ(ierr);
-      ft->factor_local_problem = PETSC_FALSE;
     }
     ierr = FETI2SetInterfaceProblemRHS_Private(ft);CHKERRQ(ierr);
   }

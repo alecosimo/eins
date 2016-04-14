@@ -78,6 +78,7 @@ PETSC_EXTERN PetscErrorCode FETIInitializePackage(void);
 PETSC_EXTERN PetscErrorCode FETIGetKSPInterface(FETI,KSP*);
 PETSC_EXTERN PetscErrorCode FETISolve(FETI,Vec);
 PETSC_EXTERN PetscErrorCode FETISetFactorizeLocalProblem(FETI,PetscBool);
+PETSC_EXTERN PetscErrorCode FETISetReSetupPCInterface(FETI,PetscBool);
 /* FETI1 stuff */
 PETSC_EXTERN PetscErrorCode FETI1SetDefaultOptions(int*,char***,const char[]);
 /* FETI2 stuff */
