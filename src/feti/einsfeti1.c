@@ -45,6 +45,7 @@ static PetscErrorCode FETIDestroy_FETI1(FETI ft)
   ierr = VecDestroy(&ft1->res_interface);CHKERRQ(ierr);
   ierr = VecDestroy(&ft1->alpha_local);CHKERRQ(ierr);
   ierr = MatDestroy(&ft1->localG);CHKERRQ(ierr);
+  ierr = MatDestroy(&ft1->rbm);CHKERRQ(ierr);
   ierr = VecDestroy(&ft1->local_e);CHKERRQ(ierr);
   ierr = KSPDestroy(&ft1->ksp_coarse);CHKERRQ(ierr);
   if(ft1->neigh_holder) {

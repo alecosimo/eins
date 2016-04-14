@@ -280,12 +280,12 @@ int main(int argc,char **args)
   PetscErrorCode           ierr;
   DomainData               dd;
   /* PetscReal                norm,maxeig,mineig;*/
-  Mat                      localA=0;
+  Mat                      localA=0,lgmat=0;
   Vec                      localRHS=0,u=0;
   ISLocalToGlobalMapping   mapping=0;
   FETI                     feti;
   KSP                      ksp_interface;
-  PetscInt                 rank;
+  PetscInt                 rank,lsize;
   
   /* Init EINS */
   EinsInitialize(&argc,&args,(char*)0,help);
@@ -294,7 +294,9 @@ int main(int argc,char **args)
   /* Decompose domain */
   ierr = DomainDecomposition(&dd);CHKERRQ(ierr);
   /* assemble global matrix */
-  ierr = ComputeMatrixAndRHS(dd,&localA,&localRHS);CHKERRQ(ierr);
+  lsize = dd.xm_l*dd.ym_l;
+  ierr  = ComputeMatrixAndRHS(dd,&localA,&localRHS);CHKERRQ(ierr);
+  ierr  = MatCreateLGMat(PETSC_COMM_WORLD,lsize,lsize,localA,&lgmat);CHKERRQ(ierr);
   /* Compute global mapping of local dofs */
   ierr = ComputeMapping(dd,&mapping);CHKERRQ(ierr);
 
@@ -306,7 +308,7 @@ int main(int argc,char **args)
 
   /* Create u */
   ierr = VecCreate(dd.gcomm,&u);CHKERRQ(ierr);
-  ierr = VecSetSizes(u,dd.xm_l*dd.ym_l,dd.xm*dd.ym);CHKERRQ(ierr);
+  ierr = VecSetSizes(u,lsize,dd.xm*dd.ym);CHKERRQ(ierr);
   ierr = VecSetType(u,VECMPIUNASM);CHKERRQ(ierr);
   
   /* Setting FETI */
@@ -314,7 +316,7 @@ int main(int argc,char **args)
   ierr = FETISetType(feti,FETI1);CHKERRQ(ierr);
   ierr = FETI1SetDefaultOptions(&argc,&args,NULL);CHKERRQ(ierr);
   ierr = FETISetFromOptions(feti);CHKERRQ(ierr);
-  ierr = FETISetLocalMat(feti,localA);CHKERRQ(ierr);
+  ierr = FETISetMat(feti,lgmat);CHKERRQ(ierr);
   ierr = FETISetLocalRHS(feti,localRHS);CHKERRQ(ierr);
   ierr = FETISetInterfaceSolver(feti,KSPPJCG,PCFETI_DIRICHLET);CHKERRQ(ierr);//
   ierr = FETISetMappingAndGlobalSize(feti,mapping,dd.xm*dd.ym);CHKERRQ(ierr);
@@ -331,6 +333,7 @@ int main(int argc,char **args)
 
   ierr = FETIDestroy(&feti);CHKERRQ(ierr);
   ierr = MatDestroy(&localA);CHKERRQ(ierr);
+  ierr = MatDestroy(&lgmat);CHKERRQ(ierr);
   ierr = VecDestroy(&u);CHKERRQ(ierr);
   ierr = VecDestroy(&localRHS);CHKERRQ(ierr);
   ierr = ISLocalToGlobalMappingDestroy(&mapping);CHKERRQ(ierr);

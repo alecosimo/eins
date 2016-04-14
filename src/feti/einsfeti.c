@@ -577,11 +577,14 @@ PetscErrorCode FETISetLocalMat(FETI ft,Mat local_mat)
 PetscErrorCode FETISetMat(FETI ft,Mat mat)
 {
   PetscErrorCode ierr;
+  PetscBool      flg;
   LGMat_ctx      mat_ctx;
   
   PetscFunctionBegin;
   PetscValidHeaderSpecific(ft,FETI_CLASSID,1);
   PetscValidHeaderSpecific(mat,MAT_CLASSID,2);
+  ierr = PetscObjectTypeCompare((PetscObject)mat,MATSHELLUNASM,&flg);CHKERRQ(ierr);
+  if(!flg) SETERRQ(PetscObjectComm((PetscObject)mat),PETSC_ERR_SUP,"Cannot set non-MATSHELLUNASM matrix");
   ierr = MatShellUnAsmGetContext(mat,(void**)&mat_ctx);CHKERRQ(ierr);
   ierr = SubdomainSetLocalMat(ft->subdomain,mat_ctx->localA);CHKERRQ(ierr);
   PetscFunctionReturn(0);
@@ -606,11 +609,14 @@ PetscErrorCode FETISetMat(FETI ft,Mat mat)
 PetscErrorCode FETISetRHS(FETI ft,Vec rhs)
 {
   PetscErrorCode ierr;
+  PetscBool      flg;
   Vec            rhs_local;
   
   PetscFunctionBegin;
   PetscValidHeaderSpecific(ft,FETI_CLASSID,1);
   PetscValidHeaderSpecific(rhs,VEC_CLASSID,2);
+  ierr = PetscObjectTypeCompare((PetscObject)rhs,VECMPIUNASM,&flg);CHKERRQ(ierr);
+  if(!flg) SETERRQ(PetscObjectComm((PetscObject)rhs),PETSC_ERR_SUP,"Cannot set non-VECMPIUNASM vector");
   ierr = VecUnAsmGetLocalVector(rhs,&rhs_local);CHKERRQ(ierr);
   ierr = SubdomainSetLocalRHS(ft->subdomain,rhs_local);CHKERRQ(ierr);
   PetscFunctionReturn(0);

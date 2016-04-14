@@ -88,6 +88,7 @@ static PetscErrorCode SNESSolve_FETIONLY(SNES snes)
     ierr = VecNorm(F,NORM_2,&fnorm);CHKERRQ(ierr);
     ierr = SNESMonitor(snes,1,fnorm);CHKERRQ(ierr);
   }
+
   PetscFunctionReturn(0);
 }
 

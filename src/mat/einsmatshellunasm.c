@@ -197,7 +197,6 @@ PETSC_EXTERN PetscErrorCode MatCreate_ShellUnAsm(Mat A)
   PetscErrorCode  ierr;
 
   PetscFunctionBegin;
-
   ierr    = PetscNewLog(A,&b);CHKERRQ(ierr);
   A->data = (void*)b;
   
