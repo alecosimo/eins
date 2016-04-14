@@ -67,8 +67,8 @@ static PetscErrorCode SNESSolve_FETIONLY(SNES snes)
 
   /* Solve J Y = F, where J is Jacobian matrix */
   ierr = SNESComputeJacobian(snes,X,snes->jacobian,NULL);CHKERRQ(ierr);
-  ierr = FETISetLocalMat(sf->feti,snes->jacobian);CHKERRQ(ierr);
-  ierr = FETISetLocalRHS(sf->feti,F);CHKERRQ(ierr);
+  ierr = FETISetMat(sf->feti,snes->jacobian);CHKERRQ(ierr);
+  ierr = FETISetRHS(sf->feti,F);CHKERRQ(ierr);
   ierr = FETISetUp(sf->feti);CHKERRQ(ierr);
   ierr = FETISolve(sf->feti,Y);CHKERRQ(ierr);
   snes->reason = SNES_CONVERGED_ITS;

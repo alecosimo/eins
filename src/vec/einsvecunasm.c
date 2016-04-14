@@ -75,8 +75,6 @@ static PetscErrorCode VecCreate_UNASM_Private(Vec v,const PetscScalar array[])
 {
   PetscErrorCode ierr;
   Vec_UNASM      *b;
-  PetscMPIInt    rank;
-  char           str[10];
   MPI_Comm       comm;
   
   PetscFunctionBegin;
@@ -90,9 +88,6 @@ static PetscErrorCode VecCreate_UNASM_Private(Vec v,const PetscScalar array[])
   } else {
     ierr = VecCreateSeqWithArray(PETSC_COMM_SELF,1,v->map->n,array,&b->vlocal);CHKERRQ(ierr);
   }
-  ierr = MPI_Comm_rank(comm,&rank);CHKERRQ(ierr);
-  sprintf(str,NAMEDOMAIN,rank);
-  ierr = PetscObjectSetName((PetscObject)b->vlocal,str);CHKERRQ(ierr);
   if((v->map->N) == PETSC_DECIDE) { ierr = MPI_Allreduce(&v->map->n,&v->map->N,1,MPIU_INT,MPI_SUM,comm);CHKERRQ(ierr); }
   
   b->multiplicity          = 0;

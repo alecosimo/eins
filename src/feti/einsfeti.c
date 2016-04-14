@@ -1,4 +1,5 @@
 #include <private/einsfetiimpl.h>
+#include <private/einsmatimpl.h>
 
 PetscClassId      FETI_CLASSID;
 PetscLogEvent     FETI_SetUp;
@@ -507,13 +508,21 @@ PetscErrorCode FETIGetKSPInterface(FETI ft,KSP *ksp_interface)
 PetscErrorCode FETISolve(FETI ft,Vec u)
 {
   PetscErrorCode ierr;
+  PetscBool      flg;
   
   PetscFunctionBegin;
   PetscValidHeaderSpecific(ft,FETI_CLASSID,1);
   PetscValidHeaderSpecific(u,VEC_CLASSID,2);
   if (!ft->setupcalled) SETERRQ(PetscObjectComm((PetscObject)ft),PETSC_ERR_ARG_WRONGSTATE,"Error: FETISetUp() must be first called.");
   if (ft->ops->computesolution) {
-    ierr = (*ft->ops->computesolution)(ft,u);CHKERRQ(ierr);
+    ierr = PetscObjectTypeCompare((PetscObject)u,VECMPIUNASM,&flg);CHKERRQ(ierr);
+    if (!flg) {
+      ierr = (*ft->ops->computesolution)(ft,u);CHKERRQ(ierr);
+    } else {
+      Vec u_local;
+      ierr = VecUnAsmGetLocalVector(u,&u_local);CHKERRQ(ierr);
+      ierr = (*ft->ops->computesolution)(ft,u_local);CHKERRQ(ierr);
+    }
   } else {
     SETERRQ(PetscObjectComm((PetscObject)ft),PETSC_ERR_ARG_WRONGSTATE,"Error: Compute Solution of specific FETI method not found.");
   }
@@ -546,6 +555,64 @@ PetscErrorCode FETISetLocalMat(FETI ft,Mat local_mat)
   PetscValidHeaderSpecific(ft,FETI_CLASSID,1);
   PetscValidHeaderSpecific(local_mat,MAT_CLASSID,2);
   ierr = SubdomainSetLocalMat(ft->subdomain,local_mat);CHKERRQ(ierr);
+  PetscFunctionReturn(0);
+}
+
+
+#undef  __FUNCT__
+#define __FUNCT__ "FETISetMat"
+/*@
+   FETISetMat - Sets the local system matrix for the current process by providing a locally unassembled matrix.
+
+   Input Parameter:
+.  ft    - The FETI context
+.  mat   - The matrix
+
+   Level: beginner
+
+.keywords: FETI, local system matrix
+
+.seealso: FETISetLocalRHS(), FETISetMapping()
+@*/
+PetscErrorCode FETISetMat(FETI ft,Mat mat)
+{
+  PetscErrorCode ierr;
+  LGMat_ctx      mat_ctx;
+  
+  PetscFunctionBegin;
+  PetscValidHeaderSpecific(ft,FETI_CLASSID,1);
+  PetscValidHeaderSpecific(mat,MAT_CLASSID,2);
+  ierr = MatShellUnAsmGetContext(mat,(void**)&mat_ctx);CHKERRQ(ierr);
+  ierr = SubdomainSetLocalMat(ft->subdomain,mat_ctx->localA);CHKERRQ(ierr);
+  PetscFunctionReturn(0);
+}
+
+
+#undef  __FUNCT__
+#define __FUNCT__ "FETISetRHS"
+/*@
+   FETISetRHS - Sets the local system RHS for the current process by providing a globally unassembled vector.
+
+   Input Parameter:
+.  ft  - The FETI context
+.  rhs - The system rhs
+
+   Level: beginner
+
+.keywords: FETI, local system rhs
+
+.seealso: FETISetLocalMat(), FETISetMapping()
+@*/
+PetscErrorCode FETISetRHS(FETI ft,Vec rhs)
+{
+  PetscErrorCode ierr;
+  Vec            rhs_local;
+  
+  PetscFunctionBegin;
+  PetscValidHeaderSpecific(ft,FETI_CLASSID,1);
+  PetscValidHeaderSpecific(rhs,VEC_CLASSID,2);
+  ierr = VecUnAsmGetLocalVector(rhs,&rhs_local);CHKERRQ(ierr);
+  ierr = SubdomainSetLocalRHS(ft->subdomain,rhs_local);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 
@@ -623,7 +690,6 @@ PetscErrorCode FETISetMappingAndGlobalSize(FETI ft,ISLocalToGlobalMapping isg2l,
 .keywords: FETI
 
 @*/
-PETSC_EXTERN PetscErrorCode FETISetReSetupPCInterface(FETI ft,PetscBool resetup_pc_interface);
 PETSC_EXTERN PetscErrorCode FETISetReSetupPCInterface(FETI ft,PetscBool resetup_pc_interface)
 {
   PetscFunctionBegin;
@@ -647,7 +713,6 @@ PETSC_EXTERN PetscErrorCode FETISetReSetupPCInterface(FETI ft,PetscBool resetup_
 .keywords: FETI
 
 @*/
-PETSC_EXTERN PetscErrorCode FETISetFactorizeLocalProblem(FETI ft,PetscBool factor_local_problem);
 PETSC_EXTERN PetscErrorCode FETISetFactorizeLocalProblem(FETI ft,PetscBool factor_local_problem)
 {
   PetscFunctionBegin;

@@ -1,3 +1,4 @@
+#include <einssnes.h>
 #include <petsc/private/snesimpl.h>
 
 
@@ -16,7 +17,6 @@
 
 .seealso: SNESCreate
 @*/
-PETSC_EXTERN PetscErrorCode SNESNoJacobianIsComputed(SNES snes);
 PETSC_EXTERN PetscErrorCode SNESNoJacobianIsComputed(SNES snes)
 {
   PetscErrorCode ierr;

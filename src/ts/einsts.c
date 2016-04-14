@@ -1,3 +1,4 @@
+#include <einssnes.h>
 #include <einsts.h>
 #if PETSC_VERSION_LT(3,6,0)
 #include <petsc-private/tsimpl.h>                /*I   "petscts.h"   I*/
@@ -13,7 +14,6 @@
    modify the already computed Jacobian.
 
 @*/
-PETSC_EXTERN PetscErrorCode TSComputeIJacobian2ConstantInvariant(TS,PetscReal,Vec,Vec,Vec,PetscReal,PetscReal,Mat,Mat,void*);
 PETSC_EXTERN PetscErrorCode TSComputeIJacobian2ConstantInvariant(PETSC_UNUSED TS ts,PETSC_UNUSED PetscReal b,
 								 PETSC_UNUSED Vec c, PETSC_UNUSED Vec d, PETSC_UNUSED Vec e,
 								 PETSC_UNUSED PetscReal f, PETSC_UNUSED PetscReal g, PETSC_UNUSED Mat h,

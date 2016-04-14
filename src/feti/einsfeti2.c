@@ -1535,7 +1535,6 @@ PetscErrorCode FETI2SetStiffness(FETI ft,Mat S,FETI2IStiffness fun,void *ctx)
 .keywords: FETI2, stiffness matrix, rigid body modes
 
 @*/
-PETSC_EXTERN PetscErrorCode FETI2SetComputeRBM(FETI ft,PetscBool cmpRBM);
 PETSC_EXTERN PetscErrorCode FETI2SetComputeRBM(FETI ft,PetscBool cmpRBM)
 {
   FETI_2         *ft2;

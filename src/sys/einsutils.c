@@ -1,4 +1,5 @@
 #include <einssys.h>
+#include <einsvec.h>
 #include <petsc/private/petscimpl.h>
 #include <petsc/private/vecimpl.h>
 #include <petscmat.h>
@@ -48,24 +49,34 @@ PetscErrorCode MatSeqViewSynchronized(MPI_Comm comm,Mat mat)
 
    Input Parameter:
 .  comm   - The MPI communicator
-.  vec    - The sequential vector to print
+.  vector - The sequential vector to print
 
    Level: beginner
 
 @*/
-PetscErrorCode VecSeqViewSynchronized(MPI_Comm comm,Vec vecprint)
+PetscErrorCode VecSeqViewSynchronized(MPI_Comm comm,Vec vector)
 {
   PetscErrorCode    ierr;
   PetscMPIInt       j,n,size,rank;
-  PetscInt          work = vecprint->map->n,len;
+  PetscInt          work,len;
   MPI_Status        status;
   Vec               vec;
   PetscScalar       *values;
+  PetscBool         flg;
+  Vec               vecprint;
   const PetscScalar *xarray;
 
   
   PetscFunctionBeginUser;
-  PetscValidHeaderSpecific(vecprint,VEC_CLASSID,2);
+  PetscValidHeaderSpecific(vector,VEC_CLASSID,2);
+  ierr = PetscObjectTypeCompare((PetscObject)vector,VECMPIUNASM,&flg);CHKERRQ(ierr);
+  if (!flg) {
+    vecprint = vector;
+  } else {
+    ierr = VecUnAsmGetLocalVector(vector,&vecprint);CHKERRQ(ierr);
+  }
+  work = vecprint->map->n;
+
   ierr = MPI_Comm_size(comm,&size);
   ierr = MPI_Comm_rank(comm,&rank);
 
