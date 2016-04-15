@@ -37,7 +37,8 @@ static PetscErrorCode SNESSolve_FETIONLY(SNES snes)
   SNES_FETIONLY      *sf = (SNES_FETIONLY*)snes->data;
   PetscInt           lits;
   Vec                Y,X,F;
-
+  KSP                ksp;
+  
   PetscFunctionBegin;
   if (snes->xl || snes->xu || snes->ops->computevariablebounds) {
     SETERRQ1(PetscObjectComm((PetscObject)snes),PETSC_ERR_ARG_WRONGSTATE, "SNES solver %s does not support bounds", ((PetscObject)snes)->type_name);
@@ -56,7 +57,7 @@ static PetscErrorCode SNESSolve_FETIONLY(SNES snes)
   ierr = SNESComputeFunction(snes,X,F);CHKERRQ(ierr);
   if (snes->numbermonitors) {
     PetscReal fnorm;
-    ierr = VecNorm(F,NORM_2,&fnorm);CHKERRQ(ierr);
+    ierr = FETIComputeForceNorm(sf->feti,F,NORM_2,&fnorm);CHKERRQ(ierr);
     ierr = SNESMonitor(snes,0,fnorm);CHKERRQ(ierr);
   }
 
@@ -74,7 +75,8 @@ static PetscErrorCode SNESSolve_FETIONLY(SNES snes)
   snes->reason = SNES_CONVERGED_ITS;
   SNESCheckKSPSolve(snes);
 
-  ierr              = KSPGetIterationNumber(snes->ksp,&lits);CHKERRQ(ierr);
+  ierr              = FETIGetKSPInterface(sf->feti,&ksp);CHKERRQ(ierr);
+  ierr              = KSPGetIterationNumber(ksp,&lits);CHKERRQ(ierr);
   snes->linear_its += lits;
   ierr              = PetscInfo2(snes,"iter=%D, linear solve iterations=%D\n",snes->iter,lits);CHKERRQ(ierr);
   snes->iter++;
@@ -85,7 +87,7 @@ static PetscErrorCode SNESSolve_FETIONLY(SNES snes)
   
   if (snes->numbermonitors) {
     PetscReal fnorm;
-    ierr = VecNorm(F,NORM_2,&fnorm);CHKERRQ(ierr);
+    ierr = FETIComputeForceNorm(sf->feti,F,NORM_2,&fnorm);CHKERRQ(ierr);
     ierr = SNESMonitor(snes,1,fnorm);CHKERRQ(ierr);
   }
 
