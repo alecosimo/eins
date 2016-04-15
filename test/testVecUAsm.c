@@ -147,6 +147,7 @@ int main(int argc,char **argv)
   ierr = ISLocalToGlobalMappingDestroy(&mapping);CHKERRQ(ierr);
   ierr = VecExchangeDestroy(&ve);CHKERRQ(ierr);
   ierr = VecDestroy(&v2);CHKERRQ(ierr);
+  ierr = VecDestroy(&v3);CHKERRQ(ierr);
   ierr = VecDestroy(&vec_comp);CHKERRQ(ierr);
   ierr = VecDestroy(&v);CHKERRQ(ierr);
   ierr = VecDestroy(&mpivec);CHKERRQ(ierr);

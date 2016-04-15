@@ -129,6 +129,104 @@ DOM0000002 = [
 3.0000000000000000e+01
 ];
 
+Printing v3 WAXPY, must be zero .............. 
+%Vec Object: 3 MPI processes
+%  type: mpiunasm
+Processor # 0 out of 3 
+%Vec Object:DOM0000000 1 MPI processes
+%  type: seq
+DOM0000000 = [
+1.0000000000000000e+00
+2.0000000000000000e+00
+3.0000000000000000e+00
+4.0000000000000000e+00
+5.0000000000000000e+00
+];
+Processor # 1 out of 3 
+%Vec Object:DOM0000001 1 MPI processes
+%  type: seq
+DOM0000001 = [
+5.0000000000000000e+00
+4.0000000000000000e+00
+3.0000000000000000e+00
+8.0000000000000000e+00
+1.0000000000000000e+01
+];
+Processor # 2 out of 3 
+%Vec Object:DOM0000002 1 MPI processes
+%  type: seq
+DOM0000002 = [
+3.0000000000000000e+00
+5.0000000000000000e+00
+3.0000000000000000e+00
+8.0000000000000000e+00
+1.0000000000000000e+01
+];
+%Vec Object: 3 MPI processes
+%  type: mpiunasm
+Processor # 0 out of 3 
+%Vec Object:DOM0000000 1 MPI processes
+%  type: seq
+DOM0000000 = [
+3.0000000000000000e+00
+6.0000000000000000e+00
+9.0000000000000000e+00
+1.2000000000000000e+01
+1.5000000000000000e+01
+];
+Processor # 1 out of 3 
+%Vec Object:DOM0000001 1 MPI processes
+%  type: seq
+DOM0000001 = [
+1.5000000000000000e+01
+1.2000000000000000e+01
+9.0000000000000000e+00
+2.4000000000000000e+01
+3.0000000000000000e+01
+];
+Processor # 2 out of 3 
+%Vec Object:DOM0000002 1 MPI processes
+%  type: seq
+DOM0000002 = [
+9.0000000000000000e+00
+1.5000000000000000e+01
+9.0000000000000000e+00
+2.4000000000000000e+01
+3.0000000000000000e+01
+];
+%Vec Object: 3 MPI processes
+%  type: mpiunasm
+Processor # 0 out of 3 
+%Vec Object:DOM0000000 1 MPI processes
+%  type: seq
+DOM0000000 = [
+-1.0000000000000000e+00
+-2.0000000000000000e+00
+-3.0000000000000000e+00
+-4.0000000000000000e+00
+-5.0000000000000000e+00
+];
+Processor # 1 out of 3 
+%Vec Object:DOM0000001 1 MPI processes
+%  type: seq
+DOM0000001 = [
+-5.0000000000000000e+00
+-4.0000000000000000e+00
+-3.0000000000000000e+00
+-8.0000000000000000e+00
+-1.0000000000000000e+01
+];
+Processor # 2 out of 3 
+%Vec Object:DOM0000002 1 MPI processes
+%  type: seq
+DOM0000002 = [
+-3.0000000000000000e+00
+-5.0000000000000000e+00
+-3.0000000000000000e+00
+-8.0000000000000000e+00
+-1.0000000000000000e+01
+];
+
 Printing v2 AXPY, must be zero .............. 
 %Vec Object: 3 MPI processes
 %  type: mpiunasm
@@ -206,7 +304,7 @@ Reports information only for process 0.
 --- Event Stage 0: Main Stage
 
      Vector Exchange     1              1
-              Vector    24             24
+              Vector    32             32
            Index Set     2              2
    IS L to G Mapping     1              1
               Viewer     2              0
