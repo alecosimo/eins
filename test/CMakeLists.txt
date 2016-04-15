@@ -14,9 +14,9 @@ M_ADD_TEST_CMP("${path}/fetiContextCreation.c"  "mpiexec -n 4 ./fetiContextCreat
 M_ADD_BINARY_TEST("${path}/poissonFD.c" "${EinsTests_libraries}")
 M_ADD_COMMAND_TEST_CMP("${path}/poissonFD.c" "1" "mpiexec -n 4 ./poissonFD -npx 2 -npy 2 -nex 4 -ney 4 -feti_interface_ksp_monitor_short -log_destruction" "res_poissonFD1.txt")
 
-M_ADD_BINARY_TEST("${path}/fetiContextMatCreation.c" "${EinsTests_libraries}")
-M_ADD_COMMAND_TEST_CMP("${path}/fetiContextMatCreation.c" "1" "mpiexec -n 4 ./fetiContextMatCreation -p 1 -npx 4 -npy 1 -nex 8 -ney 2 -feti_interface_ksp_monitor_short -log_destruction" "res_fetiContextMatCreation1.txt")
-M_ADD_COMMAND_TEST_CMP("${path}/fetiContextMatCreation.c" "2" "mpiexec -n 4 ./fetiContextMatCreation -p 1 -npx 2 -npy 2 -nex 4 -ney 4 -feti_pc_dirichlet_pc_factor_mat_solver_package mumps -feti_pc_dirichlet_mat_mumps_icntl_7 2 -feti_fullyredundant -feti_scaling_type scmultiplicity -feti_interface_ksp_monitor_short -log_destruction" "res_fetiContextMatCreation2.txt")# -feti_interface_ksp_gmres_cgs_refinement_type refine_always
+M_ADD_BINARY_TEST("${path}/feti1SpectralElements.c" "${EinsTests_libraries}")
+M_ADD_COMMAND_TEST_CMP("${path}/feti1SpectralElements.c" "1" "mpiexec -n 4 ./feti1SpectralElements -p 1 -npx 4 -npy 1 -nex 8 -ney 2 -feti_interface_ksp_monitor_short -log_destruction" "res_feti1SpectralElements1.txt")
+M_ADD_COMMAND_TEST_CMP("${path}/feti1SpectralElements.c" "2" "mpiexec -n 4 ./feti1SpectralElements -p 1 -npx 2 -npy 2 -nex 4 -ney 4 -feti_pc_dirichlet_pc_factor_mat_solver_package mumps -feti_pc_dirichlet_mat_mumps_icntl_7 2 -feti_fullyredundant -feti_scaling_type scmultiplicity -feti_interface_ksp_monitor_short -log_destruction" "res_feti1SpectralElements2.txt")# -feti_interface_ksp_gmres_cgs_refinement_type refine_always
 
 
 #mpiexec -n 4 ./fetiContextMatCreation -p 1 -npx 2 -npy 2 -nex 4 -ney 4 -feti_interface_ksp_monitor_short -feti_fullyredundant 0
