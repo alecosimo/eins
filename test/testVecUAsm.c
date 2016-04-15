@@ -10,7 +10,7 @@ int main(int argc,char **argv)
   MPI_Comm               comm;
   PetscInt               rank,idx[5]={0,1,2,3,4},*global_indices;
   PetscErrorCode         ierr;
-  Vec                    v,mpivec,multiplicity,v2,refvec,vec_comp;
+  Vec                    v,mpivec,multiplicity,v2,refvec,vec_comp,v3;
   PetscScalar            dval0,dval1,dval2_0[2],dval2_1[2],vals[5];
   ISLocalToGlobalMapping mapping;
   VecExchange            ve;
@@ -118,6 +118,15 @@ int main(int argc,char **argv)
   ierr = VecScale(v2,3);CHKERRQ(ierr);
   PetscPrintf(PETSC_COMM_WORLD,  "\nPrinting v2 scaled by 3 ..................... \n");
   ierr = VecView(v2,PETSC_VIEWER_STDOUT_WORLD);CHKERRQ(ierr);
+  /* VecWAXPY */
+  ierr = VecDuplicate(v,&v3);CHKERRQ(ierr);
+  ierr = VecCopy(v,v3);CHKERRQ(ierr);
+  ierr = VecAXPBY(v3,-1,2,v2);CHKERRQ(ierr);
+  PetscPrintf(PETSC_COMM_WORLD,  "\nPrinting v3 WAXPY, must be zero .............. \n");
+  ierr = VecView(v,PETSC_VIEWER_STDOUT_WORLD);CHKERRQ(ierr);
+  ierr = VecView(v2,PETSC_VIEWER_STDOUT_WORLD);CHKERRQ(ierr);
+  ierr = VecView(v3,PETSC_VIEWER_STDOUT_WORLD);CHKERRQ(ierr);
+  //ierr = TestAssertVectorLeTol(v3,1e-8);CHKERRQ(ierr);
   /* VecAXPY */
   ierr = VecAXPY(v2,-3,v);CHKERRQ(ierr);
   PetscPrintf(PETSC_COMM_WORLD,  "\nPrinting v2 AXPY, must be zero .............. \n");

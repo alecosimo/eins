@@ -28,6 +28,8 @@ struct _p_VecExchange {
 };
 
 
+PETSC_INTERN PetscErrorCode VecAXPBY_Seq(Vec,PetscScalar,PetscScalar,Vec);
+PETSC_INTERN PetscErrorCode VecWAXPY_Seq(Vec,PetscScalar,Vec,Vec);
 PETSC_INTERN PetscErrorCode VecMAXPY_Seq(Vec,PetscInt,const PetscScalar*,Vec*);
 PETSC_INTERN PetscErrorCode VecAYPX_Seq(Vec,PetscScalar,Vec);
 PETSC_INTERN PetscErrorCode VecAXPY_Seq(Vec,PetscScalar,Vec);

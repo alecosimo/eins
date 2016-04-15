@@ -8,6 +8,7 @@ static PetscErrorCode VecView_UNASM(Vec,PetscViewer);
 static PetscErrorCode VecDuplicate_UNASM(Vec,Vec*);
 static PetscErrorCode VecDestroy_UNASM(Vec);
 static PetscErrorCode VecGetLocalSize_UNASM(Vec,PetscInt*);
+static PetscErrorCode VecAXPBY_UNASM(Vec,PetscScalar,PetscScalar,Vec);
 static PetscErrorCode VecGetSize_UNASM(Vec,PetscInt*);
 static PetscErrorCode VecDot_UNASM(Vec,Vec,PetscScalar*);
 static PetscErrorCode VecMDot_UNASM(Vec,PetscInt,const Vec[],PetscScalar*);
@@ -17,6 +18,7 @@ static PetscErrorCode VecScale_UNASM(Vec,PetscScalar);
 static PetscErrorCode VecCopy_UNASM(Vec,Vec);
 static PetscErrorCode VecSet_UNASM(Vec,PetscScalar);
 static PetscErrorCode VecAXPY_UNASM(Vec,PetscScalar,Vec);
+static PetscErrorCode VecWAXPY_UNASM(Vec,PetscScalar,Vec,Vec);
 static PetscErrorCode VecMAXPY_UNASM(Vec,PetscInt,const PetscScalar*,Vec*);
 static PetscErrorCode VecAYPX_UNASM(Vec,PetscScalar,Vec);
 static PetscErrorCode VecSetValues_UNASM(Vec,PetscInt,const PetscInt [],const PetscScalar [],InsertMode);
@@ -108,6 +110,8 @@ static PetscErrorCode VecCreate_UNASM_Private(Vec v,const PetscScalar array[])
   v->ops->copy             = VecCopy_UNASM;
   v->ops->set              = VecSet_UNASM;
   v->ops->axpy             = VecAXPY_UNASM;
+  v->ops->axpby            = VecAXPBY_UNASM;
+  v->ops->waxpy            = VecWAXPY_UNASM;
   v->ops->maxpy            = VecMAXPY_UNASM;
   v->ops->aypx             = VecAYPX_UNASM;
   v->ops->setvalues        = VecSetValues_UNASM;
@@ -361,6 +365,35 @@ static PetscErrorCode VecAXPY_UNASM(Vec yin,PetscScalar alpha,Vec xin)
   
   PetscFunctionBegin;
   ierr = VecAXPY_Seq(yi->vlocal,alpha,xi->vlocal);CHKERRQ(ierr);
+  PetscFunctionReturn(0);  
+}
+
+
+#undef __FUNCT__
+#define __FUNCT__ "VecWAXPY_UNASM"
+static PetscErrorCode VecWAXPY_UNASM(Vec win,PetscScalar alpha,Vec xin,Vec yin)
+{
+  Vec_UNASM      *xi = (Vec_UNASM*)xin->data;
+  Vec_UNASM      *yi = (Vec_UNASM*)yin->data;
+  Vec_UNASM      *wi = (Vec_UNASM*)win->data;
+  PetscErrorCode ierr;
+  
+  PetscFunctionBegin;
+  ierr = VecWAXPY_Seq(wi->vlocal,alpha,xi->vlocal,yi->vlocal);CHKERRQ(ierr);
+  PetscFunctionReturn(0);  
+}
+
+
+#undef __FUNCT__
+#define __FUNCT__ "VecAXPBY_UNASM"
+static PetscErrorCode VecAXPBY_UNASM(Vec yin,PetscScalar alpha,PetscScalar beta,Vec xin)
+{
+  Vec_UNASM      *xi = (Vec_UNASM*)xin->data;
+  Vec_UNASM      *yi = (Vec_UNASM*)yin->data;
+  PetscErrorCode ierr;
+  
+  PetscFunctionBegin;
+  ierr = VecAXPBY_Seq(yi->vlocal,alpha,beta,xi->vlocal);CHKERRQ(ierr);
   PetscFunctionReturn(0);  
 }
 
