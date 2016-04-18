@@ -751,7 +751,7 @@ PETSC_EXTERN PetscErrorCode FETIComputeForceNorm(FETI ft,Vec vec,NormType type,P
   Subdomain         sd;
   Vec               lambda_local,vlocal;
   PetscBool         flg;
-  PetscScalar       lnorm;
+  PetscReal         lnorm;
   
   PetscFunctionBegin;
   ierr = PetscObjectTypeCompare((PetscObject)vec,VECMPIUNASM,&flg);CHKERRQ(ierr);
@@ -776,7 +776,7 @@ PETSC_EXTERN PetscErrorCode FETIComputeForceNorm(FETI ft,Vec vec,NormType type,P
     /* compute the norm of vec if no lambda is available*/
     ierr = VecNorm(vlocal,type,&lnorm);CHKERRQ(ierr);
   }
-  ierr = MPIU_Allreduce(&lnorm,norm,1,MPIU_SCALAR,MPIU_SUM,PetscObjectComm((PetscObject)vec));CHKERRQ(ierr);
+  ierr = MPIU_Allreduce(&lnorm,norm,1,MPIU_REAL,MPIU_SUM,PetscObjectComm((PetscObject)vec));CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 

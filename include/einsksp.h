@@ -1,16 +1,22 @@
 #if !defined(EINSKSP_H)
 #define EINSKSP_H
 
+#include <einsfeti.h>
 #include <petscksp.h>
 
 #define KSPPJGMRES "pjgmres"
 #define KSPPJCG    "pjcg"
+#define KSPFETI    "feti"
 
 PETSC_EXTERN PetscErrorCode KSPSetProjection(KSP,PetscErrorCode (*)(void*,Vec,Vec),void*);
 PETSC_EXTERN PetscErrorCode KSPSetReProjection(KSP,PetscErrorCode (*)(void*,Vec,Vec),void*);
 PETSC_EXTERN PetscErrorCode KSPPJGMRESMonitorKrylov(KSP,PETSC_UNUSED PetscInt,PETSC_UNUSED PetscReal,void*);
 PETSC_EXTERN PetscErrorCode KSPGetResidual(KSP,Vec*);
-  
+
+/* KSPFETI */
+PETSC_EXTERN PetscErrorCode KSPSetFETI(KSP,FETI);
+PETSC_EXTERN PetscErrorCode KSPGetFETI(KSP,FETI*);
+
 /*E
 
   KSPPJCGTruncationType - Define how stored directions are used to orthogonalize in PJCG

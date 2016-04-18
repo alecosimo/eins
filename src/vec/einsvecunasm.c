@@ -3,7 +3,7 @@
 #include <petscblaslapack.h>
 #include <petscviewerhdf5.h>
 
-static PetscErrorCode VecCreate_UNASM_Private(Vec,const PetscScalar[]);
+static PetscErrorCode VecCreate_UNASM_Private(Vec,const PetscScalar[],Vec);
 static PetscErrorCode VecView_UNASM(Vec,PetscViewer);
 static PetscErrorCode VecDuplicate_UNASM(Vec,Vec*);
 static PetscErrorCode VecDestroy_UNASM(Vec);
@@ -53,7 +53,7 @@ PETSC_EXTERN PetscErrorCode VecCreate_UNASM(Vec v)
   PetscErrorCode ierr;
   
   PetscFunctionBegin;
-  ierr = VecCreate_UNASM_Private(v,NULL);CHKERRQ(ierr);
+  ierr = VecCreate_UNASM_Private(v,NULL,NULL);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 
@@ -73,7 +73,7 @@ PETSC_EXTERN PetscErrorCode VecCreate_UNASM(Vec v)
 
 .seealso: VecCreate(), VecCreateMPIUnasmWithArray()
 @*/
-static PetscErrorCode VecCreate_UNASM_Private(Vec v,const PetscScalar array[])
+static PetscErrorCode VecCreate_UNASM_Private(Vec v,const PetscScalar array[],Vec localVec)
 {
   PetscErrorCode ierr;
   Vec_UNASM      *b;
@@ -87,10 +87,15 @@ static PetscErrorCode VecCreate_UNASM_Private(Vec v,const PetscScalar array[])
   /* create local vec */
   ierr = PetscObjectGetComm((PetscObject)v,&comm);CHKERRQ(ierr);
   if((v->map->n) == PETSC_DECIDE) { SETERRABORT(PETSC_COMM_SELF,PETSC_ERR_SUP,"Cannot set local size to PETSC_DECIDE"); }
-  if(!array) {
-    ierr = VecCreateSeq(PETSC_COMM_SELF,v->map->n,&b->vlocal);CHKERRQ(ierr);
+  if(!localVec) {
+    if(!array) {
+      ierr = VecCreateSeq(PETSC_COMM_SELF,v->map->n,&b->vlocal);CHKERRQ(ierr);
+    } else {
+      ierr = VecCreateSeqWithArray(PETSC_COMM_SELF,1,v->map->n,array,&b->vlocal);CHKERRQ(ierr);
+    }
   } else {
-    ierr = VecCreateSeqWithArray(PETSC_COMM_SELF,1,v->map->n,array,&b->vlocal);CHKERRQ(ierr);
+    b->vlocal = localVec;
+    ierr = PetscObjectReference((PetscObject)localVec);CHKERRQ(ierr);
   }
   ierr = MPI_Comm_rank(comm,&rank);CHKERRQ(ierr);
   sprintf(str,NAMEDOMAIN,rank);
@@ -99,6 +104,7 @@ static PetscErrorCode VecCreate_UNASM_Private(Vec v,const PetscScalar array[])
   
   b->multiplicity          = 0;
   b->local_sizes           = 0;
+  b->feti                  = 0;
   /* vector ops */
   ierr                     = PetscMemzero(v->ops,sizeof(struct _VecOps));CHKERRQ(ierr);
   v->ops->duplicate        = VecDuplicate_UNASM;
@@ -465,6 +471,68 @@ static PetscErrorCode VecDot_UNASM(Vec xin,Vec yin,PetscScalar *z)
 
 
 #undef __FUNCT__
+#define __FUNCT__ "VecGetFETI"
+/*@ VecGetFETI - Gets FETI context assigned to a globally unassembled vector.
+
+   Input Parameters:
++  x     - the global unassembled vector
+
+   Output Parameters:
++  feti  - the feti context
+
+   Level: beginner
+
+.seealso VECMPIUNASM
+@*/
+PETSC_EXTERN PetscErrorCode VecGetFETI(Vec x,FETI *feti)
+{
+  PetscErrorCode ierr;
+  Vec_UNASM      *xi;
+  PetscBool      flg;
+  
+  PetscFunctionBegin;
+  PetscValidHeaderSpecific(x,VEC_CLASSID,1);
+  ierr = PetscObjectTypeCompare((PetscObject)x,VECMPIUNASM,&flg);CHKERRQ(ierr);
+  if(!flg) SETERRQ(PetscObjectComm((PetscObject)x),PETSC_ERR_SUP,"Cannot get feti context from non globally unassembled vector");
+
+  xi       = (Vec_UNASM*)x->data;
+  *feti    = xi->feti;
+  PetscFunctionReturn(0);
+}
+
+
+#undef __FUNCT__
+#define __FUNCT__ "VecSetFETI"
+/*@ VecSetFETI - Sets FETI context to a globally unassembled vector.
+
+   Input Parameters:
++  x     - the global unassembled vector
+-  feti  - the feti context
+
+   Level: beginner
+
+.seealso VECMPIUNASM
+@*/
+PETSC_EXTERN PetscErrorCode VecSetFETI(Vec x,FETI feti)
+{
+  PetscErrorCode ierr;
+  Vec_UNASM      *xi;
+  PetscBool      flg;
+  
+  PetscFunctionBegin;
+  PetscValidHeaderSpecific(x,VEC_CLASSID,1);
+  PetscValidHeaderSpecific(feti,FETI_CLASSID,2);
+  ierr = PetscObjectTypeCompare((PetscObject)x,VECMPIUNASM,&flg);CHKERRQ(ierr);
+  if(!flg) SETERRQ(PetscObjectComm((PetscObject)x),PETSC_ERR_SUP,"Cannot set feti context to non globally unassembled vector");
+
+  xi       = (Vec_UNASM*)x->data;
+  xi->feti = feti;
+  ierr     = PetscObjectReference((PetscObject)feti);CHKERRQ(ierr);
+  PetscFunctionReturn(0);
+}
+
+
+#undef __FUNCT__
 #define __FUNCT__ "VecUnAsmSetMultiplicity"
 /*@ VecUnAsmSetMultiplicity - This function is specific of MPI
   globally unassebled vectors. It sets the multiplicity of the entries
@@ -616,6 +684,10 @@ static PetscErrorCode VecNorm_UNASM(Vec xin,NormType type,PetscReal *z)
   Vec               mp;
   
   PetscFunctionBegin;
+  if(xi->feti) {
+    ierr = FETIComputeForceNorm(xi->feti,xin,type,z);CHKERRQ(ierr);
+    PetscFunctionReturn(0);
+  } 
   ierr = PetscBLASIntCast(n,&bn);CHKERRQ(ierr);
   if (type == NORM_2 || type == NORM_FROBENIUS) {
     if (!xi->multiplicity) SETERRQ(PetscObjectComm((PetscObject)xin),PETSC_ERR_SUP,"You should first call VecUnAsmSetMultiplicity");
@@ -719,6 +791,7 @@ static PetscErrorCode VecDestroy_UNASM(Vec v)
   PetscFunctionBegin;
   ierr = VecDestroy(&b->vlocal);CHKERRQ(ierr);
   ierr = VecDestroy(&b->multiplicity);CHKERRQ(ierr);
+  ierr = FETIDestroy(&b->feti);CHKERRQ(ierr);
   if(b->local_sizes) { ierr = PetscFree(b->local_sizes);CHKERRQ(ierr);}
   ierr = PetscFree(v->data);CHKERRQ(ierr);
   PetscFunctionReturn(0);
@@ -1071,6 +1144,36 @@ static PetscErrorCode VecView_UNASM_HDF5(Vec xin, PetscViewer viewer)
 
 
 #undef __FUNCT__
+#define __FUNCT__ "VecCreateMPIUnasmWithLocalVec"
+/*@ VecCreateMPIUnasmWithLocalVec - Creates a globally unassembled vector
+  using the provided local vector.
+
+   Input Parameters:
+.  comm     - the MPI communicator
+.  n        - the local size of the vector
+.  N        - the global size of the vector
+.  localVec - local vector corresponding to each subdomain
+
+   Output Parameters:
+.  V       - the vector to be created
+
+   Level: beginner
+
+.seealso VECMPIUNASM
+@*/
+PETSC_EXTERN PetscErrorCode VecCreateMPIUnasmWithLocalVec(MPI_Comm comm,PetscInt n,PetscInt N,Vec localVec,Vec *V)
+{
+  PetscErrorCode ierr;
+  
+  PetscFunctionBegin;
+  ierr = VecCreate(comm,V);CHKERRQ(ierr);
+  ierr = VecSetSizes(*V,n,N);CHKERRQ(ierr); 
+  ierr = VecCreate_UNASM_Private(*V,NULL,localVec);CHKERRQ(ierr);
+  PetscFunctionReturn(0);
+}
+
+
+#undef __FUNCT__
 #define __FUNCT__ "VecCreateMPIUnasmWithArray"
 /*@ VecCreateMPIUnasmWithArray - Creates a globally unassembled vector
   using the provided array for creating the local vector.
@@ -1095,7 +1198,7 @@ PETSC_EXTERN PetscErrorCode VecCreateMPIUnasmWithArray(MPI_Comm comm,PetscInt n,
   PetscFunctionBegin;
   ierr = VecCreate(comm,V);CHKERRQ(ierr);
   ierr = VecSetSizes(*V,n,N);CHKERRQ(ierr); 
-  ierr = VecCreate_UNASM_Private(*V,array);CHKERRQ(ierr);
+  ierr = VecCreate_UNASM_Private(*V,array,NULL);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 

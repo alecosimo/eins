@@ -21,7 +21,8 @@ static PetscErrorCode FETI1ApplyCoarseProblem_Private(FETI,Vec,Vec);
 static PetscErrorCode FETI1ComputeInitialCondition_Private(FETI);
 static PetscErrorCode FETI1ComputeAlpha_Private(FETI);
 static PetscErrorCode FETIComputeSolution_FETI1(FETI,Vec);
-
+static PetscErrorCode FETI1SetInterfaceProblemRHS_Private(FETI);
+  
 PetscErrorCode FETI1Project_RBM(void*,Vec,Vec);
 
 #undef __FUNCT__
@@ -79,20 +80,35 @@ static PetscErrorCode FETIDestroy_FETI1(FETI ft)
 static PetscErrorCode FETISetUp_FETI1(FETI ft)
 {
   PetscErrorCode ierr;   
-  PetscFunctionBegin;
-  ierr = FETIScalingSetUp(ft);CHKERRQ(ierr);
-  ierr = FETI1BuildLambdaAndB_Private(ft);CHKERRQ(ierr);
-  ierr = FETI1SetUpNeumannSolver_Private(ft);CHKERRQ(ierr);
-  ierr = FETI1ComputeMatrixGandRhsE_Private(ft);CHKERRQ(ierr);
-  ierr = FETI1BuildInterfaceProblem_Private(ft);CHKERRQ(ierr);
-  ierr = FETIBuildInterfaceKSP(ft);CHKERRQ(ierr);
-  /* set projection in ksp */
-  ierr = KSPSetProjection(ft->ksp_interface,FETI1Project_RBM,(void*)ft);CHKERRQ(ierr);
-  ierr = KSPSetReProjection(ft->ksp_interface,FETI1Project_RBM,(void*)ft);CHKERRQ(ierr);
-  ierr = FETI1SetUpCoarseProblem_Private(ft);CHKERRQ(ierr);
-  ierr = FETI1FactorizeCoarseProblem_Private(ft);CHKERRQ(ierr);
-  ierr = FETI1ComputeInitialCondition_Private(ft);CHKERRQ(ierr);
 
+  PetscFunctionBegin;
+  if (!ft->setupcalled) {
+    ierr = FETIScalingSetUp(ft);CHKERRQ(ierr);
+    ierr = FETI1BuildLambdaAndB_Private(ft);CHKERRQ(ierr);
+    ierr = FETI1SetUpNeumannSolver_Private(ft);CHKERRQ(ierr);
+    ierr = FETI1ComputeMatrixGandRhsE_Private(ft);CHKERRQ(ierr);
+    ierr = FETI1BuildInterfaceProblem_Private(ft);CHKERRQ(ierr);
+    ierr = FETI1SetInterfaceProblemRHS_Private(ft);CHKERRQ(ierr);
+    ierr = FETIBuildInterfaceKSP(ft);CHKERRQ(ierr);
+    /* set projection in ksp */
+    ierr = KSPSetProjection(ft->ksp_interface,FETI1Project_RBM,(void*)ft);CHKERRQ(ierr);
+    ierr = KSPSetReProjection(ft->ksp_interface,FETI1Project_RBM,(void*)ft);CHKERRQ(ierr);
+    ierr = FETI1SetUpCoarseProblem_Private(ft);CHKERRQ(ierr);
+    ierr = FETI1FactorizeCoarseProblem_Private(ft);CHKERRQ(ierr);
+  } else {
+    if (ft->factor_local_problem) {
+      if (ft->resetup_pc_interface) {
+	PC pc;
+	ierr = KSPGetPC(ft->ksp_interface,&pc);CHKERRQ(ierr);
+	ierr = PCSetUp(pc);CHKERRQ(ierr);
+      }
+      ierr = FETI1SetUpNeumannSolver_Private(ft);CHKERRQ(ierr);
+    }
+    ierr = FETI1SetInterfaceProblemRHS_Private(ft);CHKERRQ(ierr);
+  }
+
+  ierr = FETI1ComputeInitialCondition_Private(ft);CHKERRQ(ierr);
+  
 #if defined(FETI_DEBUG)
   {
     FETI_1            *ft1 = (FETI_1*)ft->data;
@@ -583,30 +599,22 @@ static PetscErrorCode FETI1MatGetVecs_Private(Mat mat,Vec *right,Vec *left)
 
 
 #undef __FUNCT__
-#define __FUNCT__ "FETI1BuildInterfaceProblem_Private"
+#define __FUNCT__ "FETI1SetInterfaceProblemRHS_Private"
 /*@
-   FETI1BuildInterfaceProblem_Private - Builds the interface problem, that is the matrix F and the vector d.
+   FETI1SetInterfaceProblemRHS_Private - Sets the RHS vector (vector d) of the interface problem.
 
    Input Parameters:
 .  ft - the FETI context
 
 @*/
-static PetscErrorCode FETI1BuildInterfaceProblem_Private(FETI ft)
+static PetscErrorCode FETI1SetInterfaceProblemRHS_Private(FETI ft)
 {
   PetscErrorCode ierr;
   Subdomain      sd = ft->subdomain;
-  PetscInt       rank;
-  MPI_Comm       comm;
   FETI_1         *ft1 = (FETI_1*)ft->data;
   Vec            d_local;
   
   PetscFunctionBegin;
-  ierr = PetscObjectGetComm((PetscObject)ft,&comm);CHKERRQ(ierr);
-  ierr = MPI_Comm_rank(comm,&rank);CHKERRQ(ierr);
-  /* Create the MatShell for F */
-  ierr = FETICreateFMat(ft,(void (*)(void))FETI1MatMult_Private,(void (*)(void))FETI1DestroyMatF_Private,(void (*)(void))FETI1MatGetVecs_Private);CHKERRQ(ierr);
-  /* Creating vector d for the interface problem */
-  ierr = MatCreateVecs(ft->F,NULL,&ft->d);CHKERRQ(ierr);
   /** Application of the already factorized pseudo-inverse */
   ierr = MatMumpsSetIcntl(ft1->F_neumann,25,0);CHKERRQ(ierr);
   ierr = MatSolve(ft1->F_neumann,sd->localRHS,sd->vec1_N);CHKERRQ(ierr);
@@ -618,6 +626,28 @@ static PetscErrorCode FETI1BuildInterfaceProblem_Private(FETI ft)
   /*** Communication with other processes is performed for the following operation */
   ierr = VecExchangeBegin(ft->exchange_lambda,ft->d,ADD_VALUES);CHKERRQ(ierr);
   ierr = VecExchangeEnd(ft->exchange_lambda,ft->d,ADD_VALUES);CHKERRQ(ierr);
+  PetscFunctionReturn(0);
+}
+
+
+#undef __FUNCT__
+#define __FUNCT__ "FETI1BuildInterfaceProblem_Private"
+/*@
+   FETI1BuildInterfaceProblem_Private - Builds the interface problem, that is the matrix F and the vector d.
+
+   Input Parameters:
+.  ft - the FETI context
+
+@*/
+static PetscErrorCode FETI1BuildInterfaceProblem_Private(FETI ft)
+{
+  PetscErrorCode ierr;
+  
+  PetscFunctionBegin;
+  /* Create the MatShell for F */
+  ierr = FETICreateFMat(ft,(void (*)(void))FETI1MatMult_Private,(void (*)(void))FETI1DestroyMatF_Private,(void (*)(void))FETI1MatGetVecs_Private);CHKERRQ(ierr);
+  /* Creating vector d for the interface problem */
+  ierr = MatCreateVecs(ft->F,NULL,&ft->d);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 

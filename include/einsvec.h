@@ -2,6 +2,7 @@
 #define EINSVEC_H
 
 #include <petscvec.h>
+#include <einsfeti.h>
 
 #define VECMPIUNASM  "mpiunasm" /* globally unassembled mpi vector. Each processor redundantly 
 				   owns a portion of the global unassembled vector */
@@ -38,7 +39,10 @@ PETSC_EXTERN PetscErrorCode VecExchangeEnd(VecExchange,Vec,InsertMode);
 PETSC_EXTERN PetscErrorCode VecUnAsmSetMultiplicity(Vec,Vec);
 PETSC_EXTERN PetscErrorCode VecUnAsmCreateMPIVec(Vec,ISLocalToGlobalMapping,CompatibilityRule,Vec*);
 PETSC_EXTERN PetscErrorCode VecCreateMPIUnasmWithArray(MPI_Comm,PetscInt,PetscInt,const PetscScalar[],Vec*);
+PETSC_EXTERN PetscErrorCode VecCreateMPIUnasmWithLocalVec(MPI_Comm,PetscInt,PetscInt,Vec,Vec*);
 PETSC_EXTERN PetscErrorCode VecUnAsmGetLocalVector(Vec,Vec*);
 PETSC_EXTERN PetscErrorCode VecUASum(Vec,PetscScalar*);
+PETSC_EXTERN PetscErrorCode VecGetFETI(Vec,FETI*);
+PETSC_EXTERN PetscErrorCode VecSetFETI(Vec,FETI);
 
 #endif/* EINSVEC_H*/

@@ -625,7 +625,7 @@ static PetscErrorCode FETI2MatGetVecs_Private(Mat mat,Vec *right,Vec *left)
 #undef __FUNCT__
 #define __FUNCT__ "FETI2SetInterfaceProblemRHS_Private"
 /*@
-   FETI2SetInterfaceProblemRHS_Private - Set vector d, that is the RHS vector of the interface problem.
+   FETI2SetInterfaceProblemRHS_Private - Sets the RHS vector (vector d) of the interface problem.
 
    Input Parameters:
 .  ft - the FETI context

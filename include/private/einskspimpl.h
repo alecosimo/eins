@@ -7,6 +7,7 @@
 
 PETSC_EXTERN PetscErrorCode KSPCreate_PJGMRES(KSP);
 PETSC_EXTERN PetscErrorCode KSPCreate_PJCG(KSP);
+PETSC_EXTERN PetscErrorCode KSPCreate_FETI(KSP);
 
 typedef struct {
   void            *ctxProj;                      /* context for projection */                            
