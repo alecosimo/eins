@@ -9,7 +9,6 @@ static PetscErrorCode KSPSetUp_FETI(KSP);
 #define __FUNCT__ "KSPSetUp_FETI"
 static PetscErrorCode KSPSetUp_FETI(KSP ksp)
 {
-  PetscErrorCode ierr;
   KSP_FETI       *ft = (KSP_FETI*)ksp->data;
 
   PetscFunctionBegin;

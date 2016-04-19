@@ -13,6 +13,7 @@ static PetscErrorCode VecGetSize_UNASM(Vec,PetscInt*);
 static PetscErrorCode VecDot_UNASM(Vec,Vec,PetscScalar*);
 static PetscErrorCode VecMDot_UNASM(Vec,PetscInt,const Vec[],PetscScalar*);
 static PetscErrorCode VecNorm_UNASM(Vec,NormType,PetscReal*);
+static PetscErrorCode VecNormLocal_UNASM(Vec,NormType,PetscReal*);
 static PetscErrorCode VecTDot_UNASM(Vec,Vec,PetscScalar*);
 static PetscErrorCode VecScale_UNASM(Vec,PetscScalar);
 static PetscErrorCode VecCopy_UNASM(Vec,Vec);
@@ -119,7 +120,7 @@ static PetscErrorCode VecCreate_UNASM_Private(Vec v,const PetscScalar array[],Ve
   v->ops->tdot             = VecTDot_UNASM;
   v->ops->mtdot            = VecMTDot_UNASM;
   v->ops->copy             = VecCopy_UNASM;
-  v->ops->norm_local       = VecNorm_Seq; 
+  v->ops->norm_local       = VecNormLocal_UNASM; 
   v->ops->set              = VecSet_UNASM;
   v->ops->axpy             = VecAXPY_UNASM;
   v->ops->axpby            = VecAXPBY_UNASM;
@@ -730,6 +731,23 @@ static PetscErrorCode VecNorm_UNASM(Vec xin,NormType type,PetscReal *z)
       ierr    = VecDestroy(&mp);CHKERRQ(ierr);
       ierr    = PetscLogFlops(3.0*xin->map->n);CHKERRQ(ierr);
     }
+  }
+  PetscFunctionReturn(0);
+}
+
+
+#undef __FUNCT__
+#define __FUNCT__ "VecNormLocal_UNASM"
+static PetscErrorCode VecNormLocal_UNASM(Vec xin,NormType type,PetscReal *z)
+{
+  Vec_UNASM         *xi = (Vec_UNASM*)xin->data;
+  PetscErrorCode    ierr;
+  
+  PetscFunctionBegin;
+  if(xi->feti) {
+    ierr = FETIComputeForceNorm(xi->feti,xin,type,z);CHKERRQ(ierr);
+  } else {
+    ierr = VecNorm_Seq(xin,type,z);CHKERRQ(ierr);
   }
   PetscFunctionReturn(0);
 }

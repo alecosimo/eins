@@ -8,7 +8,8 @@
 /* private functions*/
 static PetscErrorCode FETI1BuildLambdaAndB_Private(FETI);
 static PetscErrorCode FETI1SetUpNeumannSolver_Private(FETI);
-static PetscErrorCode FETI1ComputeMatrixGandRhsE_Private(FETI);
+static PetscErrorCode FETI1ComputeMatrixG_Private(FETI);
+static PetscErrorCode FETI1ComputeRhsE_Private(FETI);
 static PetscErrorCode FETI1BuildInterfaceProblem_Private(FETI);
 static PetscErrorCode FETIDestroy_FETI1(FETI);
 static PetscErrorCode FETISetUp_FETI1(FETI);
@@ -43,7 +44,6 @@ static PetscErrorCode FETIDestroy_FETI1(FETI ft)
   
   PetscFunctionBegin;
   if (!ft1) PetscFunctionReturn(0);
-  ierr = VecDestroy(&ft1->res_interface);CHKERRQ(ierr);
   ierr = VecDestroy(&ft1->alpha_local);CHKERRQ(ierr);
   ierr = MatDestroy(&ft1->localG);CHKERRQ(ierr);
   ierr = MatDestroy(&ft1->rbm);CHKERRQ(ierr);
@@ -86,7 +86,8 @@ static PetscErrorCode FETISetUp_FETI1(FETI ft)
     ierr = FETIScalingSetUp(ft);CHKERRQ(ierr);
     ierr = FETI1BuildLambdaAndB_Private(ft);CHKERRQ(ierr);
     ierr = FETI1SetUpNeumannSolver_Private(ft);CHKERRQ(ierr);
-    ierr = FETI1ComputeMatrixGandRhsE_Private(ft);CHKERRQ(ierr);
+    ierr = FETI1ComputeMatrixG_Private(ft);CHKERRQ(ierr);
+    ierr = FETI1ComputeRhsE_Private(ft);CHKERRQ(ierr);
     ierr = FETI1BuildInterfaceProblem_Private(ft);CHKERRQ(ierr);
     ierr = FETI1SetInterfaceProblemRHS_Private(ft);CHKERRQ(ierr);
     ierr = FETIBuildInterfaceKSP(ft);CHKERRQ(ierr);
@@ -104,6 +105,7 @@ static PetscErrorCode FETISetUp_FETI1(FETI ft)
       }
       ierr = FETI1SetUpNeumannSolver_Private(ft);CHKERRQ(ierr);
     }
+    ierr = FETI1ComputeRhsE_Private(ft);CHKERRQ(ierr);
     ierr = FETI1SetInterfaceProblemRHS_Private(ft);CHKERRQ(ierr);
   }
 
@@ -653,30 +655,53 @@ static PetscErrorCode FETI1BuildInterfaceProblem_Private(FETI ft)
 
 
 #undef __FUNCT__
-#define __FUNCT__ "FETI1ComputeMatrixGandRhsE_Private"
+#define __FUNCT__ "FETI1ComputeRhsE_Private"
 /*@
-   FETI1ComputeMatrixGandRhsE_Private - Computes the local matrix
-   G=B*R, where R are the Rigid Body Modes, and the rhs term e=R^T*f from
-   the interface problem.
+   FETI1ComputeRhsE_Private - Computes the rhs term e=R^T*f from
+   the interface problem, where R are the Rigid Body Modes.
 
    Input Parameters:
 .  ft - the FETI context
 
 @*/
-static PetscErrorCode FETI1ComputeMatrixGandRhsE_Private(FETI ft)
+static PetscErrorCode FETI1ComputeRhsE_Private(FETI ft)
 {
   PetscErrorCode ierr;
   Subdomain      sd = ft->subdomain;
-  PetscInt       rank;
-  MPI_Comm       comm;
+  FETI_1         *ft1 = (FETI_1*)ft->data;
+  
+  PetscFunctionBegin;
+  ierr   = VecDestroy(&ft1->local_e);CHKERRQ(ierr);
+  /* get number of rigid body modes */
+  ierr   = MatMumpsGetInfog(ft1->F_neumann,28,&ft1->n_rbm);CHKERRQ(ierr);
+  if(ft1->n_rbm){
+    /* compute matrix local_e */
+    ierr = VecCreateSeq(PETSC_COMM_SELF,ft1->n_rbm,&ft1->local_e);CHKERRQ(ierr);
+    ierr = MatMultTranspose(ft1->rbm,sd->localRHS,ft1->local_e);CHKERRQ(ierr);
+  }
+  PetscFunctionReturn(0);
+}
+
+
+#undef __FUNCT__
+#define __FUNCT__ "FETI1ComputeMatrixG_Private"
+/*@
+   FETI1ComputeMatrixG_Private - Computes the local matrix
+   G=B*R, where R are the Rigid Body Modes.
+
+   Input Parameters:
+.  ft - the FETI context
+
+@*/
+static PetscErrorCode FETI1ComputeMatrixG_Private(FETI ft)
+{
+  PetscErrorCode ierr;
+  Subdomain      sd = ft->subdomain;
   Mat            x; 
   FETI_1         *ft1 = (FETI_1*)ft->data;
   
   PetscFunctionBegin;
-  ierr   = PetscObjectGetComm((PetscObject)ft,&comm);CHKERRQ(ierr);
-  ierr   = MPI_Comm_rank(comm,&rank);CHKERRQ(ierr);
   ierr   = MatDestroy(&ft1->localG);CHKERRQ(ierr);
-  ierr   = VecDestroy(&ft1->local_e);CHKERRQ(ierr);
   /* get number of rigid body modes */
   ierr   = MatMumpsGetInfog(ft1->F_neumann,28,&ft1->n_rbm);CHKERRQ(ierr);
   if(ft1->n_rbm){
@@ -693,11 +718,6 @@ static PetscErrorCode FETI1ComputeMatrixGandRhsE_Private(FETI ft)
     ierr = MatGetSubMatrix(ft1->rbm,sd->is_B_local,NULL,MAT_INITIAL_MATRIX,&x);CHKERRQ(ierr);
     ierr = MatCreateSeqDense(PETSC_COMM_SELF,ft->n_lambda_local,ft1->n_rbm,NULL,&ft1->localG);CHKERRQ(ierr);
     ierr = MatMatMult(ft->B_delta,x,MAT_REUSE_MATRIX,PETSC_DEFAULT,&ft1->localG);CHKERRQ(ierr);    
-
-    /* compute matrix local_e */
-    ierr = VecCreateSeq(PETSC_COMM_SELF,ft1->n_rbm,&ft1->local_e);CHKERRQ(ierr);
-    ierr = MatMultTranspose(ft1->rbm,sd->localRHS,ft1->local_e);CHKERRQ(ierr);
-    ierr = MatDestroy(&x);CHKERRQ(ierr);
   }
   PetscFunctionReturn(0);
 }
@@ -1230,7 +1250,6 @@ static PetscErrorCode FETI1ComputeInitialCondition_Private(FETI ft)
   ierr = MPI_Allgatherv(sbuff,ft1->n_rbm,MPIU_SCALAR,rbuff,ft1->count_rbm,ft1->displ,MPIU_SCALAR,comm);CHKERRQ(ierr);
   ierr = VecRestoreArray(asm_e,&rbuff);CHKERRQ(ierr);
   if (ft1->n_rbm) { ierr = VecRestoreArrayRead(ft1->local_e,&sbuff);CHKERRQ(ierr);}
-
   ierr = FETI1ApplyCoarseProblem_Private(ft,asm_e,ft->lambda_global);CHKERRQ(ierr);
   if (ft1->n_rbm) { ierr = VecDestroy(&ft1->local_e);CHKERRQ(ierr);}
   ierr = VecDestroy(&asm_e);CHKERRQ(ierr);
@@ -1320,7 +1339,6 @@ static PetscErrorCode FETIComputeSolution_FETI1(FETI ft, Vec u){
   Vec               lambda_local;
   
   PetscFunctionBegin;
-        PetscPrintf(PETSC_COMM_WORLD,"\n-->FETI==================================================\n");
   /* Solve interface problem */
   ierr = KSPSolve(ft->ksp_interface,ft->d,ft->lambda_global);CHKERRQ(ierr);
   /* Get residual of the interface problem */

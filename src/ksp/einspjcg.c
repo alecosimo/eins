@@ -32,12 +32,9 @@ static PetscErrorCode KSPGetProjection_PJCG(KSP ksp,KSP_PROJECTION **pj)
 #define __FUNCT__ "KSPGetResidual_PJCG"
 static PetscErrorCode KSPGetResidual_PJCG(KSP ksp,Vec *res)
 {
-  PetscErrorCode  ierr;
-  
   PetscFunctionBegin;
   if (!ksp->work) SETERRQ(PetscObjectComm((PetscObject)ksp),1,"The residual vector is not yet allocated (=NULL).");
   *res = ksp->work[0];
-  ierr = PetscObjectReference((PetscObject)ksp->work[0]);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 

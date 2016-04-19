@@ -46,7 +46,6 @@ static PetscErrorCode FETIDestroy_FETI2(FETI ft)
   PetscFunctionBegin;
   if (!ft2) PetscFunctionReturn(0);
 
-  ierr = VecDestroy(&ft2->res_interface);CHKERRQ(ierr);
   ierr = VecDestroy(&ft2->alpha_local);CHKERRQ(ierr);
   ierr = MatDestroy(&ft2->localG);CHKERRQ(ierr);
   ierr = MatDestroy(&ft2->stiffness_mat);CHKERRQ(ierr);

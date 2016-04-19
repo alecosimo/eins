@@ -511,7 +511,6 @@ PetscErrorCode FETISolve(FETI ft,Vec u)
   PetscBool      flg;
   
   PetscFunctionBegin;
-        PetscPrintf(PETSC_COMM_WORLD,"\nFETI==================================================\n");
   PetscValidHeaderSpecific(ft,FETI_CLASSID,1);
   PetscValidHeaderSpecific(u,VEC_CLASSID,2);
   if (!ft->setupcalled) SETERRQ(PetscObjectComm((PetscObject)ft),PETSC_ERR_ARG_WRONGSTATE,"Error: FETISetUp() must be first called.");
@@ -730,6 +729,57 @@ PETSC_EXTERN PetscErrorCode FETISetFactorizeLocalProblem(FETI ft,PetscBool facto
 
 
 #undef __FUNCT__
+#define __FUNCT__ "FETIComputeForceNormLocal"
+/*@C
+   FETIComputeForceNormLocal - Computes the local norm of a vector as ||res_s - B_s^T lambda||_{norm_type}
+
+   Input Parameters:
++  ft      - the FETI context 
+.  vec     - the vector from which to compute the norm
+.  type    - norm type: NORM_1, NORM_2, NORM_INFINITY
+
+   Output Parameters:
++  norm    - the computed norm 
+
+   Level: beginner
+
+.keywords: FETI
+
+@*/
+PETSC_EXTERN PetscErrorCode FETIComputeForceNormLocal(FETI ft,Vec vec,NormType type,PetscReal *norm) {
+  PetscErrorCode    ierr;
+  Subdomain         sd;
+  Vec               lambda_local,vlocal;
+  PetscBool         flg;
+  
+  PetscFunctionBegin;
+  ierr = PetscObjectTypeCompare((PetscObject)vec,VECMPIUNASM,&flg);CHKERRQ(ierr);
+  if (!flg) {
+    vlocal = vec;
+  } else {
+    ierr = VecUnAsmGetLocalVector(vec,&vlocal);CHKERRQ(ierr);
+  }    
+  if (ft->lambda_global) {
+    sd = ft->subdomain;
+    /* computing B_delta^T*lambda */
+    ierr = VecUnAsmGetLocalVector(ft->lambda_global,&lambda_local);CHKERRQ(ierr);
+    ierr = MatMultTranspose(ft->B_delta,lambda_local,sd->vec1_B);CHKERRQ(ierr);
+    ierr = VecSet(sd->vec1_N,0.0);CHKERRQ(ierr);
+    ierr = VecScatterBegin(sd->N_to_B,sd->vec1_B,sd->vec1_N,INSERT_VALUES,SCATTER_REVERSE);CHKERRQ(ierr);
+    ierr = VecScatterEnd(sd->N_to_B,sd->vec1_B,sd->vec1_N,INSERT_VALUES,SCATTER_REVERSE);CHKERRQ(ierr);
+    /* computing vec - B_delta^T*lambda */
+    ierr = VecAYPX(sd->vec1_N,-1.0,vlocal);CHKERRQ(ierr);
+    /* compute the norm */
+    ierr = VecNorm(sd->vec1_N,type,norm);CHKERRQ(ierr);
+  } else {
+    /* compute the norm of vec if no lambda is available*/
+    ierr = VecNorm(vlocal,type,norm);CHKERRQ(ierr);
+  }
+  PetscFunctionReturn(0);
+}
+
+
+#undef __FUNCT__
 #define __FUNCT__ "FETIComputeForceNorm"
 /*@C
    FETIComputeForceNorm - Computes the norm of a vector as sum_s(||res_s - B_s^T lambda||_{norm_type})
@@ -760,7 +810,7 @@ PETSC_EXTERN PetscErrorCode FETIComputeForceNorm(FETI ft,Vec vec,NormType type,P
     vlocal = vec;
   } else {
     ierr = VecUnAsmGetLocalVector(vec,&vlocal);CHKERRQ(ierr);
-  }
+  }    
   if (ft->lambda_global) {
     sd = ft->subdomain;
     /* computing B_delta^T*lambda */
