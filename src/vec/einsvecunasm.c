@@ -21,7 +21,7 @@ static PetscErrorCode VecAXPY_UNASM(Vec,PetscScalar,Vec);
 static PetscErrorCode VecWAXPY_UNASM(Vec,PetscScalar,Vec,Vec);
 static PetscErrorCode VecMAXPY_UNASM(Vec,PetscInt,const PetscScalar*,Vec*);
 static PetscErrorCode VecAYPX_UNASM(Vec,PetscScalar,Vec);
-static PetscErrorCode VecSetValues_UNASM(Vec,PetscInt,const PetscInt [],const PetscScalar [],InsertMode);
+static PetscErrorCode VecSetValuesLocal_UNASM(Vec,PetscInt,const PetscInt [],const PetscScalar [],InsertMode);
 static PetscErrorCode VecMTDot_UNASM(Vec,PetscInt,const Vec [],PetscScalar*);
 static PetscErrorCode VecAssemblyBegin_UNASM(Vec);
 static PetscErrorCode VecAssemblyEnd_UNASM(Vec);
@@ -119,13 +119,14 @@ static PetscErrorCode VecCreate_UNASM_Private(Vec v,const PetscScalar array[],Ve
   v->ops->tdot             = VecTDot_UNASM;
   v->ops->mtdot            = VecMTDot_UNASM;
   v->ops->copy             = VecCopy_UNASM;
+  v->ops->norm_local       = VecNorm_Seq; 
   v->ops->set              = VecSet_UNASM;
   v->ops->axpy             = VecAXPY_UNASM;
   v->ops->axpby            = VecAXPBY_UNASM;
   v->ops->waxpy            = VecWAXPY_UNASM;
   v->ops->maxpy            = VecMAXPY_UNASM;
   v->ops->aypx             = VecAYPX_UNASM;
-  v->ops->setvalues        = VecSetValues_UNASM;
+  v->ops->setvalueslocal   = VecSetValuesLocal_UNASM;
   v->ops->assemblybegin    = VecAssemblyBegin_UNASM;
   v->ops->assemblyend      = VecAssemblyEnd_UNASM;
   v->ops->destroy          = VecDestroy_UNASM;
@@ -141,8 +142,8 @@ static PetscErrorCode VecCreate_UNASM_Private(Vec v,const PetscScalar array[],Ve
 
 
 #undef __FUNCT__
-#define __FUNCT__ "VecSetValues_UNASM"
-static PetscErrorCode VecSetValues_UNASM(Vec xin,PetscInt ni,const PetscInt ix[],const PetscScalar y[],InsertMode m)
+#define __FUNCT__ "VecSetValuesLocal_UNASM"
+static PetscErrorCode VecSetValuesLocal_UNASM(Vec xin,PetscInt ni,const PetscInt ix[],const PetscScalar y[],InsertMode m)
 {
   Vec_UNASM      *xi = (Vec_UNASM*)xin->data;
   PetscScalar    *xx;

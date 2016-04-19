@@ -33,7 +33,7 @@ int main(int argc,char **argv)
     ierr = VecSetValue(multiplicity,3,2,INSERT_VALUES);CHKERRQ(ierr);
     ierr = VecSetValue(multiplicity,4,2,INSERT_VALUES);CHKERRQ(ierr);
     vals[0]=1;vals[1]=2;vals[2]=3;vals[3]=4;vals[4]=5;
-    ierr = VecSetValues(v,5,idx,vals,INSERT_VALUES);CHKERRQ(ierr);
+    ierr = VecSetValuesLocal(v,5,idx,vals,INSERT_VALUES);CHKERRQ(ierr);
     vals[0]=1;vals[1]=2;vals[2]=9;vals[3]=8;vals[4]=10;
     ierr = VecSetValues(vec_comp,5,idx,vals,INSERT_VALUES);CHKERRQ(ierr);
     global_indices[0]=1;global_indices[1]=2;global_indices[2]=3;global_indices[3]=4;global_indices[4]=5;
@@ -45,7 +45,7 @@ int main(int argc,char **argv)
     ierr = VecSetValue(multiplicity,1,2,INSERT_VALUES);CHKERRQ(ierr);
     ierr = VecSetValue(multiplicity,0,2,INSERT_VALUES);CHKERRQ(ierr);
     vals[0]=5;vals[1]=4;vals[2]=3;vals[3]=8;vals[4]=10;
-    ierr = VecSetValues(v,5,idx,vals,INSERT_VALUES);CHKERRQ(ierr);
+    ierr = VecSetValuesLocal(v,5,idx,vals,INSERT_VALUES);CHKERRQ(ierr);
     vals[0]=10;vals[1]=8;vals[2]=9;vals[3]=16;vals[4]=20;
     ierr = VecSetValues(vec_comp,5,idx,vals,INSERT_VALUES);CHKERRQ(ierr);
     global_indices[0]=5;global_indices[1]=4;global_indices[2]=3;global_indices[3]=6;global_indices[4]=7;
@@ -55,7 +55,7 @@ int main(int argc,char **argv)
     ierr = VecSetValue(multiplicity,3,2,INSERT_VALUES);CHKERRQ(ierr);
     ierr = VecSetValue(multiplicity,4,2,INSERT_VALUES);CHKERRQ(ierr);
     vals[0]=3;vals[1]=5;vals[2]=3;vals[3]=8;vals[4]=10;
-    ierr = VecSetValues(v,5,idx,vals,INSERT_VALUES);CHKERRQ(ierr);
+    ierr = VecSetValuesLocal(v,5,idx,vals,INSERT_VALUES);CHKERRQ(ierr);
     vals[0]=3;vals[1]=5;vals[2]=9;vals[3]=16;vals[4]=20;
     ierr = VecSetValues(vec_comp,5,idx,vals,INSERT_VALUES);CHKERRQ(ierr);
     global_indices[0]=0;global_indices[1]=8;global_indices[2]=3;global_indices[3]=6;global_indices[4]=7;

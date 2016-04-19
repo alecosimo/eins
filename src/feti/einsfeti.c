@@ -511,6 +511,7 @@ PetscErrorCode FETISolve(FETI ft,Vec u)
   PetscBool      flg;
   
   PetscFunctionBegin;
+        PetscPrintf(PETSC_COMM_WORLD,"\nFETI==================================================\n");
   PetscValidHeaderSpecific(ft,FETI_CLASSID,1);
   PetscValidHeaderSpecific(u,VEC_CLASSID,2);
   if (!ft->setupcalled) SETERRQ(PetscObjectComm((PetscObject)ft),PETSC_ERR_ARG_WRONGSTATE,"Error: FETISetUp() must be first called.");

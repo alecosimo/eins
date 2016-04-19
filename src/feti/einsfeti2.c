@@ -1418,7 +1418,7 @@ static PetscErrorCode FETIComputeSolution_FETI2(FETI ft, Vec u){
   Vec               lambda_local;
   
   PetscFunctionBegin;
-
+        PetscPrintf(PETSC_COMM_WORLD,"\n-->FETI==================================================\n");
   /* Solve interface problem */
   ierr = KSPSolve(ft->ksp_interface,ft->d,ft->lambda_global);CHKERRQ(ierr);
   /* computing B_delta^T*lambda */

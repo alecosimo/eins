@@ -1225,8 +1225,8 @@ static PetscErrorCode FETI1ComputeInitialCondition_Private(FETI ft)
   PetscFunctionBegin;
   ierr = PetscObjectGetComm((PetscObject)ft,&comm);CHKERRQ(ierr);
   ierr = VecCreateSeq(PETSC_COMM_SELF,ft1->total_rbm,&asm_e);CHKERRQ(ierr);
-  if (ft1->n_rbm) { ierr = VecGetArrayRead(ft1->local_e,&sbuff);CHKERRQ(ierr);}   
-  ierr = VecGetArray(asm_e,&rbuff);CHKERRQ(ierr); 
+  if (ft1->n_rbm) { ierr = VecGetArrayRead(ft1->local_e,&sbuff);CHKERRQ(ierr);}
+  ierr = VecGetArray(asm_e,&rbuff);CHKERRQ(ierr);
   ierr = MPI_Allgatherv(sbuff,ft1->n_rbm,MPIU_SCALAR,rbuff,ft1->count_rbm,ft1->displ,MPIU_SCALAR,comm);CHKERRQ(ierr);
   ierr = VecRestoreArray(asm_e,&rbuff);CHKERRQ(ierr);
   if (ft1->n_rbm) { ierr = VecRestoreArrayRead(ft1->local_e,&sbuff);CHKERRQ(ierr);}
@@ -1320,6 +1320,7 @@ static PetscErrorCode FETIComputeSolution_FETI1(FETI ft, Vec u){
   Vec               lambda_local;
   
   PetscFunctionBegin;
+        PetscPrintf(PETSC_COMM_WORLD,"\n-->FETI==================================================\n");
   /* Solve interface problem */
   ierr = KSPSolve(ft->ksp_interface,ft->d,ft->lambda_global);CHKERRQ(ierr);
   /* Get residual of the interface problem */

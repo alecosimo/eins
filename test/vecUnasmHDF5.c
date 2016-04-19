@@ -25,17 +25,17 @@ int main(int argc,char **argv)
   case 0:
     ierr = VecSetSizes(v,5,PETSC_DECIDE);CHKERRQ(ierr);
     vals[0]=1;vals[1]=2;vals[2]=3;vals[3]=4;vals[4]=5;
-    ierr = VecSetValues(v,5,idx,vals,INSERT_VALUES);CHKERRQ(ierr);
+    ierr = VecSetValuesLocal(v,5,idx,vals,INSERT_VALUES);CHKERRQ(ierr);
     break;
   case 1:
     ierr = VecSetSizes(v,4,PETSC_DECIDE);CHKERRQ(ierr);
     vals[0]=6;vals[1]=7;vals[2]=8;vals[3]=9;
-    ierr = VecSetValues(v,4,idx,vals,INSERT_VALUES);CHKERRQ(ierr);
+    ierr = VecSetValuesLocal(v,4,idx,vals,INSERT_VALUES);CHKERRQ(ierr);
     break;
   case 2:
     ierr = VecSetSizes(v,3,PETSC_DECIDE);CHKERRQ(ierr);
     vals[0]=10;vals[1]=11;vals[2]=12;
-    ierr = VecSetValues(v,3,idx,vals,INSERT_VALUES);CHKERRQ(ierr);
+    ierr = VecSetValuesLocal(v,3,idx,vals,INSERT_VALUES);CHKERRQ(ierr);
     break;
   }
   ierr = VecAssemblyBegin(v);CHKERRQ(ierr);
