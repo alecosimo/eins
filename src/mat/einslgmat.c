@@ -40,7 +40,6 @@ static PetscErrorCode LGMatMult_Private(Mat A,Vec x,Vec y)
   ierr = MatMult(mat_ctx->localA,xin,yin);CHKERRQ(ierr);
   ierr = VecUnAsmRestoreLocalVector(y,yin);CHKERRQ(ierr);
   ierr = VecUnAsmRestoreLocalVectorRead(x,xin);CHKERRQ(ierr);
-  ierr = PetscFree(mat_ctx);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 

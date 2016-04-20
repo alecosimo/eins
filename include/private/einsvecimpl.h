@@ -40,6 +40,7 @@ PETSC_INTERN PetscErrorCode VecScale_Seq(Vec,PetscScalar);
 PETSC_INTERN PetscErrorCode VecMTDot_Seq(Vec,PetscInt,const Vec[],PetscScalar*);
 PETSC_INTERN PetscErrorCode VecNorm_Seq(Vec,NormType,PetscReal*);
 PETSC_INTERN PetscErrorCode VecSet_Seq(Vec,PetscScalar);
+PETSC_INTERN PetscErrorCode VecSetRandom_Seq(Vec,PetscRandom);
 
 PETSC_EXTERN PetscErrorCode VecCreate_UNASM(Vec);
 

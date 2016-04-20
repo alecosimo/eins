@@ -158,6 +158,8 @@ PETSC_EXTERN PetscErrorCode KSPCreate_FETI(KSP ksp)
   ksp->ops->solve          = KSPSolve_FETI;
   ksp->ops->destroy        = KSPDestroy_FETI;
 
+  ierr = PCSetType(ksp->pc,PCNONE);CHKERRQ(ierr);
+  
   PetscFunctionReturn(0);
 }
 

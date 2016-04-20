@@ -136,7 +136,8 @@ static PetscErrorCode VecCreate_UNASM_Private(Vec v,const PetscScalar array[],Ve
   v->ops->getarray         = VecGetArray_UNASM;
   v->ops->restorearrayread = VecRestoreArrayRead_UNASM;
   v->ops->restorearray     = VecRestoreArray_UNASM;
-    
+  v->ops->setrandom        = VecSetRandom_Seq;
+  
   ierr = PetscObjectChangeTypeName((PetscObject)v,VECMPIUNASM);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
@@ -544,13 +545,16 @@ static PetscErrorCode VecDot_UNASM(Vec xin,Vec yin,PetscScalar *z)
   Vec_UNASM      *yi = (Vec_UNASM*)yin->data;
 
   PetscFunctionBegin;
-  if (!xi->multiplicity) SETERRQ(PetscObjectComm((PetscObject)xin),PETSC_ERR_SUP,"You should first call VecUnAsmSetMultiplicity");
-  ierr = VecDuplicate(xi->vlocal,&mp);CHKERRQ(ierr);
-  ierr = VecPointwiseDivide(mp,xi->vlocal,xi->multiplicity);CHKERRQ(ierr);
-  ierr = VecDot_Seq(mp,yi->vlocal,&work);CHKERRQ(ierr);
-  ierr = MPI_Allreduce(&work,&sum,1,MPIU_SCALAR,MPIU_SUM,PetscObjectComm((PetscObject)xin));CHKERRQ(ierr);
-  *z   = sum;
-  ierr = VecDestroy(&mp);CHKERRQ(ierr);
+  if (!xi->multiplicity) {
+    ierr = VecDot_Seq(xi->vlocal,yi->vlocal,z);CHKERRQ(ierr);
+  } else {
+    ierr = VecDuplicate(xi->vlocal,&mp);CHKERRQ(ierr);
+    ierr = VecPointwiseDivide(mp,xi->vlocal,xi->multiplicity);CHKERRQ(ierr);
+    ierr = VecDot_Seq(mp,yi->vlocal,&work);CHKERRQ(ierr);
+    ierr = MPI_Allreduce(&work,&sum,1,MPIU_SCALAR,MPIU_SUM,PetscObjectComm((PetscObject)xin));CHKERRQ(ierr);
+    *z   = sum;
+    ierr = VecDestroy(&mp);CHKERRQ(ierr);
+  }
   PetscFunctionReturn(0);
 }
 
@@ -772,47 +776,48 @@ static PetscErrorCode VecNorm_UNASM(Vec xin,NormType type,PetscReal *z)
   if(xi->feti) {
     ierr = FETIComputeForceNorm(xi->feti,xin,type,z);CHKERRQ(ierr);
     PetscFunctionReturn(0);
-  } 
-  ierr = PetscBLASIntCast(n,&bn);CHKERRQ(ierr);
-  if (type == NORM_2 || type == NORM_FROBENIUS) {
-    if (!xi->multiplicity) SETERRQ(PetscObjectComm((PetscObject)xin),PETSC_ERR_SUP,"You should first call VecUnAsmSetMultiplicity");
-    ierr = VecDuplicate(xi->vlocal,&mp);CHKERRQ(ierr);
-    ierr = VecPointwiseDivide(mp,xi->vlocal,xi->multiplicity);CHKERRQ(ierr);
-    ierr = VecGetArrayRead(mp,&xx);CHKERRQ(ierr);
-    ierr = VecGetArrayRead(xi->vlocal,&yy);CHKERRQ(ierr);
-    work = PetscRealPart(BLASdot_(&bn,xx,&one,yy,&one));
-    ierr = VecRestoreArrayRead(mp,&xx);CHKERRQ(ierr);
-    ierr = VecRestoreArrayRead(xi->vlocal,&yy);CHKERRQ(ierr);
-    ierr = MPI_Allreduce(&work,&sum,1,MPIU_REAL,MPIU_SUM,PetscObjectComm((PetscObject)xin));CHKERRQ(ierr);
-    ierr = VecDestroy(&mp);CHKERRQ(ierr);
-    *z   = PetscSqrtReal(sum);
-    ierr = PetscLogFlops(3.0*xin->map->n);CHKERRQ(ierr);
-  } else if (type == NORM_1) {
-    if (!xi->multiplicity) SETERRQ(PetscObjectComm((PetscObject)xin),PETSC_ERR_SUP,"You should first call VecUnAsmSetMultiplicity");
-    ierr = VecDuplicate(xi->vlocal,&mp);CHKERRQ(ierr);
-    ierr = VecPointwiseDivide(mp,xi->vlocal,xi->multiplicity);CHKERRQ(ierr);
-    ierr = VecNorm_Seq(mp,NORM_1,&work);CHKERRQ(ierr);
-    ierr = MPI_Allreduce(&work,z,1,MPIU_REAL,MPIU_SUM,PetscObjectComm((PetscObject)xin));CHKERRQ(ierr);
-    ierr = VecDestroy(&mp);CHKERRQ(ierr);
-  } else if (type == NORM_INFINITY) {
-    ierr = VecNorm_Seq(xi->vlocal,NORM_INFINITY,&work);CHKERRQ(ierr);
-    ierr = MPI_Allreduce(&work,z,1,MPIU_REAL,MPIU_MAX,PetscObjectComm((PetscObject)xin));CHKERRQ(ierr);
-  } else if (type == NORM_1_AND_2) {
-    if (!xi->multiplicity) SETERRQ(PetscObjectComm((PetscObject)xin),PETSC_ERR_SUP,"You should first call VecUnAsmSetMultiplicity");
-    {
-      PetscReal temp[2];
-      ierr    = VecDuplicate(xi->vlocal,&mp);CHKERRQ(ierr);
-      ierr    = VecPointwiseDivide(mp,xi->vlocal,xi->multiplicity);CHKERRQ(ierr);
-      ierr    = VecGetArrayRead(mp,&xx);CHKERRQ(ierr);
-      ierr    = VecGetArrayRead(xi->vlocal,&yy);CHKERRQ(ierr);
-      temp[1] = PetscRealPart(BLASdot_(&bn,xx,&one,yy,&one));
-      ierr    = VecRestoreArrayRead(mp,&xx);CHKERRQ(ierr);
-      ierr    = VecRestoreArrayRead(xi->vlocal,&yy);CHKERRQ(ierr);
-      ierr    = VecNorm_Seq(mp,NORM_1,temp);CHKERRQ(ierr);
-      ierr    = MPI_Allreduce(temp,z,2,MPIU_REAL,MPIU_SUM,PetscObjectComm((PetscObject)xin));CHKERRQ(ierr);
-      z[1]    = PetscSqrtReal(z[1]);
-      ierr    = VecDestroy(&mp);CHKERRQ(ierr);
-      ierr    = PetscLogFlops(3.0*xin->map->n);CHKERRQ(ierr);
+  }
+  if (!xi->multiplicity) {
+    ierr = VecNorm(xi->vlocal,type,z);CHKERRQ(ierr);
+  } else {
+    ierr = PetscBLASIntCast(n,&bn);CHKERRQ(ierr);
+    if (type == NORM_2 || type == NORM_FROBENIUS) {
+      ierr = VecDuplicate(xi->vlocal,&mp);CHKERRQ(ierr);
+      ierr = VecPointwiseDivide(mp,xi->vlocal,xi->multiplicity);CHKERRQ(ierr);
+      ierr = VecGetArrayRead(mp,&xx);CHKERRQ(ierr);
+      ierr = VecGetArrayRead(xi->vlocal,&yy);CHKERRQ(ierr);
+      work = PetscRealPart(BLASdot_(&bn,xx,&one,yy,&one));
+      ierr = VecRestoreArrayRead(mp,&xx);CHKERRQ(ierr);
+      ierr = VecRestoreArrayRead(xi->vlocal,&yy);CHKERRQ(ierr);
+      ierr = MPI_Allreduce(&work,&sum,1,MPIU_REAL,MPIU_SUM,PetscObjectComm((PetscObject)xin));CHKERRQ(ierr);
+      ierr = VecDestroy(&mp);CHKERRQ(ierr);
+      *z   = PetscSqrtReal(sum);
+      ierr = PetscLogFlops(3.0*xin->map->n);CHKERRQ(ierr);
+    } else if (type == NORM_1) {
+      ierr = VecDuplicate(xi->vlocal,&mp);CHKERRQ(ierr);
+      ierr = VecPointwiseDivide(mp,xi->vlocal,xi->multiplicity);CHKERRQ(ierr);
+      ierr = VecNorm_Seq(mp,NORM_1,&work);CHKERRQ(ierr);
+      ierr = MPI_Allreduce(&work,z,1,MPIU_REAL,MPIU_SUM,PetscObjectComm((PetscObject)xin));CHKERRQ(ierr);
+      ierr = VecDestroy(&mp);CHKERRQ(ierr);
+    } else if (type == NORM_INFINITY) {
+      ierr = VecNorm_Seq(xi->vlocal,NORM_INFINITY,&work);CHKERRQ(ierr);
+      ierr = MPI_Allreduce(&work,z,1,MPIU_REAL,MPIU_MAX,PetscObjectComm((PetscObject)xin));CHKERRQ(ierr);
+    } else if (type == NORM_1_AND_2) {
+      {
+	PetscReal temp[2];
+	ierr    = VecDuplicate(xi->vlocal,&mp);CHKERRQ(ierr);
+	ierr    = VecPointwiseDivide(mp,xi->vlocal,xi->multiplicity);CHKERRQ(ierr);
+	ierr    = VecGetArrayRead(mp,&xx);CHKERRQ(ierr);
+	ierr    = VecGetArrayRead(xi->vlocal,&yy);CHKERRQ(ierr);
+	temp[1] = PetscRealPart(BLASdot_(&bn,xx,&one,yy,&one));
+	ierr    = VecRestoreArrayRead(mp,&xx);CHKERRQ(ierr);
+	ierr    = VecRestoreArrayRead(xi->vlocal,&yy);CHKERRQ(ierr);
+	ierr    = VecNorm_Seq(mp,NORM_1,temp);CHKERRQ(ierr);
+	ierr    = MPI_Allreduce(temp,z,2,MPIU_REAL,MPIU_SUM,PetscObjectComm((PetscObject)xin));CHKERRQ(ierr);
+	z[1]    = PetscSqrtReal(z[1]);
+	ierr    = VecDestroy(&mp);CHKERRQ(ierr);
+	ierr    = PetscLogFlops(3.0*xin->map->n);CHKERRQ(ierr);
+      }
     }
   }
   PetscFunctionReturn(0);
@@ -853,7 +858,8 @@ static PetscErrorCode VecDuplicate_UNASM(Vec win,Vec *V)
   ierr = PetscFunctionListDuplicate(((PetscObject)win)->qlist,&((PetscObject)(*V))->qlist);CHKERRQ(ierr);
   xi   = (Vec_UNASM*)win->data;
   if(xi->multiplicity) {ierr = VecUnAsmSetMultiplicity(*V,xi->multiplicity);CHKERRQ(ierr);}
-    
+  if(xi->feti) {ierr = VecSetFETI(*V,xi->feti);CHKERRQ(ierr);}
+
   (*V)->ops->view          = win->ops->view;
   (*V)->stash.ignorenegidx = win->stash.ignorenegidx; 
   PetscFunctionReturn(0);
