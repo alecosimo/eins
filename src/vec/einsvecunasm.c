@@ -251,10 +251,12 @@ PETSC_EXTERN PetscErrorCode VecScatterUAEnd(VecScatter vecscatter,Vec v1,Vec v2,
 
 #undef __FUNCT__
 #define __FUNCT__ "VecUnAsmGetLocalVector"
-/*@ VecUnAsmGetLocalVector - Gets a reference to the local vector of
+/*@ 
+  VecUnAsmGetLocalVector - Gets a reference to the local vector of
   the given globally unassembled vector WITHOUT incrementing the
   reference count of the object, so the obtained reference to the
-  vector must not be destroyed by the user.
+  vector must not be destroyed by the user. After using the obtained
+  vector, it must be released calling to VecUnAsmRestoreLocalVector()
 
   Input Parameter:
 .  xin - the globally unassembled vector.
@@ -264,6 +266,7 @@ PETSC_EXTERN PetscErrorCode VecScatterUAEnd(VecScatter vecscatter,Vec v1,Vec v2,
 
   Level: intermediate
 
+.seealso: VecUnAsmRestoreLocalVector, VecUnAsmRestoreLocalVectorRead, VecUnAsmGetLocalVectorRead
 @*/
 PETSC_EXTERN PetscErrorCode VecUnAsmGetLocalVector(Vec xin,Vec *vec)
 {
@@ -277,6 +280,86 @@ PETSC_EXTERN PetscErrorCode VecUnAsmGetLocalVector(Vec xin,Vec *vec)
   if(!flg) SETERRQ(PetscObjectComm((PetscObject)xin),PETSC_ERR_SUP,"Cannot get local vector from non globally unassembled vector");
   xi = (Vec_UNASM*)xin->data;
   *vec = xi->vlocal;
+  PetscFunctionReturn(0);
+}
+
+
+#undef __FUNCT__
+#define __FUNCT__ "VecUnAsmRestoreLocalVector"
+/*@ VecUnAsmRestoreLocalVector - Restores vector obtained with VecUnAsmGetLocalVector().
+
+  Input Parameter:
+.  xin - the globally unassembled vector.
+.  vec - the local vector.
+
+  Level: intermediate
+
+.seealso: VecUnAsmGetLocalVector, VecUnAsmRestoreLocalVectorRead, VecUnAsmGetLocalVectorRead
+@*/
+PETSC_EXTERN PetscErrorCode VecUnAsmRestoreLocalVector(Vec xin,Vec vec)
+{
+  Vec_UNASM      *xi; 
+  PetscBool      flg;
+  PetscErrorCode ierr;
+  
+  PetscFunctionBegin;
+  PetscValidHeaderSpecific(xin,VEC_CLASSID,1);
+  PetscValidHeaderSpecific(vec,VEC_CLASSID,2);
+  ierr = PetscObjectStateIncrease((PetscObject)xin);CHKERRQ(ierr);
+  PetscFunctionReturn(0);
+}
+
+
+#undef __FUNCT__
+#define __FUNCT__ "VecUnAsmGetLocalVectorRead"
+/*@ 
+  VecUnAsmGetLocalVectorRead - Gets a reference to the local vector of
+  the given globally unassembled vector WITHOUT incrementing the
+  reference count of the object, so the obtained reference to the
+  vector must not be destroyed by the user. After using the obtained
+  vector, it must be released calling to VecUnAsmRestoreLocalVectorRead()
+
+  Input Parameter:
+.  xin - the globally unassembled vector.
+
+  Output Parameter:
+.  vec - reference to the local vector.
+
+  Level: intermediate
+
+.seealso: VecUnAsmRestoreLocalVectorRead, VecUnAsmRestoreLocalVector, VecUnAsmGetLocalVector
+@*/
+PETSC_EXTERN PetscErrorCode VecUnAsmGetLocalVectorRead(Vec xin,Vec *vec)
+{
+  Vec_UNASM      *xi; 
+  PetscBool      flg;
+  PetscErrorCode ierr;
+  
+  PetscFunctionBegin;
+  PetscValidHeaderSpecific(xin,VEC_CLASSID,1);
+  ierr = PetscObjectTypeCompare((PetscObject)xin,VECMPIUNASM,&flg);CHKERRQ(ierr);
+  if(!flg) SETERRQ(PetscObjectComm((PetscObject)xin),PETSC_ERR_SUP,"Cannot get local vector from non globally unassembled vector");
+  xi = (Vec_UNASM*)xin->data;
+  *vec = xi->vlocal;
+  PetscFunctionReturn(0);
+}
+
+
+#undef __FUNCT__
+#define __FUNCT__ "VecUnAsmRestoreLocalVectorRead"
+/*@ VecUnAsmRestoreLocalVectorRead - Restores vector obtained with VecUnAsmGetLocalVectorRead().
+
+  Input Parameter:
+.  xin - the globally unassembled vector.
+.  vec - the local vector.
+
+  Level: intermediate
+
+.seealso: VecUnAsmGetLocalVector, VecUnAsmRestoreLocalVector, VecUnAsmGetLocalVectorRead
+@*/
+PETSC_EXTERN PetscErrorCode VecUnAsmRestoreLocalVectorRead(Vec xin,Vec vec)
+{  
+  PetscFunctionBegin;
   PetscFunctionReturn(0);
 }
 

@@ -41,6 +41,9 @@ PETSC_EXTERN PetscErrorCode VecUnAsmCreateMPIVec(Vec,ISLocalToGlobalMapping,Comp
 PETSC_EXTERN PetscErrorCode VecCreateMPIUnasmWithArray(MPI_Comm,PetscInt,PetscInt,const PetscScalar[],Vec*);
 PETSC_EXTERN PetscErrorCode VecCreateMPIUnasmWithLocalVec(MPI_Comm,PetscInt,PetscInt,Vec,Vec*);
 PETSC_EXTERN PetscErrorCode VecUnAsmGetLocalVector(Vec,Vec*);
+PETSC_EXTERN PetscErrorCode VecUnAsmRestoreLocalVector(Vec,Vec);
+PETSC_EXTERN PetscErrorCode VecUnAsmGetLocalVectorRead(Vec,Vec*);
+PETSC_EXTERN PetscErrorCode VecUnAsmRestoreLocalVectorRead(Vec,Vec);
 PETSC_EXTERN PetscErrorCode VecUASum(Vec,PetscScalar*);
 PETSC_EXTERN PetscErrorCode VecGetFETI(Vec,FETI*);
 PETSC_EXTERN PetscErrorCode VecSetFETI(Vec,FETI);

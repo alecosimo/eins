@@ -331,9 +331,15 @@ PETSC_EXTERN PetscErrorCode MatShellUnAsmSetOperation(Mat mat,MatOperation op,vo
   case MATOP_VIEW:
     mat->ops->view = (PetscErrorCode (*)(Mat,PetscViewer))f;
     break;
+  case MATOP_MULT_ADD:
+    mat->ops->multadd = (PetscErrorCode (*)(Mat,Vec,Vec,Vec))f;
+    break;
   case MATOP_MULT:
     mat->ops->mult = (PetscErrorCode (*)(Mat,Vec,Vec))f;
     if (!mat->ops->multadd) mat->ops->multadd = MatMultAdd_ShellUnAsm;
+    break;
+  case MATOP_MULT_TRANSPOSE_ADD:
+    mat->ops->multtransposeadd = (PetscErrorCode (*)(Mat,Vec,Vec,Vec))f;
     break;
   case MATOP_MULT_TRANSPOSE:
     mat->ops->multtranspose = (PetscErrorCode (*)(Mat,Vec,Vec))f;
