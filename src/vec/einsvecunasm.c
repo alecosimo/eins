@@ -666,23 +666,27 @@ static PetscErrorCode VecMDot_UNASM(Vec xin,PetscInt nv,const Vec y[],PetscScala
   PetscInt       i;
   
   PetscFunctionBegin;
-  if (!xi->multiplicity) SETERRQ(PetscObjectComm((PetscObject)xin),PETSC_ERR_SUP,"You should first call VecUnAsmSetMultiplicity");
-  ierr = VecDuplicate(xi->vlocal,&mp);CHKERRQ(ierr);
-  ierr = VecPointwiseDivide(mp,xi->vlocal,xi->multiplicity);CHKERRQ(ierr); 
   ierr = PetscMalloc1(nv,&y_aux);CHKERRQ(ierr);
   for (i=0;i<nv;i++) {
     yi       = (Vec_UNASM*)y[i]->data;
     y_aux[i] = yi->vlocal;
   }
-  if (nv > 128) {
-    ierr = PetscMalloc1(nv,&work);CHKERRQ(ierr);
+  if(!xi->multiplicity) {
+    ierr = VecMDot_Seq(xi->vlocal,nv,y_aux,z);CHKERRQ(ierr);
+  } else { 
+    ierr = VecDuplicate(xi->vlocal,&mp);CHKERRQ(ierr);
+    ierr = VecPointwiseDivide(mp,xi->vlocal,xi->multiplicity);CHKERRQ(ierr); 
+
+    if (nv > 128) {
+      ierr = PetscMalloc1(nv,&work);CHKERRQ(ierr);
+    }
+    ierr = VecMDot_Seq(mp,nv,y_aux,work);CHKERRQ(ierr);
+    ierr = MPI_Allreduce(work,z,nv,MPIU_SCALAR,MPIU_SUM,PetscObjectComm((PetscObject)xin));CHKERRQ(ierr);
+    if (nv > 128) {
+      ierr = PetscFree(work);CHKERRQ(ierr);
+    }
+    ierr = VecDestroy(&mp);CHKERRQ(ierr);
   }
-  ierr = VecMDot_Seq(mp,nv,y_aux,work);CHKERRQ(ierr);
-  ierr = MPI_Allreduce(work,z,nv,MPIU_SCALAR,MPIU_SUM,PetscObjectComm((PetscObject)xin));CHKERRQ(ierr);
-  if (nv > 128) {
-    ierr = PetscFree(work);CHKERRQ(ierr);
-  }
-  ierr = VecDestroy(&mp);CHKERRQ(ierr);
   ierr = PetscFree(y_aux);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
@@ -699,7 +703,10 @@ static PetscErrorCode VecTDot_UNASM(Vec xin,Vec yin,PetscScalar *z)
   Vec            mp;
   
   PetscFunctionBegin;
-  if (!xi->multiplicity) SETERRQ(PetscObjectComm((PetscObject)xin),PETSC_ERR_SUP,"You should first call VecUnAsmSetMultiplicity");
+  if (!xi->multiplicity) {
+    ierr = VecTDot_Seq(xi->vlocal,yi->vlocal,z);CHKERRQ(ierr);
+    PetscFunctionReturn(0);
+  }
   ierr = VecDuplicate(xi->vlocal,&mp);CHKERRQ(ierr);
   ierr = VecPointwiseDivide(mp,xi->vlocal,xi->multiplicity);CHKERRQ(ierr);
   ierr = VecTDot_Seq(mp,yi->vlocal,&work);CHKERRQ(ierr);
@@ -722,23 +729,27 @@ static PetscErrorCode VecMTDot_UNASM(Vec xin,PetscInt nv,const Vec y[],PetscScal
   PetscInt       i;
   
   PetscFunctionBegin;
-  if (!xi->multiplicity) SETERRQ(PetscObjectComm((PetscObject)xin),PETSC_ERR_SUP,"You should first call VecUnAsmSetMultiplicity");
-  ierr = VecDuplicate(xi->vlocal,&mp);CHKERRQ(ierr);
-  ierr = VecPointwiseDivide(mp,xi->vlocal,xi->multiplicity);CHKERRQ(ierr); 
   ierr = PetscMalloc1(nv,&y_aux);CHKERRQ(ierr);
   for (i=0;i<nv;i++) {
     yi       = (Vec_UNASM*)y[i]->data;
     y_aux[i] = yi->vlocal;
   }
-  if (nv > 128) {
-    ierr = PetscMalloc1(nv,&work);CHKERRQ(ierr);
+
+  if (!xi->multiplicity) {
+    ierr = VecMTDot_Seq(xi->vlocal,nv,y_aux,z);CHKERRQ(ierr);
+  } else {
+    ierr = VecDuplicate(xi->vlocal,&mp);CHKERRQ(ierr);
+    ierr = VecPointwiseDivide(mp,xi->vlocal,xi->multiplicity);CHKERRQ(ierr); 
+    if (nv > 128) {
+      ierr = PetscMalloc1(nv,&work);CHKERRQ(ierr);
+    }
+    ierr = VecMTDot_Seq(mp,nv,y_aux,work);CHKERRQ(ierr);
+    ierr = MPI_Allreduce(work,z,nv,MPIU_SCALAR,MPIU_SUM,PetscObjectComm((PetscObject)xin));CHKERRQ(ierr);
+    if (nv > 128) {
+      ierr = PetscFree(work);CHKERRQ(ierr);
+    }
+    ierr = VecDestroy(&mp);CHKERRQ(ierr);
   }
-  ierr = VecMTDot_Seq(mp,nv,y_aux,work);CHKERRQ(ierr);
-  ierr = MPI_Allreduce(work,z,nv,MPIU_SCALAR,MPIU_SUM,PetscObjectComm((PetscObject)xin));CHKERRQ(ierr);
-  if (nv > 128) {
-    ierr = PetscFree(work);CHKERRQ(ierr);
-  }
-  ierr = VecDestroy(&mp);CHKERRQ(ierr);
   ierr = PetscFree(y_aux);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
@@ -1309,9 +1320,9 @@ PETSC_EXTERN PetscErrorCode VecCreateMPIUnasmWithArray(MPI_Comm comm,PetscInt n,
 
 
 #undef __FUNCT__
-#define __FUNCT__ "VecUASum"
+#define __FUNCT__ "VecUnAsmSum"
 /*@
-   VecUASum - Computes the sum of all the components of a globally unassembled vector.
+   VecUnAsmSum - Computes the sum of all the components of a globally unassembled vector.
 
    Collective on Vec
 
@@ -1327,7 +1338,7 @@ PETSC_EXTERN PetscErrorCode VecCreateMPIUnasmWithArray(MPI_Comm comm,PetscInt n,
 
 .seealso: VecNorm()
 @*/
-PetscErrorCode  VecUASum(Vec v,PetscScalar *sum)
+PETSC_EXTERN PetscErrorCode  VecUnAsmSum(Vec v,PetscScalar *sum)
 {
   PetscErrorCode    ierr;
   PetscInt          i,n;

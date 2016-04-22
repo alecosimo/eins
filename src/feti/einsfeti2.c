@@ -377,7 +377,7 @@ static PetscErrorCode FETI2BuildLambdaAndB_Private(FETI ft)
   ierr = VecScatterUAEnd(sd->N_to_B,sd->vec1_B,sd->vec1_global,INSERT_VALUES,SCATTER_REVERSE);CHKERRQ(ierr);
   ierr = VecExchangeBegin(sd->exchange_vec1global,sd->vec1_global,ADD_VALUES);CHKERRQ(ierr);
   ierr = VecExchangeEnd(sd->exchange_vec1global,sd->vec1_global,ADD_VALUES);CHKERRQ(ierr);
-  ierr = VecUASum(sd->vec1_global,&scalar_value);CHKERRQ(ierr);
+  ierr = VecUnAsmSum(sd->vec1_global,&scalar_value);CHKERRQ(ierr);
   ft->n_lambda = (PetscInt)PetscRealPart(scalar_value);
   
   /* compute global ordering of lagrange multipliers and associate l2g map */
