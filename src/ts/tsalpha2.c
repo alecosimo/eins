@@ -548,8 +548,8 @@ static PetscErrorCode TSSetUp_Alpha(TS ts)
 
   if(ts->snes) {
     void *fptr;
-    ierr = PetscObjectQueryFunction((PetscObject)ts->snes,"SNESNoJacobianIsComputed_C",&fptr);CHKERRQ(ierr);
-    if(!fptr) {ierr = PetscObjectComposeFunction((PetscObject)ts->snes,"SNESNoJacobianIsComputed_C",SNESNoJacobianIsComputed_default);CHKERRQ(ierr);}
+    ierr = PetscObjectQueryFunction((PetscObject)ts->snes,"SNESSetComputeJacobian_C",&fptr);CHKERRQ(ierr);
+    if(!fptr) {ierr = PetscObjectComposeFunction((PetscObject)ts->snes,"SNESSetComputeJacobian_C",SNESSetComputeJacobian_default);CHKERRQ(ierr);}
   }
   
   PetscFunctionReturn(0);

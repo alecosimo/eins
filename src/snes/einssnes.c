@@ -4,27 +4,28 @@
 
 
 #undef __FUNCT__
-#define __FUNCT__ "SNESNoJacobianIsComputed_default"
-PETSC_EXTERN PetscErrorCode SNESNoJacobianIsComputed_default(SNES snes)
+#define __FUNCT__ "SNESSetComputeJacobian_default"
+PETSC_EXTERN PetscErrorCode SNESSetComputeJacobian_default(SNES snes,PetscBool flg)
 {
   PetscErrorCode ierr;
   KSP           ksp;
   
   PetscFunctionBegin;
   ierr = SNESGetKSP(snes,&ksp);CHKERRQ(ierr);
-  ierr = KSPSetComputeJacobian(ksp,PETSC_FALSE);CHKERRQ(ierr);
+  ierr = KSPSetComputeJacobian(ksp,flg);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 
 
 #undef  __FUNCT__
-#define __FUNCT__ "SNESNoJacobianIsComputed"
+#define __FUNCT__ "SNESSetComputeJacobian"
 /*@
-   SNESNoJacobianIsComputed - Call back for informing that no jacobian
-   is being computed. It is generally used for linear problems.
+   SNESSetComputeJacobian - Call back for setting if the jacobian
+   should not be computed. It is generally used for linear problems.
 
    Input: 
-.  snes - the SNES context
++  snes - the SNES context
+-  flg  - Boolean value
 
    Level: basic
 
@@ -32,13 +33,13 @@ PETSC_EXTERN PetscErrorCode SNESNoJacobianIsComputed_default(SNES snes)
 
 .seealso: SNESCreate
 @*/
-PETSC_EXTERN PetscErrorCode SNESNoJacobianIsComputed(SNES snes)
+PETSC_EXTERN PetscErrorCode SNESSetComputeJacobian(SNES snes,PetscBool flg)
 {
   PetscErrorCode ierr;
   
   PetscFunctionBegin;
   PetscValidHeaderSpecific(snes,SNES_CLASSID,1);
-  ierr = PetscUseMethod(snes,"SNESNoJacobianIsComputed_C",(SNES),(snes));CHKERRQ(ierr);
+  ierr = PetscUseMethod(snes,"SNESSetComputeJacobian_C",(SNES,PetscBool),(snes,flg));CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 

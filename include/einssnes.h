@@ -7,6 +7,6 @@
 #define SNESFETIONLY      "fetionly"
 
 PETSC_EXTERN PetscErrorCode SNESGetFETIContext(SNES,FETI*);
-PETSC_EXTERN PetscErrorCode SNESNoJacobianIsComputed(SNES);
+PETSC_EXTERN PetscErrorCode SNESSetComputeJacobian(SNES,PetscBool);
   
 #endif/* EINSSNES_H*/

@@ -22,6 +22,6 @@ PETSC_EXTERN PetscErrorCode TSComputeIJacobian2ConstantInvariant(PETSC_UNUSED TS
   PetscErrorCode ierr;
 
   PetscFunctionBegin; 
-  ierr = SNESNoJacobianIsComputed(ts->snes);CHKERRQ(ierr);
+  ierr = SNESSetComputeJacobian(ts->snes,PETSC_FALSE);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
