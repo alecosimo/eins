@@ -522,6 +522,7 @@ PetscErrorCode FETISolve(FETI ft,Vec u)
       Vec u_local;
       ierr = VecUnAsmGetLocalVector(u,&u_local);CHKERRQ(ierr);
       ierr = (*ft->ops->computesolution)(ft,u_local);CHKERRQ(ierr);
+      ierr = VecUnAsmRestoreLocalVector(u,u_local);CHKERRQ(ierr);
     }
   } else {
     SETERRQ(PetscObjectComm((PetscObject)ft),PETSC_ERR_ARG_WRONGSTATE,"Error: Compute Solution of specific FETI method not found.");
@@ -617,8 +618,9 @@ PetscErrorCode FETISetRHS(FETI ft,Vec rhs)
   PetscValidHeaderSpecific(rhs,VEC_CLASSID,2);
   ierr = PetscObjectTypeCompare((PetscObject)rhs,VECMPIUNASM,&flg);CHKERRQ(ierr);
   if(!flg) SETERRQ(PetscObjectComm((PetscObject)rhs),PETSC_ERR_SUP,"Cannot set non-VECMPIUNASM vector");
-  ierr = VecUnAsmGetLocalVector(rhs,&rhs_local);CHKERRQ(ierr);
+  ierr = VecUnAsmGetLocalVectorRead(rhs,&rhs_local);CHKERRQ(ierr);
   ierr = SubdomainSetLocalRHS(ft->subdomain,rhs_local);CHKERRQ(ierr);
+  ierr = VecUnAsmRestoreLocalVectorRead(rhs,rhs_local);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 
@@ -757,7 +759,7 @@ PETSC_EXTERN PetscErrorCode FETIComputeForceNormLocal(FETI ft,Vec vec,NormType t
   if (!flg) {
     vlocal = vec;
   } else {
-    ierr = VecUnAsmGetLocalVector(vec,&vlocal);CHKERRQ(ierr);
+    ierr = VecUnAsmGetLocalVectorRead(vec,&vlocal);CHKERRQ(ierr);
   }    
   if (ft->lambda_global) {
     sd = ft->subdomain;
@@ -775,6 +777,10 @@ PETSC_EXTERN PetscErrorCode FETIComputeForceNormLocal(FETI ft,Vec vec,NormType t
     /* compute the norm of vec if no lambda is available*/
     ierr = VecNorm(vlocal,type,norm);CHKERRQ(ierr);
   }
+  if (flg) {
+    ierr = VecUnAsmRestoreLocalVectorRead(vec,vlocal);CHKERRQ(ierr);
+  }    
+
   PetscFunctionReturn(0);
 }
 
@@ -809,7 +815,7 @@ PETSC_EXTERN PetscErrorCode FETIComputeForceNorm(FETI ft,Vec vec,NormType type,P
   if (!flg) {
     vlocal = vec;
   } else {
-    ierr = VecUnAsmGetLocalVector(vec,&vlocal);CHKERRQ(ierr);
+    ierr = VecUnAsmGetLocalVectorRead(vec,&vlocal);CHKERRQ(ierr);
   }    
   if (ft->lambda_global) {
     sd = ft->subdomain;
@@ -828,6 +834,9 @@ PETSC_EXTERN PetscErrorCode FETIComputeForceNorm(FETI ft,Vec vec,NormType type,P
     ierr = VecNorm(vlocal,type,&lnorm);CHKERRQ(ierr);
   }
   ierr = MPIU_Allreduce(&lnorm,norm,1,MPIU_REAL,MPIU_SUM,PetscObjectComm((PetscObject)vec));CHKERRQ(ierr);
+  if (flg) {
+    ierr = VecUnAsmRestoreLocalVectorRead(vec,vlocal);CHKERRQ(ierr);
+  }    
   PetscFunctionReturn(0);
 }
 

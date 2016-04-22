@@ -137,9 +137,10 @@ int main(int argc,char **argv)
   ierr = VecExchangeCreate(v,n_neigh,neigh,n_shared,shared,PETSC_USE_POINTER,&ve);CHKERRQ(ierr);
   ierr = VecExchangeBegin(ve,v,ADD_VALUES);CHKERRQ(ierr);
   ierr = VecExchangeEnd(ve,v,ADD_VALUES);CHKERRQ(ierr);
-  ierr = VecUnAsmGetLocalVector(v,&refvec);CHKERRQ(ierr);
+  ierr = VecUnAsmGetLocalVectorRead(v,&refvec);CHKERRQ(ierr);
   ierr = TestAssertVectors(refvec,vec_comp,1e-8);CHKERRQ(ierr);
-  
+  ierr = VecUnAsmRestoreLocalVectorRead(v,refvec);CHKERRQ(ierr);
+    
   PetscPrintf(PETSC_COMM_WORLD,  "\nPrinting VecExchange .............. \n");
   ierr = VecView(v,PETSC_VIEWER_STDOUT_WORLD);CHKERRQ(ierr);
   

@@ -73,7 +73,7 @@ PetscErrorCode VecSeqViewSynchronized(MPI_Comm comm,Vec vector)
   if (!flg) {
     vecprint = vector;
   } else {
-    ierr = VecUnAsmGetLocalVector(vector,&vecprint);CHKERRQ(ierr);
+    ierr = VecUnAsmGetLocalVectorRead(vector,&vecprint);CHKERRQ(ierr);
   }
   work = vecprint->map->n;
 
@@ -98,7 +98,10 @@ PetscErrorCode VecSeqViewSynchronized(MPI_Comm comm,Vec vector)
     ierr = VecGetArrayRead(vecprint,&xarray);CHKERRQ(ierr);
     ierr = MPI_Send((void*)xarray,vecprint->map->n,MPIU_SCALAR,0,0,comm);CHKERRQ(ierr);
     ierr = VecRestoreArrayRead(vecprint,&xarray);CHKERRQ(ierr);
-  }    
+  }
+  if (flg) {
+    ierr = VecUnAsmRestoreLocalVectorRead(vector,vecprint);CHKERRQ(ierr);
+  } 
   PetscFunctionReturn(0);
 }
 

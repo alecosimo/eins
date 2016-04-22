@@ -105,7 +105,7 @@ static PetscErrorCode PCApply_DIRICHLET(PC pc,Vec x,Vec y)
   Vec              lambda_local,y_local;
   
   PetscFunctionBegin;
-  ierr = VecUnAsmGetLocalVector(x,&lambda_local);CHKERRQ(ierr);
+  ierr = VecUnAsmGetLocalVectorRead(x,&lambda_local);CHKERRQ(ierr);
   ierr = VecUnAsmGetLocalVector(y,&y_local);CHKERRQ(ierr);
   /* Application of B_Ddelta^T */
   ierr = MatMultTranspose(ft->B_Ddelta,lambda_local,sd->vec1_B);CHKERRQ(ierr);
@@ -115,6 +115,8 @@ static PetscErrorCode PCApply_DIRICHLET(PC pc,Vec x,Vec y)
   ierr = MatMult(ft->B_Ddelta,sd->vec2_B,y_local);CHKERRQ(ierr);
   ierr = VecExchangeBegin(ft->exchange_lambda,y,ADD_VALUES);CHKERRQ(ierr);
   ierr = VecExchangeEnd(ft->exchange_lambda,y,ADD_VALUES);CHKERRQ(ierr);
+  ierr = VecUnAsmRestoreLocalVectorRead(x,lambda_local);CHKERRQ(ierr);
+  ierr = VecUnAsmRestoreLocalVector(y,y_local);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 
