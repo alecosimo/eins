@@ -9,11 +9,9 @@ static PetscErrorCode KSPSetUp_FETI(KSP);
 #define __FUNCT__ "KSPSetUp_FETI"
 static PetscErrorCode KSPSetUp_FETI(KSP ksp)
 {
-  PetscErrorCode ierr;
   KSP_FETI       *ft = (KSP_FETI*)ksp->data;
 
   PetscFunctionBegin;
-  ierr = PCSetType(ksp->pc,PCNONE);CHKERRQ(ierr);
   if(!ft->feti) SETERRQ(PetscObjectComm((PetscObject)ksp),PETSC_ERR_ARG_WRONGSTATE,"Error: the feti context must be first defined");
   PetscFunctionReturn(0);
 }
@@ -175,7 +173,9 @@ PETSC_EXTERN PetscErrorCode KSPCreate_FETI(KSP ksp)
   ksp->ops->destroy        = KSPDestroy_FETI;
   
   ierr = PetscObjectComposeFunction((PetscObject)ksp,"KSPSetComputeJacobian_C",KSPSetComputeJacobian_FETI);CHKERRQ(ierr);
-  
+  if (!ksp->pc) {ierr = KSPGetPC(ksp,&ksp->pc);CHKERRQ(ierr);}
+  ierr = PCSetType(ksp->pc,PCNONE);CHKERRQ(ierr);  
+
   PetscFunctionReturn(0);
 }
 
