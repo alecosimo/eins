@@ -2,7 +2,7 @@ set(path "${PROJECT_SOURCE_DIR}/test")
 
 M_ADD_TEST("${path}/poissonFDunasmvec.c"  "mpiexec -n 4 ./poissonFDunasmvec -npx 2 -npy 2 -nex 4 -ney 4 -feti_interface_ksp_monitor_short -log_destruction" "${EinsTests_libraries}")
 
-M_ADD_TEST("${path}/poissonFGkspfeti.c"  "mpiexec -n 4 ./poissonFGkspfeti -npx 2 -npy 2 -nex 4 -ney 4 -feti_interface_ksp_monitor_short -log_destruction" "${EinsTests_libraries}")
+M_ADD_TEST("${path}/poissonFDkspfeti.c"  "mpiexec -n 4 ./poissonFDkspfeti -npx 2 -npy 2 -nex 4 -ney 4 -feti_interface_ksp_monitor_short -log_destruction" "${EinsTests_libraries}")
 
 M_ADD_TEST("${path}/Oscillator2.c"  "mpiexec -n 4 ./Oscillator2 -ts_max_steps 10 -ts_alpha_adapt -damping 0.1" "${EinsTests_libraries}")
 

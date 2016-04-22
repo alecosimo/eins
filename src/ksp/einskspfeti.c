@@ -100,12 +100,12 @@ PETSC_EXTERN PetscErrorCode KSPSetFETI(KSP ksp,FETI feti)
 static PetscErrorCode KSPSolve_FETI(KSP ksp)
 {
   PetscErrorCode ierr;
-  Mat            Amat,Pmat;
+  Mat            Amat;
   KSP_FETI       *ft = (KSP_FETI*)ksp->data;
   KSP            ksp_feti;
   
   PetscFunctionBegin;
-  ierr = PCGetOperators(ksp->pc,&Amat,&Pmat);CHKERRQ(ierr);
+  ierr = PCGetOperators(ksp->pc,&Amat,NULL);CHKERRQ(ierr);
   /*>>> FETI stuff */
   ierr = FETISetMat(ft->feti,Amat);CHKERRQ(ierr);
   ierr = FETISetRHS(ft->feti,ksp->vec_rhs);CHKERRQ(ierr);
