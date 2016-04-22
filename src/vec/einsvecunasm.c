@@ -297,15 +297,12 @@ PETSC_EXTERN PetscErrorCode VecUnAsmGetLocalVector(Vec xin,Vec *vec)
 
 .seealso: VecUnAsmGetLocalVector, VecUnAsmRestoreLocalVectorRead, VecUnAsmGetLocalVectorRead
 @*/
-PETSC_EXTERN PetscErrorCode VecUnAsmRestoreLocalVector(Vec xin,Vec vec)
+PETSC_EXTERN PetscErrorCode VecUnAsmRestoreLocalVector(Vec xin,PETSC_UNUSED Vec vec)
 {
-  Vec_UNASM      *xi; 
-  PetscBool      flg;
   PetscErrorCode ierr;
   
   PetscFunctionBegin;
   PetscValidHeaderSpecific(xin,VEC_CLASSID,1);
-  PetscValidHeaderSpecific(vec,VEC_CLASSID,2);
   ierr = PetscObjectStateIncrease((PetscObject)xin);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
@@ -358,7 +355,7 @@ PETSC_EXTERN PetscErrorCode VecUnAsmGetLocalVectorRead(Vec xin,Vec *vec)
 
 .seealso: VecUnAsmGetLocalVector, VecUnAsmRestoreLocalVector, VecUnAsmGetLocalVectorRead
 @*/
-PETSC_EXTERN PetscErrorCode VecUnAsmRestoreLocalVectorRead(Vec xin,Vec vec)
+PETSC_EXTERN PetscErrorCode VecUnAsmRestoreLocalVectorRead(PETSC_UNUSED Vec xin,PETSC_UNUSED Vec vec)
 {  
   PetscFunctionBegin;
   PetscFunctionReturn(0);

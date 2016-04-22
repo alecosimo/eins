@@ -9,6 +9,7 @@
 #else
 #include <petsc/private/tsimpl.h>                /*I   "petscts.h"   I*/
 #endif
+#include <private/einssnesimpl.h>
 
 static PetscBool  cited = PETSC_FALSE;
 static const char citation[] =
@@ -516,7 +517,7 @@ static PetscErrorCode TSSetUp_Alpha(TS ts)
 {
   TS_Alpha       *th = (TS_Alpha*)ts->data;
   PetscErrorCode ierr;
-
+  
   PetscFunctionBegin;
   if (th->adapt && ts->problem_type==TS_LINEAR) {
     SETERRQ(PetscObjectComm((PetscObject)ts),PETSC_ERR_ORDER,"Time adaptivity not supported for linear problems");
@@ -544,6 +545,13 @@ static PetscErrorCode TSSetUp_Alpha(TS ts)
     ierr = VecDuplicate(ts->vec_sol,&th->vec_dot_prev);CHKERRQ(ierr);
   }
   ierr = TSGetSNES(ts,&ts->snes);CHKERRQ(ierr);
+
+  if(ts->snes) {
+    void *fptr;
+    ierr = PetscObjectQueryFunction((PetscObject)ts->snes,"SNESNoJacobianIsComputed_C",&fptr);CHKERRQ(ierr);
+    if(!fptr) {ierr = PetscObjectComposeFunction((PetscObject)ts->snes,"SNESNoJacobianIsComputed_C",SNESNoJacobianIsComputed_default);CHKERRQ(ierr);}
+  }
+  
   PetscFunctionReturn(0);
 }
 

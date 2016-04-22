@@ -12,6 +12,7 @@ PETSC_EXTERN PetscErrorCode KSPSetProjection(KSP,PetscErrorCode (*)(void*,Vec,Ve
 PETSC_EXTERN PetscErrorCode KSPSetReProjection(KSP,PetscErrorCode (*)(void*,Vec,Vec),void*);
 PETSC_EXTERN PetscErrorCode KSPPJGMRESMonitorKrylov(KSP,PETSC_UNUSED PetscInt,PETSC_UNUSED PetscReal,void*);
 PETSC_EXTERN PetscErrorCode KSPGetResidual(KSP,Vec*);
+PETSC_EXTERN PetscErrorCode KSPSetComputeJacobian(KSP,PetscBool);
 
 /* KSPFETI */
 PETSC_EXTERN PetscErrorCode KSPSetFETI(KSP,FETI);

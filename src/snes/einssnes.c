@@ -1,5 +1,20 @@
-#include <einssnes.h>
+#include <einsksp.h>
+#include <private/einssnesimpl.h>
 #include <petsc/private/snesimpl.h>
+
+
+#undef __FUNCT__
+#define __FUNCT__ "SNESNoJacobianIsComputed_default"
+PETSC_EXTERN PetscErrorCode SNESNoJacobianIsComputed_default(SNES snes)
+{
+  PetscErrorCode ierr;
+  KSP           ksp;
+  
+  PetscFunctionBegin;
+  ierr = SNESGetKSP(snes,&ksp);CHKERRQ(ierr);
+  ierr = KSPSetComputeJacobian(ksp,PETSC_FALSE);CHKERRQ(ierr);
+  PetscFunctionReturn(0);
+}
 
 
 #undef  __FUNCT__

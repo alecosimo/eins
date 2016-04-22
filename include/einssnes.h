@@ -8,5 +8,5 @@
 
 PETSC_EXTERN PetscErrorCode SNESGetFETIContext(SNES,FETI*);
 PETSC_EXTERN PetscErrorCode SNESNoJacobianIsComputed(SNES);
-
+  
 #endif/* EINSSNES_H*/

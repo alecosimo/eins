@@ -9,9 +9,11 @@ static PetscErrorCode KSPSetUp_FETI(KSP);
 #define __FUNCT__ "KSPSetUp_FETI"
 static PetscErrorCode KSPSetUp_FETI(KSP ksp)
 {
+  PetscErrorCode ierr;
   KSP_FETI       *ft = (KSP_FETI*)ksp->data;
 
   PetscFunctionBegin;
+  ierr = PCSetType(ksp->pc,PCNONE);CHKERRQ(ierr);
   if(!ft->feti) SETERRQ(PetscObjectComm((PetscObject)ksp),PETSC_ERR_ARG_WRONGSTATE,"Error: the feti context must be first defined");
   PetscFunctionReturn(0);
 }
@@ -127,8 +129,22 @@ static PetscErrorCode KSPDestroy_FETI(KSP ksp)
   KSP_FETI       *ft = (KSP_FETI*)ksp->data;
 
   PetscFunctionBegin;
+  ierr = PetscObjectComposeFunction((PetscObject)ksp,"KSPSetComputeJacobian_C",NULL);CHKERRQ(ierr);
   ierr = FETIDestroy(&ft->feti);CHKERRQ(ierr);
   ierr = KSPDestroyDefault(ksp);CHKERRQ(ierr);
+  PetscFunctionReturn(0);
+}
+
+
+#undef __FUNCT__
+#define __FUNCT__ "KSPSetComputeJacobian_FETI"
+static PetscErrorCode KSPSetComputeJacobian_FETI(KSP ksp)
+{
+  PetscErrorCode ierr;
+  KSP_FETI       *ft = (KSP_FETI*)ksp->data;
+
+  PetscFunctionBegin;
+  ierr = FETISetFactorizeLocalProblem(ft->feti,PETSC_FALSE);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 
@@ -157,8 +173,8 @@ PETSC_EXTERN PetscErrorCode KSPCreate_FETI(KSP ksp)
   /* ksp->ops->view           = KSPView_FETI;*/
   ksp->ops->solve          = KSPSolve_FETI;
   ksp->ops->destroy        = KSPDestroy_FETI;
-
-  ierr = PCSetType(ksp->pc,PCNONE);CHKERRQ(ierr);
+  
+  ierr = PetscObjectComposeFunction((PetscObject)ksp,"KSPSetComputeJacobian_C",KSPSetComputeJacobian_FETI);CHKERRQ(ierr);
   
   PetscFunctionReturn(0);
 }
