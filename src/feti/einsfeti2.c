@@ -854,7 +854,7 @@ static PetscErrorCode FETI2SetUpCoarseProblem_RBM(FETI ft)
   /* result: result of the local multiplication G^T*G*/
   Mat            *submat,result,aux_mat;
   
-  PetscInt       *neighs2,*n_neighs2; /* arrays to save which are the neighbours of neighbours */
+  PetscInt       **neighs2,*n_neighs2; /* arrays to save which are the neighbours of neighbours */
   
   PetscFunctionBegin;  
   /* in the following rankG and sizeG are related to the MPI_Comm comm */
@@ -863,22 +863,41 @@ static PetscErrorCode FETI2SetUpCoarseProblem_RBM(FETI ft)
   ierr = MPI_Comm_rank(comm,&rankG);CHKERRQ(ierr);
   ierr = MPI_Comm_size(comm,&sizeG);CHKERRQ(ierr);
 
-  /* Computing infromation of neighbours of neighbours */
-  ierr         = PetscMalloc1(ft->n_neigh_lb,&n_neighs2);CHKERRQ(ierr);
-  ierr         = PetscMalloc1(ft->n_neigh_lb-1,&send_reqs);CHKERRQ(ierr);
-  ierr         = PetscMalloc1(ft->n_neigh_lb-1,&recv_reqs);CHKERRQ(ierr);
-  n_neighs2[0] = ft->n_neigh_lb;
+  /* ====>>> Computing information of neighbours of neighbours */
+  ierr  = PetscMalloc1(ft->n_neigh_lb-1,&n_neighs2);CHKERRQ(ierr);  /* n_neighs2[0] != ft->n_neigh_lb; not count myself */
+  ierr  = PetscMalloc1(ft->n_neigh_lb-1,&send_reqs);CHKERRQ(ierr);
+  ierr  = PetscMalloc1(ft->n_neigh_lb-1,&recv_reqs);CHKERRQ(ierr);
+  /* n_neighs2[0] != ft->n_neigh_lb; not count myself */
   for (i=1; i<ft->n_neigh_lb; i++){
     ierr = PetscMPIIntCast(ft->neigh_lb[i],&i_mpi);CHKERRQ(ierr);   
     ierr = MPI_Isend(&ft->n_neigh_lb,1,MPIU_INT,i_mpi,0,comm,&send_reqs[i-1]);CHKERRQ(ierr);
-    ierr = MPI_Irecv(&n_neighs2[i],1,MPIU_INT,i_mpi,0,comm,&recv_reqs[i-1]);CHKERRQ(ierr);    
+    ierr = MPI_Irecv(&n_neighs2[i-1],1,MPIU_INT,i_mpi,0,comm,&recv_reqs[i-1]);CHKERRQ(ierr);
   }
   ierr = MPI_Waitall(ft->n_neigh_lb-1,recv_reqs,MPI_STATUSES_IGNORE);CHKERRQ(ierr);
   ierr = MPI_Waitall(ft->n_neigh_lb-1,send_reqs,MPI_STATUSES_IGNORE);CHKERRQ(ierr);
 
+  j    = 0;
+  for (i=1; i<ft->n_neigh_lb; i++){
+    j  += n_neighs2[i-1];
+  }
+  
+  ierr = PetscMalloc1(ft->n_neigh_lb-1,&neighs2);CHKERRQ(ierr);
+  ierr = PetscMalloc1(j,&neighs2[0]);CHKERRQ(ierr);
+  for (i=1;i<ft->n_neigh_lb-1;i++) {
+    neighs2[i] = neighs2[i-1] + n_neighs2[i-1];
+  }
+  for (i=1; i<ft->n_neigh_lb; i++){
+    ierr = PetscMPIIntCast(ft->neigh_lb[i],&i_mpi);CHKERRQ(ierr);
+    ierr = MPI_Isend(ft->neigh_lb,ft->n_neigh_lb,MPIU_INT,i_mpi,0,comm,&send_reqs[i-1]);CHKERRQ(ierr);
+    ierr = MPI_Irecv(neighs2[i-1],n_neighs2[i-1],MPIU_INT,i_mpi,0,comm,&recv_reqs[i-1]);CHKERRQ(ierr);
+  }
+  ierr = MPI_Waitall(ft->n_neigh_lb-1,recv_reqs,MPI_STATUSES_IGNORE);CHKERRQ(ierr);
+  ierr = MPI_Waitall(ft->n_neigh_lb-1,send_reqs,MPI_STATUSES_IGNORE);CHKERRQ(ierr);
   ierr = PetscFree(send_reqs);CHKERRQ(ierr);
   ierr = PetscFree(recv_reqs);CHKERRQ(ierr);
+  /* ====<<< Computing information of neighbours of neighbours */
 
+  
   /* computing n_rbm_comm that is number of rbm per subdomain and the communicator of floating structures */
   ierr = PetscMalloc1(sizeG,&n_rbm_comm);CHKERRQ(ierr);
   ierr = MPI_Allgather(&ft2->n_rbm,1,MPIU_INT,n_rbm_comm,1,MPIU_INT,comm);CHKERRQ(ierr);
@@ -919,36 +938,34 @@ static PetscErrorCode FETI2SetUpCoarseProblem_RBM(FETI ft)
   }
 
   /* localnnz: nonzeros for my row of the coarse probem */
-  localnnz            = ft2->n_rbm;
+  localnnz            = 0;
   total_size_matrices = 0;
   ft2->max_n_rbm      = ft2->n_rbm;
   n_send              = (ft->n_neigh_lb-1)*(ft2->n_rbm>0);
   n_recv              = 0;
 
-  if(ft2->n_rbm) {
-    
-    for (i=1;i<ft->n_neigh_lb;i++){
-      i_mpi                = n_rbm_comm[ft->neigh_lb[i]];
-      localnnz            += i_mpi*(ft->neigh_lb[i]>rankG);
-      
-      n_recv              += (i_mpi>0);
-      ft2->max_n_rbm       = (ft2->max_n_rbm > i_mpi) ? ft2->max_n_rbm : i_mpi;
-      total_size_matrices += i_mpi*ft->n_shared_lb[i];
-    }
-  } else {
-    for (i=1;i<ft->n_neigh_lb;i++){
-      i_mpi                = n_rbm_comm[ft->neigh_lb[i]];
-      n_recv              += (i_mpi>0);
-      ft2->max_n_rbm       = (ft2->max_n_rbm > i_mpi) ? ft2->max_n_rbm : i_mpi;
-      total_size_matrices += i_mpi*ft->n_shared_lb[i];
+  for (i=1;i<ft->n_neigh_lb;i++){
+    i_mpi                = n_rbm_comm[neighs2[0]];
+    localnnz            += i_mpi*(k>rankG);
+    n_recv              += (i_mpi>0);
+    total_size_matrices += i_mpi*ft->n_shared_lb[i];
+    ft2->max_n_rbm       = (ft2->max_n_rbm > i_mpi) ? ft2->max_n_rbm : i_mpi;
+    for (j=1;i<n_neigh2[i];j++){
+      k = neighs2[j];
+      if(k!=rankG) {
+	i_mpi                = n_rbm_comm[k];
+	localnnz            += i_mpi*(k>rankG);
+	ft2->max_n_rbm       = (ft2->max_n_rbm > i_mpi) ? ft2->max_n_rbm : i_mpi;
+      }
     }
   }
+
+  if(ft2->n_rbm) localnnz = 0; /* llegue hasta aqui */
 
 
   /* <<<<<<<============================================================================>>>>>>> */
   /* You can use: PetscSortRemoveDupsInt() or PetscSortRemoveDupsMPIInt() */
   
-#if (0)
   
   ierr = PetscMalloc1(ft2->total_rbm,&nnz);CHKERRQ(ierr);
   ierr = PetscMalloc1(size_floating,&idxm);CHKERRQ(ierr);
@@ -1033,7 +1050,10 @@ static PetscErrorCode FETI2SetUpCoarseProblem_RBM(FETI ft)
       }
     }
   }
-  
+
+
+#if (0) 
+
   /** perfoming the actual multiplication G_{rankG}^T*G_{neigh_rankG>=rankG} */   
   if (ft2->n_rbm) {
     ierr = PetscMalloc1(ft->n_lambda_local,&idxm);CHKERRQ(ierr);
@@ -1137,6 +1157,12 @@ static PetscErrorCode FETI2SetUpCoarseProblem_RBM(FETI ft)
   ierr = PetscFree(n_rbm_comm);CHKERRQ(ierr);
 
   # endif
+
+  MPI_Barrier(comm);
+
+  ierr = PetscFree(n_neighs2);CHKERRQ(ierr);
+  ierr = PetscFree(neighs2[0]);CHKERRQ(ierr);
+  ierr = PetscFree(neighs2);CHKERRQ(ierr);
   
   PetscFunctionReturn(0);
 }

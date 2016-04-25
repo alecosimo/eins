@@ -20,7 +20,7 @@ typedef struct {
   PetscInt     max_n_rbm;       /* the maximum of the number of rbm from me and my neighbours */
   Mat          localG;          /* local G matrix (current processor) */
   Mat          rbm;             /* matrix storing rigid body modes */ 
-  Mat          *Gholder;        /* each entry is one neighbour's localG matrix. The order follows, the order of ft1->neighs_lb. */
+  Mat          *Gholder;        /* each entry is one neighbour's localG matrix. The order follows the order of ft1->neighs_lb. */
                                 /* The actual values are stored in the array "PetscScalar  *matrices" */
   PetscScalar  *matrices;       /* array for storing the values of the matrices in Gholder */
   PetscInt     n_Gholder;       /* number of floating neighbours */
