@@ -978,6 +978,7 @@ static PetscErrorCode FETI2SetUpCoarseProblem_RBM(FETI ft)
       if(k!=rankG) {
 	i_mpi                = n_rbm_comm[k];
 	localnnz            += i_mpi*(k>rankG);
+	total_sz_fgmatrices += i_mpi*ft->n_shared_lb[i];
 	ft2->max_n_rbm       = (ft2->max_n_rbm > i_mpi) ? ft2->max_n_rbm : i_mpi;
       }
     }
