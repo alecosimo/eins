@@ -872,8 +872,8 @@ static PetscErrorCode FETI2SetUpCoarseProblem_RBM(FETI ft)
   Mat            *FGholder=NULL;  /* each entry is one neighbour's localG matrix times local F. The order follows, the order of ft2->neighs_lb. */
   Mat            RHS,X,Gexpanded;
   PetscScalar    *bufferRHS=NULL,*bufferX=NULL,*bufferG=NULL; /* matrix data in column major order */
-  PetscScalar    *pointer_vec2=NULL,*pointer_vec1=NULL,*pointer_vecg=NULL;
-  Vec            vec1,vec2,vecg;
+  PetscScalar    *pointer_vec2=NULL,*pointer_vec1=NULL;
+  Vec            vec1,vec2;
   
   PetscFunctionBegin;  
   /* in the following rankG and sizeG are related to the MPI_Comm comm */
@@ -1091,6 +1091,8 @@ static PetscErrorCode FETI2SetUpCoarseProblem_RBM(FETI ft)
     ierr = MatDestroy(&RHS);CHKERRQ(ierr);
     ierr = MatDestroy(&X);CHKERRQ(ierr);
     /*** end */
+    ierr = PetscMalloc1(ft2->max_n_rbm,&idxn);CHKERRQ(ierr);
+    for (i=0;i<ft2->max_n_rbm;i++) idxn[i]=i;
     for (i=1,k=1; k<ft->n_neigh_lb; k++){
       k0 = n_rbm_comm[ft->neigh_lb[k]];
       if (k0>0) {
@@ -1100,18 +1102,13 @@ static PetscErrorCode FETI2SetUpCoarseProblem_RBM(FETI ft)
 	ierr = MatCreateSeqDense(PETSC_COMM_SELF,sd->n,k0,bufferX,&X);CHKERRQ(ierr);
 	ierr = MatCreateSeqDense(PETSC_COMM_SELF,sd->n,k0,bufferRHS,&RHS);CHKERRQ(ierr);
 	ierr = MatCreateSeqDense(PETSC_COMM_SELF,sd->n_B,k0,bufferG,&Gexpanded);CHKERRQ(ierr);    
-	ierr = MatDenseGetArray(Gexpanded,&pointer_vecg);CHKERRQ(ierr);
-	for (j=0;j<k0;j++) {
-	  ierr = VecCreateSeqWithArray(comm,1,sd->n_B,(const PetscScalar*)(pointer_vecg+*j),&vecg);CHKERRQ(ierr);
-	  ierr = VecSet(vecg,0);CHKERRQ(ierr);
-	  ierr = VecSetValues(vecg,);CHKERRQ(ierr);
-	  ierr = VecAssemblyBegin(vecg);CHKERRQ(ierr);
-	  ierr = VecAssemblyEnd(vecg);CHKERRQ(ierr);
-	  ierr = VecDestroy(&vecg);CHKERRQ(ierr);
-	}   
-	ierr = MatDenseRestoreArray(Gexpanded,&pointer_vecg);CHKERRQ(ierr);	
+	ierr = MatDenseGetArray(ft2->Gholder[i],&m_pointer);CHKERRQ(ierr);
+	ierr = MatZeroEntries(Gexpanded);CHKERRQ(ierr);
+	ierr = MatSetValuesBlocked(Gexpanded,ft->n_shared_lb[k],ft->shared_lb[k],k0,idxn,m_pointer,INSERT_VALUES);CHKERRQ(ierr);
+	ierr = MatAssemblyBegin(Gexpanded,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
+	ierr = MatAssemblyEnd(Gexpanded,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
+	ierr = MatDenseRestoreArray(ft2->Gholder[i],&m_pointer);CHKERRQ(ierr);	
 	ierr = MatTransposeMatMult(ft->B_delta,Gexpanded,PETSC_DEFAULT,MAT_REUSE_MATRIX,&RHS);CHKERRQ(ierr);
-
 	ierr = MatMatSolve(ft2->F_neumann,RHS,X);CHKERRQ(ierr);
 	ierr = MatDenseGetArray(FGholder[i],&pointer_vec2);CHKERRQ(ierr);
 	ierr = MatDenseGetArray(X,&pointer_vec1);CHKERRQ(ierr);
@@ -1132,9 +1129,10 @@ static PetscErrorCode FETI2SetUpCoarseProblem_RBM(FETI ft)
 	/*** end */
 	i++;
       }
+      ierr = PetscFree(idxn);CHKERRQ(ierr);
     }
 
-    ierr = PetscFree2(bufferRHS,bufferX,bufferG);CHKERRQ(ierr);
+    ierr = PetscFree3(bufferRHS,bufferX,bufferG);CHKERRQ(ierr);
   }
 
 #if (0) 
