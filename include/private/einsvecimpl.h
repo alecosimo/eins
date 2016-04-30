@@ -27,21 +27,6 @@ struct _p_VecExchange {
   PetscScalar     **work_vecs;
 };
 
-
-PETSC_INTERN PetscErrorCode VecAXPBY_Seq(Vec,PetscScalar,PetscScalar,Vec);
-PETSC_INTERN PetscErrorCode VecWAXPY_Seq(Vec,PetscScalar,Vec,Vec);
-PETSC_INTERN PetscErrorCode VecMAXPY_Seq(Vec,PetscInt,const PetscScalar*,Vec*);
-PETSC_INTERN PetscErrorCode VecAYPX_Seq(Vec,PetscScalar,Vec);
-PETSC_INTERN PetscErrorCode VecAXPY_Seq(Vec,PetscScalar,Vec);
-PETSC_INTERN PetscErrorCode VecDot_Seq(Vec,Vec,PetscScalar*);
-PETSC_INTERN PetscErrorCode VecMDot_Seq(Vec,PetscInt,const Vec[],PetscScalar*);
-PETSC_INTERN PetscErrorCode VecTDot_Seq(Vec,Vec,PetscScalar*);
-PETSC_INTERN PetscErrorCode VecScale_Seq(Vec,PetscScalar);
-PETSC_INTERN PetscErrorCode VecMTDot_Seq(Vec,PetscInt,const Vec[],PetscScalar*);
-PETSC_INTERN PetscErrorCode VecNorm_Seq(Vec,NormType,PetscReal*);
-PETSC_INTERN PetscErrorCode VecSet_Seq(Vec,PetscScalar);
-PETSC_INTERN PetscErrorCode VecSetRandom_Seq(Vec,PetscRandom);
-
 PETSC_EXTERN PetscErrorCode VecCreate_UNASM(Vec);
 
 #endif/* EINSVECIMPL_H*/

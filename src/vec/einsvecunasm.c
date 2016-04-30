@@ -4,6 +4,8 @@
 #include <petscviewerhdf5.h>
 
 static PetscErrorCode VecCreate_UNASM_Private(Vec,const PetscScalar[],Vec);
+static PetscErrorCode VecDestroyVecs_UNASM(PetscInt,Vec*);
+static PetscErrorCode VecDuplicateVecs_UNASM(Vec,PetscInt,Vec**);
 static PetscErrorCode VecView_UNASM(Vec,PetscViewer);
 static PetscErrorCode VecDuplicate_UNASM(Vec,Vec*);
 static PetscErrorCode VecDestroy_UNASM(Vec);
@@ -29,6 +31,7 @@ static PetscErrorCode VecAssemblyEnd_UNASM(Vec);
 static PetscErrorCode VecGetArrayRead_UNASM(Vec,const PetscScalar**);
 static PetscErrorCode VecRestoreArrayRead_UNASM(Vec,const PetscScalar**);
 static PetscErrorCode VecGetArray_UNASM(Vec,PetscScalar**);
+static PetscErrorCode VecSetRandom_UNASM(Vec,PetscRandom);
 static PetscErrorCode VecRestoreArray_UNASM(Vec,PetscScalar**);
 #if defined(PETSC_HAVE_HDF5)
 static PetscErrorCode VecView_UNASM_HDF5(Vec,PetscViewer);
@@ -109,8 +112,8 @@ static PetscErrorCode VecCreate_UNASM_Private(Vec v,const PetscScalar array[],Ve
   /* vector ops */
   ierr                     = PetscMemzero(v->ops,sizeof(struct _VecOps));CHKERRQ(ierr);
   v->ops->duplicate        = VecDuplicate_UNASM;
-  v->ops->duplicatevecs    = VecDuplicateVecs_Default;
-  v->ops->destroyvecs      = VecDestroyVecs_Default;      
+  v->ops->duplicatevecs    = VecDuplicateVecs_UNASM;
+  v->ops->destroyvecs      = VecDestroyVecs_UNASM;      
   v->ops->getlocalsize     = VecGetLocalSize_UNASM;
   v->ops->getsize          = VecGetSize_UNASM;
   v->ops->dot              = VecDot_UNASM;
@@ -136,9 +139,41 @@ static PetscErrorCode VecCreate_UNASM_Private(Vec v,const PetscScalar array[],Ve
   v->ops->getarray         = VecGetArray_UNASM;
   v->ops->restorearrayread = VecRestoreArrayRead_UNASM;
   v->ops->restorearray     = VecRestoreArray_UNASM;
-  v->ops->setrandom        = VecSetRandom_Seq;
+  v->ops->setrandom        = VecSetRandom_UNASM;
   
   ierr = PetscObjectChangeTypeName((PetscObject)v,VECMPIUNASM);CHKERRQ(ierr);
+  PetscFunctionReturn(0);
+}
+
+
+#undef __FUNCT__
+#define __FUNCT__ "VecDestroyVecs_UNASM"
+static PetscErrorCode VecDestroyVecs_UNASM(PetscInt m,Vec v[])
+{
+  PetscErrorCode ierr;
+  PetscInt       i;
+
+  PetscFunctionBegin;
+  PetscValidPointer(v,1);
+  for (i=0; i<m; i++) {ierr = VecDestroy(&v[i]);CHKERRQ(ierr);}
+  ierr = PetscFree(v);CHKERRQ(ierr);
+  PetscFunctionReturn(0);
+}
+
+
+#undef __FUNCT__
+#define __FUNCT__ "VecDuplicateVecs_UNASM"
+static PetscErrorCode VecDuplicateVecs_UNASM(Vec w,PetscInt m,Vec *V[])
+{
+  PetscErrorCode ierr;
+  PetscInt       i;
+
+  PetscFunctionBegin;
+  PetscValidHeaderSpecific(w,VEC_CLASSID,1);
+  PetscValidPointer(V,3);
+  if (m <= 0) SETERRQ1(PETSC_COMM_SELF,PETSC_ERR_ARG_OUTOFRANGE,"m must be > 0: m = %D",m);
+  ierr = PetscMalloc1(m,V);CHKERRQ(ierr);
+  for (i=0; i<m; i++) {ierr = VecDuplicate(w,*V+i);CHKERRQ(ierr);}
   PetscFunctionReturn(0);
 }
 
@@ -377,8 +412,21 @@ static PetscErrorCode VecMAXPY_UNASM(Vec xin, PetscInt nv,const PetscScalar *alp
     yi       = (Vec_UNASM*)y[i]->data;
     y_aux[i] = yi->vlocal;
   } 
-  ierr = VecMAXPY_Seq(xi->vlocal,nv,alpha,y_aux);CHKERRQ(ierr);
+  ierr = VecMAXPY(xi->vlocal,nv,alpha,y_aux);CHKERRQ(ierr);
   ierr = PetscFree(y_aux);CHKERRQ(ierr);
+  PetscFunctionReturn(0);
+}
+
+
+#undef __FUNCT__
+#define __FUNCT__ "VecSetRandom_UNASM"
+static PetscErrorCode VecSetRandom_UNASM(Vec xin,PetscRandom ctx)
+{
+  PetscErrorCode ierr;
+  Vec_UNASM      *xi = (Vec_UNASM*)xin->data;
+  
+  PetscFunctionBegin;
+  ierr = VecSetRandom(xi->vlocal,ctx);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 
@@ -444,7 +492,7 @@ static PetscErrorCode VecAYPX_UNASM(Vec yin,PetscScalar alpha,Vec xin)
   PetscErrorCode ierr;
   
   PetscFunctionBegin;
-  ierr = VecAYPX_Seq(yi->vlocal,alpha,xi->vlocal);CHKERRQ(ierr);
+  ierr = VecAYPX(yi->vlocal,alpha,xi->vlocal);CHKERRQ(ierr);
   PetscFunctionReturn(0);  
 }
 
@@ -458,7 +506,7 @@ static PetscErrorCode VecAXPY_UNASM(Vec yin,PetscScalar alpha,Vec xin)
   PetscErrorCode ierr;
   
   PetscFunctionBegin;
-  ierr = VecAXPY_Seq(yi->vlocal,alpha,xi->vlocal);CHKERRQ(ierr);
+  ierr = VecAXPY(yi->vlocal,alpha,xi->vlocal);CHKERRQ(ierr);
   PetscFunctionReturn(0);  
 }
 
@@ -473,7 +521,7 @@ static PetscErrorCode VecWAXPY_UNASM(Vec win,PetscScalar alpha,Vec xin,Vec yin)
   PetscErrorCode ierr;
   
   PetscFunctionBegin;
-  ierr = VecWAXPY_Seq(wi->vlocal,alpha,xi->vlocal,yi->vlocal);CHKERRQ(ierr);
+  ierr = VecWAXPY(wi->vlocal,alpha,xi->vlocal,yi->vlocal);CHKERRQ(ierr);
   PetscFunctionReturn(0);  
 }
 
@@ -487,7 +535,7 @@ static PetscErrorCode VecAXPBY_UNASM(Vec yin,PetscScalar alpha,PetscScalar beta,
   PetscErrorCode ierr;
   
   PetscFunctionBegin;
-  ierr = VecAXPBY_Seq(yi->vlocal,alpha,beta,xi->vlocal);CHKERRQ(ierr);
+  ierr = VecAXPBY(yi->vlocal,alpha,beta,xi->vlocal);CHKERRQ(ierr);
   PetscFunctionReturn(0);  
 }
 
@@ -500,7 +548,7 @@ static PetscErrorCode VecSet_UNASM(Vec xin,PetscScalar alpha)
   PetscErrorCode ierr;
 
   PetscFunctionBegin;
-  ierr = VecSet_Seq(xi->vlocal,alpha);CHKERRQ(ierr);
+  ierr = VecSet(xi->vlocal,alpha);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 
@@ -543,11 +591,11 @@ static PetscErrorCode VecDot_UNASM(Vec xin,Vec yin,PetscScalar *z)
 
   PetscFunctionBegin;
   if (!xi->multiplicity) {
-    ierr = VecDot_Seq(xi->vlocal,yi->vlocal,z);CHKERRQ(ierr);
+    ierr = VecDot(xi->vlocal,yi->vlocal,z);CHKERRQ(ierr);
   } else {
     ierr = VecDuplicate(xi->vlocal,&mp);CHKERRQ(ierr);
     ierr = VecPointwiseDivide(mp,xi->vlocal,xi->multiplicity);CHKERRQ(ierr);
-    ierr = VecDot_Seq(mp,yi->vlocal,&work);CHKERRQ(ierr);
+    ierr = VecDot(mp,yi->vlocal,&work);CHKERRQ(ierr);
     ierr = MPI_Allreduce(&work,&sum,1,MPIU_SCALAR,MPIU_SUM,PetscObjectComm((PetscObject)xin));CHKERRQ(ierr);
     *z   = sum;
     ierr = VecDestroy(&mp);CHKERRQ(ierr);
@@ -672,7 +720,7 @@ static PetscErrorCode VecMDot_UNASM(Vec xin,PetscInt nv,const Vec y[],PetscScala
     y_aux[i] = yi->vlocal;
   }
   if(!xi->multiplicity) {
-    ierr = VecMDot_Seq(xi->vlocal,nv,y_aux,z);CHKERRQ(ierr);
+    ierr = VecMDot(xi->vlocal,nv,y_aux,z);CHKERRQ(ierr);
   } else { 
     ierr = VecDuplicate(xi->vlocal,&mp);CHKERRQ(ierr);
     ierr = VecPointwiseDivide(mp,xi->vlocal,xi->multiplicity);CHKERRQ(ierr); 
@@ -680,7 +728,7 @@ static PetscErrorCode VecMDot_UNASM(Vec xin,PetscInt nv,const Vec y[],PetscScala
     if (nv > 128) {
       ierr = PetscMalloc1(nv,&work);CHKERRQ(ierr);
     }
-    ierr = VecMDot_Seq(mp,nv,y_aux,work);CHKERRQ(ierr);
+    ierr = VecMDot(mp,nv,y_aux,work);CHKERRQ(ierr);
     ierr = MPI_Allreduce(work,z,nv,MPIU_SCALAR,MPIU_SUM,PetscObjectComm((PetscObject)xin));CHKERRQ(ierr);
     if (nv > 128) {
       ierr = PetscFree(work);CHKERRQ(ierr);
@@ -704,12 +752,12 @@ static PetscErrorCode VecTDot_UNASM(Vec xin,Vec yin,PetscScalar *z)
   
   PetscFunctionBegin;
   if (!xi->multiplicity) {
-    ierr = VecTDot_Seq(xi->vlocal,yi->vlocal,z);CHKERRQ(ierr);
+    ierr = VecTDot(xi->vlocal,yi->vlocal,z);CHKERRQ(ierr);
     PetscFunctionReturn(0);
   }
   ierr = VecDuplicate(xi->vlocal,&mp);CHKERRQ(ierr);
   ierr = VecPointwiseDivide(mp,xi->vlocal,xi->multiplicity);CHKERRQ(ierr);
-  ierr = VecTDot_Seq(mp,yi->vlocal,&work);CHKERRQ(ierr);
+  ierr = VecTDot(mp,yi->vlocal,&work);CHKERRQ(ierr);
   ierr = MPI_Allreduce(&work,&sum,1,MPIU_SCALAR,MPIU_SUM,PetscObjectComm((PetscObject)xin));CHKERRQ(ierr);
   *z   = sum;
   ierr = VecDestroy(&mp);CHKERRQ(ierr);
@@ -736,14 +784,14 @@ static PetscErrorCode VecMTDot_UNASM(Vec xin,PetscInt nv,const Vec y[],PetscScal
   }
 
   if (!xi->multiplicity) {
-    ierr = VecMTDot_Seq(xi->vlocal,nv,y_aux,z);CHKERRQ(ierr);
+    ierr = VecMTDot(xi->vlocal,nv,y_aux,z);CHKERRQ(ierr);
   } else {
     ierr = VecDuplicate(xi->vlocal,&mp);CHKERRQ(ierr);
     ierr = VecPointwiseDivide(mp,xi->vlocal,xi->multiplicity);CHKERRQ(ierr); 
     if (nv > 128) {
       ierr = PetscMalloc1(nv,&work);CHKERRQ(ierr);
     }
-    ierr = VecMTDot_Seq(mp,nv,y_aux,work);CHKERRQ(ierr);
+    ierr = VecMTDot(mp,nv,y_aux,work);CHKERRQ(ierr);
     ierr = MPI_Allreduce(work,z,nv,MPIU_SCALAR,MPIU_SUM,PetscObjectComm((PetscObject)xin));CHKERRQ(ierr);
     if (nv > 128) {
       ierr = PetscFree(work);CHKERRQ(ierr);
@@ -763,7 +811,7 @@ static PetscErrorCode VecScale_UNASM(Vec xin, PetscScalar alpha)
   Vec_UNASM      *xi = (Vec_UNASM*)xin->data;
   
   PetscFunctionBegin;
-  ierr = VecScale_Seq(xi->vlocal,alpha);CHKERRQ(ierr);
+  ierr = VecScale(xi->vlocal,alpha);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 
@@ -804,11 +852,11 @@ static PetscErrorCode VecNorm_UNASM(Vec xin,NormType type,PetscReal *z)
     } else if (type == NORM_1) {
       ierr = VecDuplicate(xi->vlocal,&mp);CHKERRQ(ierr);
       ierr = VecPointwiseDivide(mp,xi->vlocal,xi->multiplicity);CHKERRQ(ierr);
-      ierr = VecNorm_Seq(mp,NORM_1,&work);CHKERRQ(ierr);
+      ierr = VecNorm(mp,NORM_1,&work);CHKERRQ(ierr);
       ierr = MPI_Allreduce(&work,z,1,MPIU_REAL,MPIU_SUM,PetscObjectComm((PetscObject)xin));CHKERRQ(ierr);
       ierr = VecDestroy(&mp);CHKERRQ(ierr);
     } else if (type == NORM_INFINITY) {
-      ierr = VecNorm_Seq(xi->vlocal,NORM_INFINITY,&work);CHKERRQ(ierr);
+      ierr = VecNorm(xi->vlocal,NORM_INFINITY,&work);CHKERRQ(ierr);
       ierr = MPI_Allreduce(&work,z,1,MPIU_REAL,MPIU_MAX,PetscObjectComm((PetscObject)xin));CHKERRQ(ierr);
     } else if (type == NORM_1_AND_2) {
       {
@@ -820,7 +868,7 @@ static PetscErrorCode VecNorm_UNASM(Vec xin,NormType type,PetscReal *z)
 	temp[1] = PetscRealPart(BLASdot_(&bn,xx,&one,yy,&one));
 	ierr    = VecRestoreArrayRead(mp,&xx);CHKERRQ(ierr);
 	ierr    = VecRestoreArrayRead(xi->vlocal,&yy);CHKERRQ(ierr);
-	ierr    = VecNorm_Seq(mp,NORM_1,temp);CHKERRQ(ierr);
+	ierr    = VecNorm(mp,NORM_1,temp);CHKERRQ(ierr);
 	ierr    = MPI_Allreduce(temp,z,2,MPIU_REAL,MPIU_SUM,PetscObjectComm((PetscObject)xin));CHKERRQ(ierr);
 	z[1]    = PetscSqrtReal(z[1]);
 	ierr    = VecDestroy(&mp);CHKERRQ(ierr);
@@ -843,7 +891,7 @@ static PetscErrorCode VecNormLocal_UNASM(Vec xin,NormType type,PetscReal *z)
   if(xi->feti) {
     ierr = FETIComputeForceNorm(xi->feti,xin,type,z);CHKERRQ(ierr);
   } else {
-    ierr = VecNorm_Seq(xin,type,z);CHKERRQ(ierr);
+    ierr = VecNorm(xin,type,z);CHKERRQ(ierr);
   }
   PetscFunctionReturn(0);
 }

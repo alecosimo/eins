@@ -51,7 +51,6 @@ static PetscErrorCode EinsRegisterAll(void)
   ierr = PCRegister(PCFETI_LUMPED,PCCreate_LUMPED);CHKERRQ(ierr);
   /*Register TS*/
   ierr = TSRegisterAll();CHKERRQ(ierr);
-  ierr = TSRegister(TSALPHA2,TSCreate_Alpha2);CHKERRQ(ierr);
   /*Register SNES*/
   ierr = SNESRegisterAll();CHKERRQ(ierr);
   ierr = SNESRegister(SNESFETIONLY,SNESCreate_FETIONLY);CHKERRQ(ierr);
