@@ -36,10 +36,16 @@ PETSC_EXTERN PetscErrorCode SNESSetComputeJacobian_default(SNES snes,PetscBool f
 PETSC_EXTERN PetscErrorCode SNESSetComputeJacobian(SNES snes,PetscBool flg)
 {
   PetscErrorCode ierr;
-  
+  void           *fptr;
+    
   PetscFunctionBegin;
   PetscValidHeaderSpecific(snes,SNES_CLASSID,1);
-  ierr = PetscUseMethod(snes,"SNESSetComputeJacobian_C",(SNES,PetscBool),(snes,flg));CHKERRQ(ierr);
+  ierr = PetscObjectQueryFunction((PetscObject)snes,"SNESSetComputeJacobian_C",&fptr);CHKERRQ(ierr);
+  if(!fptr) {
+    ierr = (*SNESSetComputeJacobian_default)(snes,flg);CHKERRQ(ierr);
+  } else {
+    ierr = PetscUseMethod(snes,"SNESSetComputeJacobian_C",(SNES,PetscBool),(snes,flg));CHKERRQ(ierr);
+  }
   PetscFunctionReturn(0);
 }
 

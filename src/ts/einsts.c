@@ -4,6 +4,7 @@
 #include <petsc-private/tsimpl.h>                /*I   "petscts.h"   I*/
 #else
 #include <petsc/private/tsimpl.h>                /*I   "petscts.h"   I*/
+#include "tsalpha2impl.h"
 #endif
 
 #undef __FUNCT__
@@ -68,5 +69,90 @@ PETSC_EXTERN PetscErrorCode TSSetPostStepLinear(TS ts)
 
   PetscFunctionBegin; 
   ierr = TSSetPostStep(ts,TSPostStepLinear);CHKERRQ(ierr);
+  PetscFunctionReturn(0);
+}
+
+
+#undef __FUNCT__
+#define __FUNCT__ "TS3SetSolution"
+/*@
+   TS3SetSolution - Sets the initial solution and the first and second
+   time-derivative vectors for use by the TSALPHA2 routines.
+
+   Logically Collective on TS and Vec
+
+   Input Parameters:
++  ts - the TS context
+.  X - the solution vector
+.  V - the first time-derivative vector
+-  A - the second time-derivative vector
+
+   Level: beginner
+
+.keywords: TS, TSALPHA2, timestep, set, solution, initial conditions
+@*/
+PetscErrorCode TS3SetSolution(TS ts,Vec X,Vec V,Vec A)
+{
+  TS_Alpha       *th = (TS_Alpha*)ts->data;
+  PetscErrorCode ierr;
+
+  PetscFunctionBegin;
+  PetscValidHeaderSpecific(ts,TS_CLASSID,1);
+  PetscValidHeaderSpecific(X,VEC_CLASSID,2);
+  PetscValidHeaderSpecific(V,VEC_CLASSID,3);
+  PetscValidHeaderSpecific(A,VEC_CLASSID,4);
+
+  ierr = TSSetSolution(ts,X);CHKERRQ(ierr);
+  ierr = PetscObjectReference((PetscObject)V);CHKERRQ(ierr);
+  ierr = VecDestroy(&ts->vec_dot);CHKERRQ(ierr);
+  ts->vec_dot = V;
+  ierr = PetscObjectReference((PetscObject)A);CHKERRQ(ierr);
+  ierr = VecDestroy(&th->A1);CHKERRQ(ierr);
+  th->A1 = A;
+  PetscFunctionReturn(0);
+}
+
+
+#undef __FUNCT__
+#define __FUNCT__ "TS3GetSolution"
+/*@
+   TSGetSolution3 - Returns the solution and first and second
+   time-derivative vectors at the present timestep. It is valid to
+   call this routine inside the function that you are evaluating in
+   order to move to the new timestep. This vector not changed until
+   the solution at the next timestep has been calculated.
+
+   Not Collective, but Vec returned is parallel if TS is parallel
+
+   Input Parameter:
+.  ts - the TS context
+
+   Output Parameter:
++  X - the vector containing the solution
+.  V - the vector containing the first time-derivative
+-  A - the vector containing the second time-derivative
+
+   Level: intermediate
+
+.seealso: TSGetTimeStep()
+
+.keywords: TS, TSALPHA2, timestep, get, solution
+@*/
+PetscErrorCode TS3GetSolution(TS ts,Vec *X, Vec *V, Vec *A)
+{
+  TS_Alpha       *th = (TS_Alpha*)ts->data;
+  PetscErrorCode ierr;
+
+  PetscFunctionBegin;
+  PetscValidHeaderSpecific(ts,TS_CLASSID,1);
+  if (X) PetscValidPointer(X,2);
+  if (V) PetscValidPointer(V,3);
+  if (A) PetscValidPointer(A,4);
+
+  if (!th->vec_dot && ts->vec_sol) {
+    ierr = VecDuplicate(ts->vec_sol,&th->vec_dot);CHKERRQ(ierr);
+  }
+  ierr = TS2GetSolution(ts,X,V);CHKERRQ(ierr);
+  if (A) {*A = th->A1;}
   PetscFunctionReturn(0);
 }
