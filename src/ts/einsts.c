@@ -34,11 +34,12 @@ PETSC_EXTERN PetscErrorCode TSComputeI2JacobianConstantInvariant(PETSC_UNUSED TS
 
 .seealso:  TS, TSCreate(), TSSetPostStepLinear()
 @*/
-PETSC_EXTERN PetscErrorCode TSPostStepLinear(TS ts)
+PETSC_EXTERN PetscErrorCode TSPostStepLinear(PETSC_UNUSED TS ts)
 {
-  PetscErrorCode ierr;
+  PETSC_UNUSED PetscErrorCode ierr;
 
-  PetscFunctionBegin; 
+  PetscFunctionBegin;
+#if PETSC_VERSION_GE(3,7,0)
   /* preventing linear problems from recomputing the jacobian */
   if(ts->problem_type == TS_LINEAR) {
     Mat   J,P;
@@ -46,6 +47,7 @@ PETSC_EXTERN PetscErrorCode TSPostStepLinear(TS ts)
     ierr = TSGetIJacobian(ts,&J,&P,NULL,&ctx);CHKERRQ(ierr);
     ierr = TSSetI2Jacobian(ts,J,P,TSComputeI2JacobianConstantInvariant,ctx);CHKERRQ(ierr);
   }
+#endif
   PetscFunctionReturn(0);
 }
 

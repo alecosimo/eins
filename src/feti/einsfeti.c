@@ -833,7 +833,7 @@ PETSC_EXTERN PetscErrorCode FETIComputeForceNorm(FETI ft,Vec vec,NormType type,P
     /* compute the norm of vec if no lambda is available*/
     ierr = VecNorm(vlocal,type,&lnorm);CHKERRQ(ierr);
   }
-  ierr = MPIU_Allreduce(&lnorm,norm,1,MPIU_REAL,MPIU_SUM,PetscObjectComm((PetscObject)vec));CHKERRQ(ierr);
+  ierr = MPI_Allreduce(&lnorm,norm,1,MPIU_REAL,MPIU_SUM,PetscObjectComm((PetscObject)vec));CHKERRQ(ierr);
   if (flg) {
     ierr = VecUnAsmRestoreLocalVectorRead(vec,vlocal);CHKERRQ(ierr);
   }    

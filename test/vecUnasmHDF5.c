@@ -60,8 +60,6 @@ int main(int argc,char **argv)
 #endif
   
   ierr = VecDestroy(&v);CHKERRQ(ierr);
-  ierr = PetscViewerSetFormat(PETSC_VIEWER_STDOUT_SELF,PETSC_VIEWER_DEFAULT);CHKERRQ(ierr); 
-  ierr = PetscViewerSetFormat(PETSC_VIEWER_STDOUT_WORLD,PETSC_VIEWER_DEFAULT);CHKERRQ(ierr);
   ierr = EinsFinalize();CHKERRQ(ierr);
   return 0;
 }

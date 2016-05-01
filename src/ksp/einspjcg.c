@@ -214,7 +214,6 @@ static PetscErrorCode KSPSolve_PJCG(KSP ksp)
     ierr = VecXDot(Pcurr,Ccurr,&dpi);CHKERRQ(ierr);              /*  dpi <- pi'*w        */
     alphaold = alpha;
     alpha = beta / dpi;                                          /*  alpha <- beta/dpi    */
-    MPI_Barrier(PETSC_COMM_WORLD);
     ierr = VecAXPY(X,alpha,Pcurr);CHKERRQ(ierr);                 /*  x <- x + alpha * pi  */
     ierr = VecAXPY(R,-alpha,Ccurr);CHKERRQ(ierr);                /*  r <- r - alpha * wi  */
 

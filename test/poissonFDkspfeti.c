@@ -333,7 +333,11 @@ int main(int argc,char **args)
   ierr = KSPSolve(ksp_feti,lgRHS,u);CHKERRQ(ierr);
   
   if (dd.nex<10) {
+#if PETSC_VERSION_LT(3,7,0)
     ierr = PetscViewerSetFormat(PETSC_VIEWER_STDOUT_SELF,PETSC_VIEWER_ASCII_MATLAB);CHKERRQ(ierr);
+#else
+    ierr = PetscViewerPushFormat(PETSC_VIEWER_STDOUT_SELF,PETSC_VIEWER_ASCII_MATLAB);CHKERRQ(ierr);
+#endif
     ierr = VecSeqViewSynchronized(dd.gcomm,u);CHKERRQ(ierr);
   }
 

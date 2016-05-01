@@ -72,8 +72,13 @@ int main(int argc,char **argv)
   
   ierr = ISLocalToGlobalMappingCreate(comm,1,5,global_indices,PETSC_OWN_POINTER,&mapping);
   ierr = VecUnAsmCreateMPIVec(v,mapping,COMPAT_RULE_AVG,&mpivec);CHKERRQ(ierr);
-  ierr = PetscViewerSetFormat(PETSC_VIEWER_STDOUT_SELF,PETSC_VIEWER_ASCII_MATLAB);CHKERRQ(ierr); 
-  ierr = PetscViewerSetFormat(PETSC_VIEWER_STDOUT_WORLD,PETSC_VIEWER_ASCII_MATLAB);CHKERRQ(ierr);
+#if PETSC_VERSION_LT(3,7,0)
+    ierr = PetscViewerSetFormat(PETSC_VIEWER_STDOUT_SELF,PETSC_VIEWER_ASCII_MATLAB);CHKERRQ(ierr);
+    ierr = PetscViewerSetFormat(PETSC_VIEWER_STDOUT_WORLD,PETSC_VIEWER_ASCII_MATLAB);CHKERRQ(ierr);
+#else
+    ierr = PetscViewerPushFormat(PETSC_VIEWER_STDOUT_SELF,PETSC_VIEWER_ASCII_MATLAB);CHKERRQ(ierr);
+    ierr = PetscViewerPushFormat(PETSC_VIEWER_STDOUT_WORLD,PETSC_VIEWER_ASCII_MATLAB);CHKERRQ(ierr);
+#endif
   ierr = VecView(mpivec,PETSC_VIEWER_STDOUT_WORLD);CHKERRQ(ierr);
   /* check vecdot */
   ierr = VecDot(v,v,&dval0);CHKERRQ(ierr);
@@ -152,8 +157,13 @@ int main(int argc,char **argv)
   ierr = VecDestroy(&vec_comp);CHKERRQ(ierr);
   ierr = VecDestroy(&v);CHKERRQ(ierr);
   ierr = VecDestroy(&mpivec);CHKERRQ(ierr);
+#if PETSC_VERSION_LT(3,7,0)
   ierr = PetscViewerSetFormat(PETSC_VIEWER_STDOUT_SELF,PETSC_VIEWER_DEFAULT);CHKERRQ(ierr); 
   ierr = PetscViewerSetFormat(PETSC_VIEWER_STDOUT_WORLD,PETSC_VIEWER_DEFAULT);CHKERRQ(ierr);
+#else
+  ierr = PetscViewerPopFormat(PETSC_VIEWER_STDOUT_SELF);CHKERRQ(ierr);
+  ierr = PetscViewerPopFormat(PETSC_VIEWER_STDOUT_WORLD);CHKERRQ(ierr);
+#endif
   ierr = EinsFinalize();CHKERRQ(ierr);
   return 0;
 }

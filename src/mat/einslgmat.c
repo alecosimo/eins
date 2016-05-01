@@ -63,7 +63,7 @@ static PetscErrorCode LGMatMult_Private(Mat A,Vec x,Vec y)
 
    Level: intermediate
 
-#@*/
+@*/
 PETSC_EXTERN PetscErrorCode MatCreateLGMat(MPI_Comm comm,PetscInt m,PetscInt n,Mat localA,Mat *A)
 {
   PetscErrorCode   ierr;

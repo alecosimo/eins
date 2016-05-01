@@ -1405,7 +1405,7 @@ PETSC_EXTERN PetscErrorCode  VecUnAsmSum(Vec v,PetscScalar *sum)
   ierr = VecGetArrayRead(vi,&x);CHKERRQ(ierr);
   ierr = VecGetArrayRead(xi->multiplicity,&m);CHKERRQ(ierr);
   for (i=0; i<n; i++) lsum += x[i]/m[i];
-  ierr = MPIU_Allreduce(&lsum,sum,1,MPIU_SCALAR,MPIU_SUM,PetscObjectComm((PetscObject)v));CHKERRQ(ierr);
+  ierr = MPI_Allreduce(&lsum,sum,1,MPIU_SCALAR,MPIU_SUM,PetscObjectComm((PetscObject)v));CHKERRQ(ierr);
   ierr = VecRestoreArrayRead(v,&x);CHKERRQ(ierr);
   ierr = VecRestoreArrayRead(xi->multiplicity,&m);CHKERRQ(ierr);
   PetscFunctionReturn(0);
