@@ -67,7 +67,7 @@ static PetscErrorCode SNESSolve_FETIONLY(SNES snes)
   }
 
   /* Solve J Y = F, where J is Jacobian matrix */
-  ierr = SNESComputeJacobian(snes,X,snes->jacobian,snes->jacobian);CHKERRQ(ierr);
+  ierr = SNESComputeJacobian(snes,X,snes->jacobian,snes->jacobian_pre);CHKERRQ(ierr);
   ierr = FETISetMat(sf->feti,snes->jacobian);CHKERRQ(ierr);
   ierr = FETISetRHS(sf->feti,F);CHKERRQ(ierr);
   ierr = FETISetUp(sf->feti);CHKERRQ(ierr);
@@ -100,8 +100,14 @@ static PetscErrorCode SNESSolve_FETIONLY(SNES snes)
 static PetscErrorCode SNESSetUp_FETIONLY(SNES snes)
 {
   PetscErrorCode ierr;
-
+  KSP            ksp;
+  PC             pc;
+  
   PetscFunctionBegin;
+  ierr = SNESGetKSP(snes,&ksp);CHKERRQ(ierr);
+  ierr = SNESGetKSP(snes,&ksp);CHKERRQ(ierr);
+  ierr = KSPGetPC(ksp,&pc);CHKERRQ(ierr);
+  ierr = PCSetType(pc,PCNONE);CHKERRQ(ierr);  
   ierr = SNESSetUpMatrices(snes);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
