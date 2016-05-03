@@ -75,7 +75,7 @@ Reports information only for process 0.
     Distributed Mesh     1              1
 Star Forest Bipartite Graph     3              3
      Discrete System     1              1
-           Index Set    43             43
+           Index Set    45             45
    IS L to G Mapping     4              4
    Application Order     1              1
                 FETI     1              1
