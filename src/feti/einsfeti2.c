@@ -961,9 +961,9 @@ static PetscErrorCode FETI2SetUpCoarseProblem_RBM(FETI ft)
   }
 
   /* localnnz: nonzeros for my row of the coarse probem */
-  ierr                = PetscMalloc1(n_local_neighs,&local_neighs);CHKERRQ(ierr);
+  if(ft2->n_rbm>0) {ierr = PetscMalloc1(n_local_neighs,&local_neighs);CHKERRQ(ierr);}
   n_local_neighs      = 0;
-  localnnz            = ft2->n_rbm;
+  localnnz            = 0;
   total_size_matrices = 0;
   total_sz_fgmatrices = 0;
   ft2->max_n_rbm      = ft2->n_rbm;
@@ -999,12 +999,14 @@ static PetscErrorCode FETI2SetUpCoarseProblem_RBM(FETI ft)
     }
   }
 
-  ierr = PetscSortRemoveDupsInt(&n_local_neighs,local_neighs);CHKERRQ(ierr);
-  for (i=0;i<n_local_neighs;i++) {
-    i_mpi = n_rbm_comm[local_neighs[i]];
-    localnnz += i_mpi;
+  if (ft2->n_rbm>0) {
+    ierr = PetscSortRemoveDupsInt(&n_local_neighs,local_neighs);CHKERRQ(ierr);
+    for (i=0;i<n_local_neighs;i++) {
+      i_mpi = n_rbm_comm[local_neighs[i]];
+      localnnz += i_mpi;
+    }
+    ierr = PetscFree(local_neighs);CHKERRQ(ierr);
   }
-  ierr = PetscFree(local_neighs);CHKERRQ(ierr);
   
   ierr = PetscMalloc1(ft2->total_rbm,&nnz);CHKERRQ(ierr);
   ierr = PetscMalloc1(size_floating,&idxm);CHKERRQ(ierr);
