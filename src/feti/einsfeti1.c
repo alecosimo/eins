@@ -1052,7 +1052,8 @@ static PetscErrorCode FETI1SetUpCoarseProblem_Private(FETI ft)
   ierr = MPI_Allgatherv(idxm,ft1->n_rbm,MPIU_INT,r_coarse,ft1->count_rbm,ft1->displ,MPIU_INT,comm);CHKERRQ(ierr);
   ierr = MPI_Allgatherv(idxn,localnnz,MPIU_INT,c_coarse,c_count,c_displ,MPIU_INT,comm);CHKERRQ(ierr);
 
-  /* gather values for the coarse problem's matrix and assemble it */ 
+  /* gather values for the coarse problem's matrix and assemble it */
+  ierr = MatZeroEntries(ft1->coarse_problem);CHKERRQ(ierr);
   for (k=0,k0=0,i=0; i<sizeG; i++) {
     if(n_rbm_comm[i]>0){
       ierr = PetscMPIIntCast(n_rbm_comm[i]*c_count[i],&i_mpi);CHKERRQ(ierr);
