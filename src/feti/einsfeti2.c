@@ -1203,7 +1203,7 @@ static PetscErrorCode FETI2SetUpCoarseProblem_RBM(FETI ft)
 	    /*>>>*/
 	    ierr = MatGetSubMatrix(FGholder[kdx],isindex,NULL,MAT_INITIAL_MATRIX,&submat[idx]);CHKERRQ(ierr);
 	    ierr = MatDenseGetArray(submat[idx],&array[idx]);CHKERRQ(ierr);   
-	    ierr = MPI_Isend(array[idx],k*ft->n_shared_lb[i],MPIU_SCALAR,i_mpi,k,comm,&send_reqs[idx]);CHKERRQ(ierr);
+	    ierr = MPI_Isend(array[idx],n_rbm_comm[k]*ft->n_shared_lb[i],MPIU_SCALAR,i_mpi,k,comm,&send_reqs[idx]);CHKERRQ(ierr);
 	    /*<<<*/
 	    idx++;
 	  }
@@ -1227,6 +1227,8 @@ static PetscErrorCode FETI2SetUpCoarseProblem_RBM(FETI ft)
       }
     }
   }
+  PetscPrintf(PETSC_COMM_SELF,"\n rank: %d, jdx: %d, n_recv2: %d\n",rankG,jdx-1,n_recv2);
+  MPI_Barrier(PETSC_COMM_WORLD);
   if(n_recv2) {
     ierr = MPI_Waitall(n_recv2,recv_reqs,MPI_STATUSES_IGNORE);CHKERRQ(ierr);
     ierr = PetscFree(recv_reqs);CHKERRQ(ierr);
@@ -1335,7 +1337,7 @@ static PetscErrorCode FETI2SetUpCoarseProblem_RBM(FETI ft)
   }
   ierr = MatAssemblyBegin(ft2->coarse_problem,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
   ierr = MatAssemblyEnd(ft2->coarse_problem,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
-
+MPI_Barrier(PETSC_COMM_WORLD);
   ierr = PetscFree(idxm);CHKERRQ(ierr);
   ierr = PetscFree(idxn);CHKERRQ(ierr);
   ierr = PetscFree(nnz);CHKERRQ(ierr);
@@ -1353,7 +1355,11 @@ static PetscErrorCode FETI2SetUpCoarseProblem_RBM(FETI ft)
     for (i=0;i<n_recv+1;i++) { ierr = MatDestroy(&FGholder[i]);CHKERRQ(ierr); }
     ierr = PetscFree(FGholder);CHKERRQ(ierr);
   }
-  
+
+  ierr = MPI_Comm_rank(PETSC_COMM_WORLD,&i_mpi);CHKERRQ(ierr);
+  if(!i_mpi) {
+    MatView(ft2->coarse_problem,PETSC_VIEWER_DRAW_SELF );
+  }
   MPI_Barrier(PETSC_COMM_WORLD);
   
   PetscFunctionReturn(0);
