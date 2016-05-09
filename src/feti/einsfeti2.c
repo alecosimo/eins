@@ -117,15 +117,13 @@ static PetscErrorCode FETISetUp_FETI2(FETI ft)
       }
       ierr = FETI2SetUpNeumannSolver_Private(ft);CHKERRQ(ierr);
       if (ft2->coarseGType == RIGID_BODY_MODES) { ierr = FETI2ComputeCoarseProblem_RBM(ft);CHKERRQ(ierr);}
-      if (ft2->coarseGType != NO_COARSE_GRID) {
-	ierr = FETI2FactorizeCoarseProblem_Private(ft);CHKERRQ(ierr);
-      }      
+      if (ft2->coarseGType != NO_COARSE_GRID) {	ierr = FETI2FactorizeCoarseProblem_Private(ft);CHKERRQ(ierr); }      
     }
     ierr = FETI2SetInterfaceProblemRHS_Private(ft);CHKERRQ(ierr);
   }
   
   if (ft2->coarseGType == RIGID_BODY_MODES) {
-    /* ierr = FETI2ComputeInitialCondition_RBM(ft);CHKERRQ(ierr); */
+    ierr = FETI2ComputeInitialCondition_RBM(ft);CHKERRQ(ierr);
   } else {
     ierr = FETI2ComputeInitialCondition_NOCOARSE(ft);CHKERRQ(ierr);
   }
@@ -155,9 +153,6 @@ static PetscErrorCode FETISetFromOptions_FETI2(PetscOptionItems *PetscOptionsObj
   ierr = PetscOptionsHead(PetscOptionsObject,"FETI2 options");CHKERRQ(ierr);
 
   /* Primal space cumstomization */
-  ierr = PetscOptionsBool("-feti2_destroy_coarse","If set, the matrix of the coarse problem, that is (G^T*G) or (G^T*Q*G), will be destroyed",
-			  "none",ft2->destroy_coarse,&ft2->destroy_coarse,NULL);CHKERRQ(ierr);
-
   ierr = PetscOptionsEnum("-feti2_coarse_grid_type","Type of coarse grid to use","FETI2SetCoarseGridType",
 			  CoarseGridTypes,(PetscEnum)ft2->coarseGType,(PetscEnum*)&ft2->coarseGType,NULL);CHKERRQ(ierr);
 
@@ -180,7 +175,6 @@ EXTERN_C_BEGIN
    associated to the Dirichlet preconditioner
 .  -feti_scaling_type - Sets the scaling type
 .  -feti_scaling_factor - Sets a scaling factor different from one
-.  -feti2_destroy_coarse - If set, the matrix of the coarse problem, that is (G^T*G) or (G^T*Q*G), will be destroyed after factorization.
 .  -feti2_pc_coarse_<ksp or pc option>: options for the KSP for the coarse problem
 
    Level: beginner
@@ -200,7 +194,6 @@ PetscErrorCode FETICreate_FETI2(FETI ft)
   ierr                         = PetscMemzero(feti2,sizeof(FETI_2));CHKERRQ(ierr);
   feti2->coarseGType           = NO_COARSE_GRID;
   feti2->computeRBM            = PETSC_TRUE;
-  feti2->destroy_coarse        = PETSC_FALSE;
   
   /* function pointers */
   ft->ops->setup               = FETISetUp_FETI2;
@@ -788,14 +781,14 @@ static PetscErrorCode FETI2SetUpCoarseProblem_RBM(FETI ft)
   PetscMPIInt    i_mpi,sizeG,size,*c_displ,n_recv,n_send,rankG;
   PetscInt       k,k0,total_c_coarse,*idxm=NULL,*idxn=NULL,*idxa=NULL;
   /* nnz: array containing the number of block nonzeros in the upper triangular plus diagonal portion of each block*/
-  PetscInt       i,j,idx,*nnz,size_floating,total_size_matrices=0;
+  PetscInt       i,j,idx,*nnz=NULL,size_floating,total_size_matrices=0;
   PetscScalar    **array=NULL;
   MPI_Comm       comm;
   MPI_Request    *send_reqs=NULL,*recv_reqs=NULL;
   IS             isindex;
-  Mat            *submat;
+  Mat            *submat=NULL;
   PetscInt       *local_neighs=NULL,n_local_neighs,total_sz_fgmatrices,jdx,kdx,n_rbm;
-  PetscMPIInt    *count_f_rbm,*displ_f;
+  PetscMPIInt    *count_f_rbm=NULL,*displ_f=NULL;
   MPI_Comm       floatingComm;   /* Communicator grouping processors only with floating structures */
   
   PetscFunctionBegin;  
@@ -970,7 +963,7 @@ static PetscErrorCode FETI2SetUpCoarseProblem_RBM(FETI ft)
   ierr = PetscFree(idxa);CHKERRQ(ierr);
 
   /* create the "global" matrix for holding G^T*F*G */
-  if(ft2->destroy_coarse){ ierr = MatDestroy(&ft2->coarse_problem);CHKERRQ(ierr);}
+  ierr = MatDestroy(&ft2->coarse_problem);CHKERRQ(ierr);
   ierr = MatCreate(PETSC_COMM_SELF,&ft2->coarse_problem);CHKERRQ(ierr);
   ierr = MatSetType(ft2->coarse_problem,MATSEQSBAIJ);CHKERRQ(ierr);
   ierr = MatSetBlockSize(ft2->coarse_problem,1);CHKERRQ(ierr);
@@ -1392,11 +1385,6 @@ static PetscErrorCode FETI2FactorizeCoarseProblem_Private(FETI ft)
   ierr = PCFactorSetUpMatSolverPackage(pc);CHKERRQ(ierr);
   ierr = KSPSetUp(ft2->ksp_coarse);CHKERRQ(ierr);
   ierr = PCFactorGetMatrix(pc,&ft2->F_coarse);CHKERRQ(ierr);
-  if(ft2->destroy_coarse) {
-    ierr = MatDestroy(&ft2->coarse_problem);CHKERRQ(ierr);
-    ft2->coarse_problem = 0;    
-  }
-MPI_Barrier(PETSC_COMM_WORLD);
   PetscFunctionReturn(0);
 }
 
@@ -1404,7 +1392,7 @@ MPI_Barrier(PETSC_COMM_WORLD);
 #undef __FUNCT__
 #define __FUNCT__ "FETI2ApplyCoarseProblem_Private"
 /*@
-   FETI2ApplyCoarseProblem_Private - Applies the operation G*(G^T*G)^{-1} to a vector  
+   FETI2ApplyCoarseProblem_Private - Applies the operation G*(G^T*F*G)^{-1} to a vector  
 
    Input Parameter:
 .  ft       - the FETI context
@@ -1508,18 +1496,28 @@ static PetscErrorCode FETI2ComputeInitialCondition_RBM(FETI ft)
   PetscScalar       *rbuff;
   const PetscScalar *sbuff;
   MPI_Comm          comm;
+  Vec               lambda_local,localv;
   
   PetscFunctionBegin;
-  ierr = PetscObjectGetComm((PetscObject)ft,&comm);CHKERRQ(ierr);
+  ft2  = (FETI_2*)ft->data;
+  comm = PetscObjectComm((PetscObject)ft);
+  ierr = VecUnAsmGetLocalVectorRead(ft->d,&lambda_local);CHKERRQ(ierr);
   ierr = VecCreateSeq(PETSC_COMM_SELF,ft2->total_rbm,&asm_e);CHKERRQ(ierr);
-  if (ft2->n_rbm) { ierr = VecGetArrayRead(ft2->local_e,&sbuff);CHKERRQ(ierr);}   
+  if (ft2->n_rbm) {
+    ierr = VecCreateSeq(PETSC_COMM_SELF,ft2->n_rbm,&localv);CHKERRQ(ierr);
+    ierr = MatMultTranspose(ft2->localG,lambda_local,localv);CHKERRQ(ierr);   
+    ierr = VecGetArrayRead(localv,&sbuff);CHKERRQ(ierr);
+  }
+  ierr = VecUnAsmRestoreLocalVectorRead(ft->d,lambda_local);CHKERRQ(ierr);
   ierr = VecGetArray(asm_e,&rbuff);CHKERRQ(ierr); 
   ierr = MPI_Allgatherv(sbuff,ft2->n_rbm,MPIU_SCALAR,rbuff,ft2->count_rbm,ft2->displ,MPIU_SCALAR,comm);CHKERRQ(ierr);
   ierr = VecRestoreArray(asm_e,&rbuff);CHKERRQ(ierr);
-  if (ft2->n_rbm) { ierr = VecRestoreArrayRead(ft2->local_e,&sbuff);CHKERRQ(ierr);}
+  if (ft2->n_rbm) {
+    ierr = VecRestoreArrayRead(localv,&sbuff);CHKERRQ(ierr);
+    ierr = VecDestroy(&localv);CHKERRQ(ierr);
+  }
 
   ierr = FETI2ApplyCoarseProblem_Private(ft,asm_e,ft->lambda_global);CHKERRQ(ierr);
-  if (ft2->n_rbm) { ierr = VecDestroy(&ft2->local_e);CHKERRQ(ierr);}
   ierr = VecDestroy(&asm_e);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
@@ -1529,8 +1527,7 @@ static PetscErrorCode FETI2ComputeInitialCondition_RBM(FETI ft)
 #define __FUNCT__ "FETI2ComputeInitialCondition_NOCOARSE"
 /*@
    FETI2ComputeInitialCondition_NOCOARSE - Computes initial condition
-   for the interface problem. Once the initial condition is computed
-   local_e is destroyed.
+   for the interface problem. 
 
    Input Parameter:
 .  ft - the FETI context
@@ -1574,7 +1571,6 @@ PetscErrorCode FETI2Project_RBM(void* ft_ctx, Vec g_global, Vec y)
   PetscScalar       *rbuff;
   const PetscScalar *sbuff;
   MPI_Comm          comm;
-  PetscMPIInt       rank;
   Vec               lambda_local,localv;
   
   PetscFunctionBegin;
@@ -1585,8 +1581,10 @@ PetscErrorCode FETI2Project_RBM(void* ft_ctx, Vec g_global, Vec y)
   ft2  = (FETI_2*)ft->data;
   comm = PetscObjectComm((PetscObject)ft);
   if (y == g_global) SETERRQ(comm,PETSC_ERR_ARG_INCOMP,"Cannot use g_global == y");
-  ierr = MPI_Comm_rank(comm,&rank);CHKERRQ(ierr);
-  ierr = VecUnAsmGetLocalVectorRead(g_global,&lambda_local);CHKERRQ(ierr);
+  
+  ierr = MultFv_Private(ft,g_global,y);CHKERRQ(ierr);
+  
+  ierr = VecUnAsmGetLocalVectorRead(y,&lambda_local);CHKERRQ(ierr);
   ierr = VecCreateSeq(PETSC_COMM_SELF,ft2->total_rbm,&asm_e);CHKERRQ(ierr);
   if (ft2->n_rbm) {
     ierr = VecCreateSeq(PETSC_COMM_SELF,ft2->n_rbm,&localv);CHKERRQ(ierr);
@@ -1596,7 +1594,7 @@ PetscErrorCode FETI2Project_RBM(void* ft_ctx, Vec g_global, Vec y)
   ierr = VecGetArray(asm_e,&rbuff);CHKERRQ(ierr); 
   ierr = MPI_Allgatherv(sbuff,ft2->n_rbm,MPIU_SCALAR,rbuff,ft2->count_rbm,ft2->displ,MPIU_SCALAR,comm);CHKERRQ(ierr);
   ierr = VecRestoreArray(asm_e,&rbuff);CHKERRQ(ierr);
-  ierr = VecUnAsmRestoreLocalVectorRead(g_global,lambda_local);CHKERRQ(ierr);
+  ierr = VecUnAsmRestoreLocalVectorRead(y,lambda_local);CHKERRQ(ierr);
   if (ft2->n_rbm) {
     ierr = VecRestoreArrayRead(localv,&sbuff);CHKERRQ(ierr);
     ierr = VecDestroy(&localv);CHKERRQ(ierr);
@@ -1677,8 +1675,7 @@ PetscErrorCode FETI2SetDefaultOptions(int *argc,char ***args,const char file[])
                                  -feti2_pc_coarse_pc_factor_mat_solver_package mumps   \
                                  -feti2_pc_coarse_mat_mumps_icntl_7 2";
   char other_options[]        = "-feti_fullyredundant             \
-                                 -feti_scaling_type scmultiplicity \
-                                 -feti2_destroy_coarse";
+                                 -feti_scaling_type scmultiplicity";
   
   PetscFunctionBegin;
 #if defined(PETSC_HAVE_MUMPS)

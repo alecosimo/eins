@@ -29,7 +29,6 @@ typedef struct {
   Mat          F_coarse;        /* matrix object specifically suited for symbolic factorization: it must not be destroyed with MatDestroy() */
   Mat          F_neumann;
   KSP          ksp_coarse;
-  PetscBool    destroy_coarse;  /* destroy coarse matrix after factorization? */
 
   /* To compute rigid body modes */
   FETI2IStiffness stiffnessFun;

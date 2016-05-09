@@ -1286,7 +1286,6 @@ PetscErrorCode FETI1Project_RBM(void* ft_ctx, Vec g_global, Vec y)
   PetscScalar       *rbuff;
   const PetscScalar *sbuff;
   MPI_Comm          comm;
-  PetscMPIInt       rank;
   Vec               lambda_local,localv;
   
   PetscFunctionBegin;
@@ -1297,7 +1296,6 @@ PetscErrorCode FETI1Project_RBM(void* ft_ctx, Vec g_global, Vec y)
   ft1  = (FETI_1*)ft->data;
   comm = PetscObjectComm((PetscObject)ft);
   if (y == g_global) SETERRQ(comm,PETSC_ERR_ARG_INCOMP,"Cannot use g_global == y");
-  ierr = MPI_Comm_rank(comm,&rank);CHKERRQ(ierr);
   ierr = VecUnAsmGetLocalVectorRead(g_global,&lambda_local);CHKERRQ(ierr);
   ierr = VecCreateSeq(PETSC_COMM_SELF,ft1->total_rbm,&asm_e);CHKERRQ(ierr);
   if (ft1->n_rbm) {
