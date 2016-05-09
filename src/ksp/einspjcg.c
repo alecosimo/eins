@@ -155,7 +155,11 @@ static PetscErrorCode KSPSolve_PJCG(KSP ksp)
 
   /* Apply PC if not already done for convergence check */
   ierr = KSP_PCApply(ksp,W,Zp);CHKERRQ(ierr);               /*   z <- Bw         */
-  if(pj->reproject) {ierr = (*pj->reproject)(pj->ctxReProj,Zp,Z);CHKERRQ(ierr);}
+  if(pj->reproject) {
+    ierr = (*pj->reproject)(pj->ctxReProj,Zp,Z);CHKERRQ(ierr);
+  } else {
+    ierr = VecCopy(Zp,Z);CHKERRQ(ierr);
+  }
 
   i = 0;
   do {
@@ -228,7 +232,11 @@ static PetscErrorCode KSPSolve_PJCG(KSP ksp)
     if (ksp->reason) break;
 
     ierr = KSP_PCApply(ksp,W,Zp);CHKERRQ(ierr);               /*   z <- Br         */
-    if(pj->reproject) {ierr = (*pj->reproject)(pj->ctxReProj,Zp,Z);CHKERRQ(ierr);}
+    if(pj->reproject) {
+      ierr = (*pj->reproject)(pj->ctxReProj,Zp,Z);CHKERRQ(ierr);
+    } else {
+      ierr = VecCopy(Zp,Z);CHKERRQ(ierr);
+    }
     
     /* Compute current C (which is W/dpi) */
     ierr = VecScale(Ccurr,1.0/dpi);CHKERRQ(ierr);              /*   w <- ci/dpi   */

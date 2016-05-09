@@ -101,7 +101,7 @@ static PetscErrorCode FETISetUp_FETI2(FETI ft)
     /* set projection in ksp */
     if (ft2->coarseGType == RIGID_BODY_MODES) {
       ierr = KSPSetProjection(ft->ksp_interface,FETI2Project_RBM,(void*)ft);CHKERRQ(ierr);
-      ierr = KSPSetReProjection(ft->ksp_interface,FETI2Project_RBM,(void*)ft);CHKERRQ(ierr);
+      //      ierr = KSPSetReProjection(ft->ksp_interface,FETI2Project_RBM,(void*)ft);CHKERRQ(ierr);
       ierr = FETI2SetUpCoarseProblem_RBM(ft);CHKERRQ(ierr);
       ierr = FETI2ComputeCoarseProblem_RBM(ft);CHKERRQ(ierr);
     }
