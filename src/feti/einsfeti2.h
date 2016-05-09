@@ -9,11 +9,10 @@ typedef struct {
   Vec          alpha_local;
   
   /* Coarse problem stuff */
-  MPI_Comm     floatingComm;             /* Communicator grouping processors only with floating structures */
-  PetscMPIInt  *displ,*displ_f;          /* Entry i specifies the displacement at which to place the incoming data from process i in gather operations */
-                                         /* displ is relative to the global communicator and displ_f to the communicator floatingComm */
-  PetscMPIInt  *count_rbm,*count_f_rbm;  /* Entry i specifies the number of elements to be received from process i. It is equal to the n_rbm of each process */
-                                         /* count_rbm is relative to the global communicator and count_f_rbm to the communicator floatingComm */
+  PetscMPIInt  *displ;          /* Entry i specifies the displacement at which to place the incoming data from process i in gather operations */
+                                         /* displ is relative to the global communicator*/
+  PetscMPIInt  *count_rbm;  /* Entry i specifies the number of elements to be received from process i. It is equal to the n_rbm of each process */
+                                         /* count_rbm is relative to the global communicator*/
   PetscInt     n_rbm;           /* local number of rigid body modes */
   PetscInt     total_rbm;       /* total number of rigid body modes */
   PetscInt     max_n_rbm;       /* the maximum of the number of rbm from me and my neighbours */
@@ -41,6 +40,21 @@ typedef struct {
   KSP             ksp_rbm;
 
   CoarseGridType  coarseGType;
+
+  /* data for the coarse problem */
+  MPI_Request    *send2_reqs,*recv2_reqs;
+  PetscInt       **neighs2,*n_neighs2; /* arrays to save which are the neighbours of neighbours */
+  Mat            *FGholder;  /* each entry is one neighbour's local F*G. The order follows, the order of ft2->neigh_lb. */
+  PetscScalar    *bufferRHS,*bufferX,*bufferG; /* matrix data in column major order */
+  PetscInt       localnnz; /* local nonzeros */
+  PetscScalar    *fgmatrices; /* F*G matrices computed by my neighbors */
+  PetscInt       n_send2,n_recv2; /* number of sends and receives when communicating F*G's */
+  Mat            *sum_mats;   /* petsc matrices storing the sum: F_s*G, the actual data is stored in bufferPSum */
+  PetscScalar    *bufferPSum; /* buffer for storing the data of F_s*G */
+  PetscInt       n_sum_mats,*i2rank;
+  Mat            local_rows_matrix; /* matrix storing the rows of the matrix of the coarse problem corresponding to the current processor */
+  PetscInt       *c_coarse,*r_coarse,*c_count; /* used for storing rows and columns indices of the matrix of the coarse problem */
+  PetscInt       *n_rbm_comm; /* each entry i is the number of RBM of subdomain i */
   
 } FETI_2;
 

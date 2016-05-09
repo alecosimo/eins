@@ -48,6 +48,7 @@ static PetscErrorCode FETIDestroy_FETI2(FETI ft)
   PetscFunctionBegin;
   if (!ft2) PetscFunctionReturn(0);
 
+  ierr = DestroyCoarseProblemStructures_FETI2_RBM(ft);CHKERRQ(ierr);
   ierr = VecDestroy(&ft2->alpha_local);CHKERRQ(ierr);
   ierr = MatDestroy(&ft2->localG);CHKERRQ(ierr);
   ierr = MatDestroy(&ft2->stiffness_mat);CHKERRQ(ierr);
@@ -59,8 +60,6 @@ static PetscErrorCode FETIDestroy_FETI2(FETI ft)
   }
   if(ft2->displ) { ierr = PetscFree(ft2->displ);CHKERRQ(ierr);}
   if(ft2->count_rbm) { ierr = PetscFree(ft2->count_rbm);CHKERRQ(ierr);}
-  if(ft2->displ_f) { ierr = PetscFree(ft2->displ_f);CHKERRQ(ierr);}
-  if(ft2->count_f_rbm) { ierr = PetscFree(ft2->count_f_rbm);CHKERRQ(ierr);}
   for (i=0;i<ft2->n_Gholder;i++) {
     ierr = MatDestroy(&ft2->Gholder[i]);CHKERRQ(ierr);
   }
@@ -103,6 +102,7 @@ static PetscErrorCode FETISetUp_FETI2(FETI ft)
       ierr = KSPSetProjection(ft->ksp_interface,FETI2Project_RBM,(void*)ft);CHKERRQ(ierr);
       ierr = KSPSetReProjection(ft->ksp_interface,FETI2Project_RBM,(void*)ft);CHKERRQ(ierr);
       ierr = FETI2SetUpCoarseProblem_RBM(ft);CHKERRQ(ierr);
+      ierr = FETI2ComputeCoarseProblem_RBM(ft);CHKERRQ(ierr);
     }
     if (ft2->coarseGType != NO_COARSE_GRID) {
       ierr = FETI2FactorizeCoarseProblem_Private(ft);CHKERRQ(ierr);
@@ -115,6 +115,10 @@ static PetscErrorCode FETISetUp_FETI2(FETI ft)
 	ierr = PCSetUp(pc);CHKERRQ(ierr);
       }
       ierr = FETI2SetUpNeumannSolver_Private(ft);CHKERRQ(ierr);
+      if (ft2->coarseGType == RIGID_BODY_MODES) { ierr = FETI2ComputeCoarseProblem_RBM(ft);CHKERRQ(ierr);}
+      if (ft2->coarseGType != NO_COARSE_GRID) {
+	ierr = FETI2FactorizeCoarseProblem_Private(ft);CHKERRQ(ierr);
+      }      
     }
     ierr = FETI2SetInterfaceProblemRHS_Private(ft);CHKERRQ(ierr);
   }
@@ -258,32 +262,10 @@ PetscErrorCode FETICreate_FETI2(FETI ft)
   ierr      = PetscNewLog(ft,&feti2);CHKERRQ(ierr);
   ft->data  = (void*)feti2;
 
+  ierr                         = PetscMemzero(feti2,sizeof(FETI_2));CHKERRQ(ierr);
   feti2->coarseGType           = NO_COARSE_GRID;
-  feti2->ksp_rbm               = 0;
-  feti2->stiffness_mat         = 0;
   feti2->computeRBM            = PETSC_TRUE;
-  feti2->stiffnessFun          = 0;
-  feti2->stiffness_ctx         = 0;
-  feti2->stiffness_mat         = 0;
-  feti2->res_interface         = 0;
-  feti2->alpha_local           = 0;
-  feti2->rbm                   = 0;
-  feti2->localG                = 0;
-  feti2->Gholder               = 0;
-  feti2->neigh_holder          = 0;
-  feti2->matrices              = 0;
-  feti2->n_Gholder             = 0;
-  feti2->local_e               = 0;
-  feti2->coarse_problem        = 0;
-  feti2->F_coarse              = 0;
   feti2->destroy_coarse        = PETSC_FALSE;
-  feti2->n_rbm                 = 0;
-  feti2->total_rbm             = 0;
-  feti2->max_n_rbm             = 0;
-  feti2->displ                 = 0;
-  feti2->count_rbm             = 0;
-  feti2->displ_f               = 0;
-  feti2->count_f_rbm           = 0;
   
   /* function pointers */
   ft->ops->setup               = FETISetUp_FETI2;
@@ -857,30 +839,18 @@ static PetscErrorCode FETI2SetUpCoarseProblem_RBM(FETI ft)
   PetscErrorCode ierr;
   FETI_2         *ft2 = (FETI_2*)ft->data;
   Subdomain      sd = ft->subdomain;
-  PetscMPIInt    i_mpi,i_mpi1,sizeG,size,*c_displ,*c_count,n_recv,n_send,rankG;
-  PetscInt       k,k0,*c_coarse,*r_coarse,total_c_coarse,*idxm=NULL,*idxn=NULL,*idxa=NULL;
+  PetscMPIInt    i_mpi,sizeG,size,*c_displ,n_recv,n_send,rankG;
+  PetscInt       k,k0,total_c_coarse,*idxm=NULL,*idxn=NULL,*idxa=NULL;
   /* nnz: array containing the number of block nonzeros in the upper triangular plus diagonal portion of each block*/
-  PetscInt       i,j,idx,*n_rbm_comm,*nnz,size_floating,total_size_matrices=0,localnnz=0;
-  PetscScalar    *m_pointer=NULL,*m_pointer1=NULL,**array=NULL;
+  PetscInt       i,j,idx,*nnz,size_floating,total_size_matrices=0;
+  PetscScalar    **array=NULL;
   MPI_Comm       comm;
   MPI_Request    *send_reqs=NULL,*recv_reqs=NULL;
   IS             isindex;
-  /* Gholder: for holding non-local G that I receive from neighbours*/
-  /* submat: submatrices of my own G to send to my neighbours */
-  /* result: result of the local multiplication G^T*G*/
-  Mat            *submat,result,aux_mat;
-  
-  PetscInt       **neighs2,*n_neighs2; /* arrays to save which are the neighbours of neighbours */
-  Mat            *FGholder=NULL;  /* each entry is one neighbour's localG matrix times local F. The order follows, the order of ft2->neigh_lb. */
-  Mat            RHS,X,x,Gexpanded;
-  PetscScalar    *bufferRHS=NULL,*bufferX=NULL,*bufferG=NULL; /* matrix data in column major order */
-  PetscScalar    *pointer_vec2=NULL,*pointer_vec1=NULL,*fgmatrices=NULL;
-  Vec            vec1,vec2;
-  PetscInt       n_send2,n_recv2,*local_neighs=NULL,n_local_neighs,total_sz_fgmatrices,jdx,kdx,delta,sz;
-  Mat            *sum_mats=NULL;
-  PetscScalar    *bufferPSum=NULL;
-  PetscInt       n_sum_mats,*i2rank,n_rbm;
-  
+  Mat            *submat;
+  PetscInt       *local_neighs=NULL,n_local_neighs,total_sz_fgmatrices,jdx,kdx,n_rbm;
+  PetscMPIInt    *count_f_rbm,*displ_f;
+  MPI_Comm       floatingComm;   /* Communicator grouping processors only with floating structures */
   
   PetscFunctionBegin;  
   /* in the following rankG and sizeG are related to the MPI_Comm comm */
@@ -897,14 +867,14 @@ static PetscErrorCode FETI2SetUpCoarseProblem_RBM(FETI ft)
   for (i=1; i<ft->n_neigh_lb; i++){
     ierr = PetscMPIIntCast(ft->neigh_lb[i],&i_mpi);CHKERRQ(ierr);   
     ierr = MPI_Isend(&ft->n_neigh_lb,1,MPIU_INT,i_mpi,0,comm,&send_reqs[i-1]);CHKERRQ(ierr);
-    ierr = MPI_Irecv(&n_neighs2[i-1],1,MPIU_INT,i_mpi,0,comm,&recv_reqs[i-1]);CHKERRQ(ierr);
+    ierr = MPI_Irecv(&ft2->n_neighs2[i-1],1,MPIU_INT,i_mpi,0,comm,&recv_reqs[i-1]);CHKERRQ(ierr);
   }
   ierr = MPI_Waitall(ft->n_neigh_lb-1,recv_reqs,MPI_STATUSES_IGNORE);CHKERRQ(ierr);
   ierr = MPI_Waitall(ft->n_neigh_lb-1,send_reqs,MPI_STATUSES_IGNORE);CHKERRQ(ierr);
 
   n_local_neighs = 0;
   for (i=1; i<ft->n_neigh_lb; i++){
-    n_local_neighs  += n_neighs2[i-1];
+    n_local_neighs  += ft2->n_neighs2[i-1];
   }
   
   ierr = PetscMalloc1(ft->n_neigh_lb-1,&ft2->neighs2);CHKERRQ(ierr);
@@ -927,23 +897,23 @@ static PetscErrorCode FETI2SetUpCoarseProblem_RBM(FETI ft)
   /* computing n_rbm_comm that is number of rbm per subdomain and the communicator of floating structures */
   ierr = PetscMalloc1(sizeG,&ft2->n_rbm_comm);CHKERRQ(ierr);
   ierr = MPI_Allgather(&ft2->n_rbm,1,MPIU_INT,ft2->n_rbm_comm,1,MPIU_INT,comm);CHKERRQ(ierr);
-  ierr = MPI_Comm_split(comm,(ft2->n_rbm_comm[rankG]>0),rankG,&ft2->floatingComm);CHKERRQ(ierr);
+  ierr = MPI_Comm_split(comm,(ft2->n_rbm_comm[rankG]>0),rankG,&floatingComm);CHKERRQ(ierr);
 
   if (ft2->n_rbm){
     /* creates alpha_local vector for holding local coefficients for vector with rigid body modes */
     ierr = VecCreateSeq(PETSC_COMM_SELF,ft2->n_rbm,&ft2->alpha_local);CHKERRQ(ierr);
     /* compute size and rank to the new communicator */
-    ierr = MPI_Comm_size(ft2->floatingComm,&size);CHKERRQ(ierr);
+    ierr = MPI_Comm_size(floatingComm,&size);CHKERRQ(ierr);
     /* computing displ_f and count_f_rbm */
-    ierr                 = PetscMalloc1(size,&ft2->displ_f);CHKERRQ(ierr);
-    ierr                 = PetscMalloc1(size,&ft2->count_f_rbm);CHKERRQ(ierr);
-    ft2->displ_f[0]      = 0;
-    ft2->count_f_rbm[0]  = ft2->n_rbm_comm[0];
+    ierr                 = PetscMalloc1(size,&displ_f);CHKERRQ(ierr);
+    ierr                 = PetscMalloc1(size,&count_f_rbm);CHKERRQ(ierr);
+    displ_f[0]      = 0;
+    count_f_rbm[0]  = ft2->n_rbm_comm[0];
     k                    = (ft2->n_rbm_comm[0]>0);
     for (i=1;i<sizeG;i++){
       if(ft2->n_rbm_comm[i]) {
-	ft2->count_f_rbm[k] = ft2->n_rbm_comm[i];
-	ft2->displ_f[k]     = ft2->displ_f[k-1] + ft2->count_f_rbm[k-1];
+	count_f_rbm[k] = ft2->n_rbm_comm[i];
+	displ_f[k]     = displ_f[k-1] + count_f_rbm[k-1];
 	k++;
       }
     }
@@ -953,12 +923,12 @@ static PetscErrorCode FETI2SetUpCoarseProblem_RBM(FETI ft)
   ierr               = PetscMalloc1(sizeG,&ft2->displ);CHKERRQ(ierr);
   ierr               = PetscMalloc1(sizeG,&ft2->count_rbm);CHKERRQ(ierr);
   ft2->displ[0]      = 0;
-  n_rbm              = n_rbm_comm[0];
+  n_rbm              = ft2->n_rbm_comm[0];
   ft2->count_rbm[0]  = n_rbm;
   ft2->total_rbm     = n_rbm;
   size_floating      = (n_rbm>0);
   for (i=1;i<sizeG;i++){
-    n_rbm              = n_rbm_comm[i];
+    n_rbm              = ft2->n_rbm_comm[i];
     ft2->total_rbm    += n_rbm;
     size_floating     += (n_rbm>0);
     ft2->count_rbm[i]  = n_rbm;
@@ -1012,7 +982,7 @@ static PetscErrorCode FETI2SetUpCoarseProblem_RBM(FETI ft)
       ft2->localnnz   += n_rbm;
       ft2->n_sum_mats += (n_rbm>0);
     }
-    ierr = PetscMalloc1(ft->n_lambda_local*localnnz,&ft2->bufferPSum);CHKERRQ(ierr);
+    ierr = PetscMalloc1(ft->n_lambda_local*ft2->localnnz,&ft2->bufferPSum);CHKERRQ(ierr);
     ierr = PetscMalloc2(ft2->n_sum_mats,&ft2->sum_mats,ft2->n_sum_mats,&ft2->i2rank);CHKERRQ(ierr);
     ierr = PetscMalloc1(ft2->localnnz,&idxn);CHKERRQ(ierr);
     ierr = PetscMalloc1(ft2->n_rbm,&idxm);CHKERRQ(ierr);
@@ -1033,6 +1003,7 @@ static PetscErrorCode FETI2SetUpCoarseProblem_RBM(FETI ft)
       }
     }    
     ierr = PetscFree(local_neighs);CHKERRQ(ierr);
+    ierr = MatCreateSeqDense(PETSC_COMM_SELF,ft2->n_rbm,ft2->localnnz,NULL,&ft2->local_rows_matrix);CHKERRQ(ierr);
   }
   
   ierr = PetscMalloc1(ft2->total_rbm,&nnz);CHKERRQ(ierr);
@@ -1127,9 +1098,10 @@ static PetscErrorCode FETI2SetUpCoarseProblem_RBM(FETI ft)
   ierr = PetscMalloc3(sd->n*ft2->max_n_rbm,&ft2->bufferRHS,sd->n*ft2->max_n_rbm,&ft2->bufferX,ft->n_lambda_local*ft2->max_n_rbm,&ft2->bufferG);CHKERRQ(ierr); 
   ierr = PetscMalloc1(n_recv+1,&ft2->FGholder);CHKERRQ(ierr);
   for (i=0,k=0; k<ft->n_neigh_lb; k++) {
-    if (ft2->n_rbm_comm[ft->neigh_lb[k]])  {
+    n_rbm = ft2->n_rbm_comm[ft->neigh_lb[k]];
+    if (n_rbm)  {
       /* the following matrix is created using in column major order (the usual Fortran 77 manner) */
-      ierr = MatCreateSeqDense(PETSC_COMM_SELF,ft->n_lambda_local,k0,NULL,&FGholder[i++]);CHKERRQ(ierr);
+      ierr = MatCreateSeqDense(PETSC_COMM_SELF,ft->n_lambda_local,n_rbm,NULL,&ft2->FGholder[i++]);CHKERRQ(ierr);
     }
   }
 
@@ -1148,7 +1120,7 @@ static PetscErrorCode FETI2SetUpCoarseProblem_RBM(FETI ft)
   c_displ[0]      = 0;
   idx             = n_rbm;
   for (i=1;i<sizeG;i++) {
-    n_rbm             = n_rbm_comm[i];
+    n_rbm             = ft2->n_rbm_comm[i];
     total_c_coarse   += nnz[idx]*(n_rbm>0);
     c_displ[i]        = c_displ[i-1] + ft2->c_count[i-1];
     ft2->c_count[i]   = nnz[idx]*(n_rbm>0);
@@ -1163,6 +1135,8 @@ static PetscErrorCode FETI2SetUpCoarseProblem_RBM(FETI ft)
   ierr = PetscFree(idxn);CHKERRQ(ierr);
   ierr = PetscFree(nnz);CHKERRQ(ierr);
   ierr = PetscFree(c_displ);CHKERRQ(ierr);
+  ierr = PetscFree(displ_f);CHKERRQ(ierr);
+  ierr = PetscFree(count_f_rbm);CHKERRQ(ierr);
 
   PetscFunctionReturn(0);
 }
@@ -1183,8 +1157,9 @@ static PetscErrorCode DestroyCoarseProblemStructures_FETI2_RBM(FETI ft)
     ierr = PetscFree(ft2->recv2_reqs);CHKERRQ(ierr);
     ierr = PetscFree(ft2->fgmatrices);CHKERRQ(ierr);
   }
-  if(ft2->n_send2) { ierr = PetscFree1(ft2->send2_reqs);CHKERRQ(ierr);}
+  if(ft2->n_send2) { ierr = PetscFree(ft2->send2_reqs);CHKERRQ(ierr);}
 
+  ierr = MatDestroy(&ft2->local_rows_matrix);CHKERRQ(ierr);  
   for (i=0;i<ft2->n_sum_mats;i++) {
     ierr = MatDestroy(&ft2->sum_mats[i]);CHKERRQ(ierr);
   }
@@ -1312,7 +1287,7 @@ static PetscErrorCode FETI2ComputeCoarseProblem_RBM(FETI ft)
 	/*>>>*/
 	ierr = MatGetSubMatrix(ft2->FGholder[kdx],isindex,NULL,MAT_INITIAL_MATRIX,&submat[idx]);CHKERRQ(ierr);
 	ierr = MatDenseGetArray(submat[idx],&array[idx]);CHKERRQ(ierr);   
-	ierr = MPI_Isend(array[idx],ft2->n_rbm*ft->n_shared_lb[i],MPIU_SCALAR,i_mpi0,rankG,comm,&send2_reqs[idx]);CHKERRQ(ierr);
+	ierr = MPI_Isend(array[idx],ft2->n_rbm*ft->n_shared_lb[i],MPIU_SCALAR,i_mpi0,rankG,comm,&ft2->send2_reqs[idx]);CHKERRQ(ierr);
 	idx++;
 	kdx++;
 	/*<<<*/
@@ -1324,7 +1299,7 @@ static PetscErrorCode FETI2ComputeCoarseProblem_RBM(FETI ft)
 	    /*>>>*/
 	    ierr = MatGetSubMatrix(ft2->FGholder[kdx],isindex,NULL,MAT_INITIAL_MATRIX,&submat[idx]);CHKERRQ(ierr);
 	    ierr = MatDenseGetArray(submat[idx],&array[idx]);CHKERRQ(ierr);   
-	    ierr = MPI_Isend(array[idx],ft2->n_rbm_comm[k]*ft->n_shared_lb[i],MPIU_SCALAR,i_mpi0,k,comm,&send2_reqs[idx]);CHKERRQ(ierr);
+	    ierr = MPI_Isend(array[idx],ft2->n_rbm_comm[k]*ft->n_shared_lb[i],MPIU_SCALAR,i_mpi0,k,comm,&ft2->send2_reqs[idx]);CHKERRQ(ierr);
 	    /*<<<*/
 	    idx++;
 	  }
@@ -1341,7 +1316,7 @@ static PetscErrorCode FETI2ComputeCoarseProblem_RBM(FETI ft)
 	if(rankG<=k && n_rbm) {
 	  /*>>>*/
 	  sz     = n_rbm*ft->n_shared_lb[i];
-	  ierr   = MPI_Irecv(&ft2->fgmatrices[delta],sz,MPIU_SCALAR,i_mpi0,k,comm,&recv2_reqs[jdx]);CHKERRQ(ierr);    
+	  ierr   = MPI_Irecv(&ft2->fgmatrices[delta],sz,MPIU_SCALAR,i_mpi0,k,comm,&ft2->recv2_reqs[jdx]);CHKERRQ(ierr);    
 	  delta += sz; 
 	  jdx++;
 	  /*<<<*/
@@ -1350,10 +1325,10 @@ static PetscErrorCode FETI2ComputeCoarseProblem_RBM(FETI ft)
     }
   }
   if(ft2->n_recv2) {
-    ierr = MPI_Waitall(ft2->n_recv2,recv2_reqs,MPI_STATUSES_IGNORE);CHKERRQ(ierr);
+    ierr = MPI_Waitall(ft2->n_recv2,ft2->recv2_reqs,MPI_STATUSES_IGNORE);CHKERRQ(ierr);
   }
   if(ft2->n_send2) {
-    ierr = MPI_Waitall(ft2->n_send2,send2_reqs,MPI_STATUSES_IGNORE);CHKERRQ(ierr);
+    ierr = MPI_Waitall(ft2->n_send2,ft2->send2_reqs,MPI_STATUSES_IGNORE);CHKERRQ(ierr);
     for (i=0;i<ft2->n_send2;i++) {
       ierr = MatDenseRestoreArray(submat[i],&array[i]);CHKERRQ(ierr);
       ierr = MatDestroy(&submat[i]);CHKERRQ(ierr);
@@ -1395,13 +1370,13 @@ static PetscErrorCode FETI2ComputeCoarseProblem_RBM(FETI ft)
 
     /* multiply by G^T */
     ierr = MatCreateSeqDense(PETSC_COMM_SELF,ft->n_lambda_local,ft2->localnnz,ft2->bufferPSum,&aux_mat);CHKERRQ(ierr);   
-    ierr = MatTransposeMatMult(ft2->localG,aux_mat,MAT_REUSE_MATRIX,PETSC_DEFAULT,&ft2->result);CHKERRQ(ierr);
+    ierr = MatTransposeMatMult(ft2->localG,aux_mat,MAT_REUSE_MATRIX,PETSC_DEFAULT,&ft2->local_rows_matrix);CHKERRQ(ierr);
     ierr = MatDestroy(&aux_mat);CHKERRQ(ierr);   
     ierr = PetscFree(idxm);CHKERRQ(ierr);
     ierr = PetscFree(idxn);CHKERRQ(ierr);
     
     /** local "row block" contribution to G^T*G */
-    ierr = MatDenseGetArray(ft2->result,&m_pointer);CHKERRQ(ierr);
+    ierr = MatDenseGetArray(ft2->local_rows_matrix,&m_pointer);CHKERRQ(ierr);
   }
   
   /* assemble matrix */
@@ -1414,7 +1389,7 @@ static PetscErrorCode FETI2ComputeCoarseProblem_RBM(FETI ft)
       if(i==rankG) {
 	ierr = MPI_Bcast(m_pointer,i_mpi0,MPIU_SCALAR,i_mpi1,comm);CHKERRQ(ierr);
 	ierr = MatSetValuesBlocked(ft2->coarse_problem,n_rbm,&ft2->r_coarse[k],ft2->c_count[i],&ft2->c_coarse[k0],m_pointer,INSERT_VALUES);CHKERRQ(ierr);
-	ierr = MatDenseRestoreArray(ft2->result,&m_pointer);CHKERRQ(ierr);
+	ierr = MatDenseRestoreArray(ft2->local_rows_matrix,&m_pointer);CHKERRQ(ierr);
       } else {
 	ierr = PetscMalloc1(i_mpi0,&m_pointer1);CHKERRQ(ierr);	  
 	ierr = MPI_Bcast(m_pointer1,i_mpi0,MPIU_SCALAR,i_mpi1,comm);CHKERRQ(ierr);
@@ -1481,7 +1456,7 @@ static PetscErrorCode FETI2FactorizeCoarseProblem_Private(FETI ft)
     ierr = MatDestroy(&ft2->coarse_problem);CHKERRQ(ierr);
     ft2->coarse_problem = 0;    
   }
-
+MPI_Barrier(PETSC_COMM_WORLD);
   PetscFunctionReturn(0);
 }
 
