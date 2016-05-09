@@ -41,7 +41,7 @@ typedef struct {
 
   CoarseGridType  coarseGType;
 
-  /* data for the coarse problem */
+  /* data for the coarse problem built in FETI2SetUpCoarseProblem_RBM */
   MPI_Request    *send2_reqs,*recv2_reqs;
   PetscInt       **neighs2,*n_neighs2; /* arrays to save which are the neighbours of neighbours */
   Mat            *FGholder;  /* each entry is one neighbour's local F*G. The order follows, the order of ft2->neigh_lb. */
