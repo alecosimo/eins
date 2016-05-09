@@ -29,6 +29,7 @@ static PetscErrorCode DestroyCoarseProblemStructures_FETI2_RBM(FETI);
 static PetscErrorCode MultFv_Private(FETI,Vec,Vec);
 
 PetscErrorCode FETI2Project_RBM(void*,Vec,Vec);
+PetscErrorCode FETI2ReProject_RBM(void*,Vec,Vec);
 
 #undef __FUNCT__
 #define __FUNCT__ "FETIDestroy_FETI2"
@@ -101,7 +102,7 @@ static PetscErrorCode FETISetUp_FETI2(FETI ft)
     /* set projection in ksp */
     if (ft2->coarseGType == RIGID_BODY_MODES) {
       ierr = KSPSetProjection(ft->ksp_interface,FETI2Project_RBM,(void*)ft);CHKERRQ(ierr);
-      //      ierr = KSPSetReProjection(ft->ksp_interface,FETI2Project_RBM,(void*)ft);CHKERRQ(ierr);
+      ierr = KSPSetReProjection(ft->ksp_interface,FETI2ReProject_RBM,(void*)ft);CHKERRQ(ierr);
       ierr = FETI2SetUpCoarseProblem_RBM(ft);CHKERRQ(ierr);
       ierr = FETI2ComputeCoarseProblem_RBM(ft);CHKERRQ(ierr);
     }
@@ -1563,6 +1564,68 @@ static PetscErrorCode FETI2ComputeInitialCondition_NOCOARSE(FETI ft)
 
 @*/
 PetscErrorCode FETI2Project_RBM(void* ft_ctx, Vec g_global, Vec y)
+{
+  PetscErrorCode    ierr;
+  FETI              ft; 
+  FETI_2            *ft2;
+  Vec               asm_e;
+  PetscScalar       *rbuff;
+  const PetscScalar *sbuff;
+  MPI_Comm          comm;
+  Vec               lambda_local,localv,y_aux;
+  
+  PetscFunctionBegin;
+  PetscValidHeaderSpecific(ft_ctx,FETI_CLASSID,1);
+  PetscValidHeaderSpecific(g_global,VEC_CLASSID,2);
+  PetscValidHeaderSpecific(y,VEC_CLASSID,3);
+  ft   = (FETI)ft_ctx;
+  ft2  = (FETI_2*)ft->data;
+  comm = PetscObjectComm((PetscObject)ft);
+  if (y == g_global) SETERRQ(comm,PETSC_ERR_ARG_INCOMP,"Cannot use g_global == y");
+  ierr = VecUnAsmGetLocalVectorRead(g_global,&lambda_local);CHKERRQ(ierr);
+  ierr = VecCreateSeq(PETSC_COMM_SELF,ft2->total_rbm,&asm_e);CHKERRQ(ierr);
+  if (ft2->n_rbm) {
+    ierr = VecCreateSeq(PETSC_COMM_SELF,ft2->n_rbm,&localv);CHKERRQ(ierr);
+    ierr = MatMultTranspose(ft2->localG,lambda_local,localv);CHKERRQ(ierr);   
+    ierr = VecGetArrayRead(localv,&sbuff);CHKERRQ(ierr);
+  }
+  ierr = VecGetArray(asm_e,&rbuff);CHKERRQ(ierr); 
+  ierr = MPI_Allgatherv(sbuff,ft2->n_rbm,MPIU_SCALAR,rbuff,ft2->count_rbm,ft2->displ,MPIU_SCALAR,comm);CHKERRQ(ierr);
+  ierr = VecRestoreArray(asm_e,&rbuff);CHKERRQ(ierr);
+  ierr = VecUnAsmRestoreLocalVectorRead(g_global,lambda_local);CHKERRQ(ierr);
+  if (ft2->n_rbm) {
+    ierr = VecRestoreArrayRead(localv,&sbuff);CHKERRQ(ierr);
+    ierr = VecDestroy(&localv);CHKERRQ(ierr);
+  }
+
+  ierr = FETI2ApplyCoarseProblem_Private(ft,asm_e,y);CHKERRQ(ierr);
+  ierr = VecDuplicate(y,&y_aux);CHKERRQ(ierr);
+  
+  ierr = MultFv_Private(ft,y,y_aux);CHKERRQ(ierr);
+  ierr = VecWAXPY(y,-1,y_aux,g_global);CHKERRQ(ierr);
+
+  ierr = VecDestroy(&asm_e);CHKERRQ(ierr);
+  ierr = VecDestroy(&y_aux);CHKERRQ(ierr);
+  PetscFunctionReturn(0);
+}
+
+
+#undef __FUNCT__
+#define __FUNCT__ "FETI2ReProject_RBM"
+/*@
+   FETI2ReProject_RBM - Performs the re-projection step of FETI2.
+
+   Input Parameter:
+.  ft        - the FETI context
+.  g_global  - the vector to project
+.  y         - the projected vector
+
+   Level: developer
+
+.keywords: FETI2
+
+@*/
+PetscErrorCode FETI2ReProject_RBM(void* ft_ctx, Vec g_global, Vec y)
 {
   PetscErrorCode    ierr;
   FETI              ft; 
