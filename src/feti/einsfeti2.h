@@ -6,13 +6,10 @@
 /* Private context for the FETI-2 method.  */
 typedef struct {
   Vec          res_interface;   /* residual of the interface problem, i.e., r=d-F*lambda */
-  Vec          alpha_local;
   
   /* Coarse problem stuff */
   PetscMPIInt  *displ;          /* Entry i specifies the displacement at which to place the incoming data from process i in gather operations */
                                          /* displ is relative to the global communicator*/
-  PetscMPIInt  *count_rbm;  /* Entry i specifies the number of elements to be received from process i. It is equal to the n_rbm of each process */
-                                         /* count_rbm is relative to the global communicator*/
   PetscInt     n_rbm;           /* local number of rigid body modes */
   PetscInt     total_rbm;       /* total number of rigid body modes */
   PetscInt     max_n_rbm;       /* the maximum of the number of rbm from me and my neighbours */
