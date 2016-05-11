@@ -1348,21 +1348,28 @@ static PetscErrorCode FETI2FactorizeCoarseProblem_Private(FETI ft)
   FETI_2         *ft2 = (FETI_2*)ft->data;
   PC             pc;
   
-  PetscFunctionBegin; 
+  PetscFunctionBegin;
   if(!ft2->coarse_problem) SETERRQ(PetscObjectComm((PetscObject)ft),PETSC_ERR_ARG_WRONGSTATE,"Error: FETI2SetUpCoarseProblem_Private() must be first called");
 
   /* factorize the coarse problem */
-  ierr = KSPCreate(PETSC_COMM_SELF,&ft2->ksp_coarse);CHKERRQ(ierr);
-  ierr = PetscObjectIncrementTabLevel((PetscObject)ft2->ksp_coarse,(PetscObject)ft2,1);CHKERRQ(ierr);
-  ierr = PetscLogObjectParent((PetscObject)ft2,(PetscObject)ft2->ksp_coarse);CHKERRQ(ierr);
-  ierr = KSPSetType(ft2->ksp_coarse,KSPPREONLY);CHKERRQ(ierr);
-  ierr = KSPSetOptionsPrefix(ft2->ksp_coarse,"feti2_pc_coarse_");CHKERRQ(ierr);
-  ierr = MatSetOptionsPrefix(ft2->coarse_problem,"feti2_pc_coarse_");CHKERRQ(ierr);
-  ierr = KSPGetPC(ft2->ksp_coarse,&pc);CHKERRQ(ierr);
-  ierr = PCSetType(pc,PCCHOLESKY);CHKERRQ(ierr);
-  ierr = KSPSetFromOptions(ft2->ksp_coarse);CHKERRQ(ierr);
-  ierr = KSPSetOperators(ft2->ksp_coarse,ft2->coarse_problem,ft2->coarse_problem);CHKERRQ(ierr);
-  ierr = PCFactorSetUpMatSolverPackage(pc);CHKERRQ(ierr);
+  if(!ft2->ksp_coarse) {
+    ierr = KSPCreate(PETSC_COMM_SELF,&ft2->ksp_coarse);CHKERRQ(ierr);
+    ierr = PetscObjectIncrementTabLevel((PetscObject)ft2->ksp_coarse,(PetscObject)ft2,1);CHKERRQ(ierr);
+    ierr = PetscLogObjectParent((PetscObject)ft2,(PetscObject)ft2->ksp_coarse);CHKERRQ(ierr);
+    ierr = KSPSetType(ft2->ksp_coarse,KSPPREONLY);CHKERRQ(ierr);
+    ierr = KSPSetOptionsPrefix(ft2->ksp_coarse,"feti2_pc_coarse_");CHKERRQ(ierr);
+    ierr = MatSetOptionsPrefix(ft2->coarse_problem,"feti2_pc_coarse_");CHKERRQ(ierr);
+    ierr = KSPGetPC(ft2->ksp_coarse,&pc);CHKERRQ(ierr);
+    ierr = PCSetType(pc,PCCHOLESKY);CHKERRQ(ierr);
+    ierr = KSPSetFromOptions(ft2->ksp_coarse);CHKERRQ(ierr);
+    ierr = KSPSetOperators(ft2->ksp_coarse,ft2->coarse_problem,ft2->coarse_problem);CHKERRQ(ierr);
+    ierr = PCFactorSetUpMatSolverPackage(pc);CHKERRQ(ierr);
+  } else {
+    ierr = KSPGetPC(ft2->ksp_coarse,&pc);CHKERRQ(ierr);
+    ierr = KSPSetOperators(ft2->ksp_coarse,ft2->coarse_problem,ft2->coarse_problem);CHKERRQ(ierr);
+    ierr = PCFactorSetUpMatSolverPackage(pc);CHKERRQ(ierr);
+
+  }
   ierr = KSPSetUp(ft2->ksp_coarse);CHKERRQ(ierr);
   ierr = PCFactorGetMatrix(pc,&ft2->F_coarse);CHKERRQ(ierr);
   PetscFunctionReturn(0);
