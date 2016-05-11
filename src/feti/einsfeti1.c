@@ -21,7 +21,7 @@ static PetscErrorCode FETI1FactorizeCoarseProblem_Private(FETI);
 static PetscErrorCode FETI1ApplyCoarseProblem_Private(FETI,Vec,Vec);
 static PetscErrorCode FETI1ComputeInitialCondition_Private(FETI);
 static PetscErrorCode FETI1ComputeAlpha_Private(FETI);
-static PetscErrorCode FETIComputeSolution_FETI1(FETI,Vec);
+static PetscErrorCode FETISolve_FETI1(FETI,Vec);
 static PetscErrorCode FETI1SetInterfaceProblemRHS_Private(FETI);
   
 PetscErrorCode FETI1Project_RBM(void*,Vec,Vec);
@@ -263,7 +263,7 @@ PetscErrorCode FETICreate_FETI1(FETI ft)
   ft->ops->setup               = FETISetUp_FETI1;
   ft->ops->destroy             = FETIDestroy_FETI1;
   ft->ops->setfromoptions      = FETISetFromOptions_FETI1;
-  ft->ops->computesolution     = FETIComputeSolution_FETI1;
+  ft->ops->computesolution     = FETISolve_FETI1;
   ft->ops->view                = 0;
 
   PetscFunctionReturn(0);
@@ -1321,9 +1321,9 @@ PetscErrorCode FETI1Project_RBM(void* ft_ctx, Vec g_global, Vec y)
 
 
 #undef __FUNCT__
-#define __FUNCT__ "FETIComputeSolution_FETI1"
+#define __FUNCT__ "FETISolve_FETI1"
 /*@
-   FETIComputeSolution_FETI1 - Computes the primal solution using the FETI1 method.
+   FETISolve_FETI1 - Computes the primal solution using the FETI1 method.
 
    Input: 
 .  ft - the FETI context
@@ -1335,7 +1335,7 @@ PetscErrorCode FETI1Project_RBM(void* ft_ctx, Vec g_global, Vec y)
 
 .keywords: FETI1
 @*/
-static PetscErrorCode FETIComputeSolution_FETI1(FETI ft, Vec u){
+static PetscErrorCode FETISolve_FETI1(FETI ft, Vec u){
   PetscErrorCode    ierr;
   FETI_1            *ft1 = (FETI_1*)ft->data;
   Subdomain         sd = ft->subdomain;
