@@ -62,9 +62,17 @@ PetscErrorCode FETISetUp_FETI2_GENEO(FETI ft)
   ierr = KSPGetPC(ft->ksp_interface,&pc);CHKERRQ(ierr);
   ierr = PCGetType(pc,&pctype);CHKERRQ(ierr);
   ierr = PetscStrcmp(PCFETI_DIRICHLET,pctype,&flg);CHKERRQ(ierr);
-  /* if (flg) { */
-    
-  /* } */
+  if (flg) {
+    gn->pc_dirichlet = pc;
+    ierr   = PetscObjectReference((PetscObject) pc);CHKERRQ(ierr); 
+  } else {
+    ierr = PCCreate(PetscObjectComm((PetscObject)ft),&gn->pc_dirichlet);CHKERRQ(ierr);
+    ierr = PCSetType(gn->pc_dirichlet,PCCHOLESKY);CHKERRQ(ierr);
+    ierr = PCSetOperators(gn->pc_dirichlet,ft->F,ft->F);CHKERRQ(ierr);
+    ierr = PCSetUp(gn->pc_dirichlet);CHKERRQ(ierr);
+    ierr = PetscObjectIncrementTabLevel((PetscObject)gn->pc_dirichlet,(PetscObject)ft,0);CHKERRQ(ierr);
+    ierr = PetscLogObjectParent((PetscObject)ft,(PetscObject)gn->pc_dirichlet);CHKERRQ(ierr);
+  }
   
   PetscFunctionReturn(0);
 }
@@ -86,6 +94,7 @@ PetscErrorCode FETIDestroy_FETI2_GENEO(FETI ft)
   GENEO_C        *gn  = ft2->geneo;
   
   PetscFunctionBegin;
+  ierr = PCDestroy(&gn->pc_dirichlet);CHKERRQ(ierr);
   ierr = PetscFree(ft2->geneo);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
