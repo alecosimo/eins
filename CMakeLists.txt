@@ -29,24 +29,6 @@ set(CMAKE_DOC_OUTPUT_DIRECTORY     ${PROJECT_BINARY_DIR}/doc CACHE PATH "Output 
 set(CMAKE_TEST_OUTPUT_DIRECTORY    ${PROJECT_BINARY_DIR}/test CACHE PATH "Output directory for building and running tests")
 set(CMAKE_CTEST_ARGS               "" CACHE STRING "Options for running CTest. Eg: -V")
 
-include_directories("${PROJECT_BINARY_DIR}")
-
-# --->>>> compiler configuration
-# Determine which compiler is used
-if(${CMAKE_CXX_COMPILER_ID} MATCHES "GNU")
-  set(GCC_COMPILER 1)
-  appendDefine2ConfFile(GCC_COMPILER 1)
-elseif(${CMAKE_CXX_COMPILER_ID} MATCHES "Intel")
-  set(INTEL_COMPILER 1)
-  appendDefine2ConfFile(INTEL_COMPILER 1)
-endif()
-
-# Configure compiler flags
-if(${GCC_COMPILER})
-  include(commonCompilerFlagsGcc)#upto now only pedantic flags
-endif()
-# ---<<<< compiler configuration
-
 # --->>>> Find sources for Eins by recursively including
 # CMakeLists.txt and thus loading the sources for the target Eins
 # (target: Eins; sources: Eins_sources). In this section we also find
@@ -70,6 +52,23 @@ include_directories(SYSTEM ${PETSC_INCLUDES} ${SLEPC_INCLUDES})
 # Configure a header file to pass some of the CMake settings to the source code
 set(configure_file  "${PROJECT_BINARY_DIR}/einsConfig.h")
 configure_file("${PROJECT_SOURCE_DIR}/einsConfig.h.in"  ${configure_file} )
+include_directories("${PROJECT_BINARY_DIR}")
+
+# --->>>> compiler configuration
+# Determine which compiler is used
+if(${CMAKE_CXX_COMPILER_ID} MATCHES "GNU")
+  set(GCC_COMPILER 1)
+  appendDefine2ConfFile(GCC_COMPILER 1)
+elseif(${CMAKE_CXX_COMPILER_ID} MATCHES "Intel")
+  set(INTEL_COMPILER 1)
+  appendDefine2ConfFile(INTEL_COMPILER 1)
+endif()
+
+# Configure compiler flags
+if(${GCC_COMPILER})
+  include(commonCompilerFlagsGcc)#upto now only pedantic flags
+endif()
+# ---<<<< compiler configuration
 
 # Set libraries for the Eins project, Eins_Libraries
 set(Eins_libraries)
