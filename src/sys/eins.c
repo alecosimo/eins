@@ -10,6 +10,10 @@
 #include <petsc/private/tsimpl.h>
 #include <petsc/private/snesimpl.h>
 
+#if defined(HAVE_SLEPC)
+#include <slepc.h>
+#endif
+
 PETSC_EXTERN PetscBool EinsInitializeCalled;
 PETSC_EXTERN PetscBool EinsFinalizeCalled;
 PETSC_EXTERN PetscBool EinsRegisterAllCalled;
@@ -90,7 +94,12 @@ PetscErrorCode  EinsInitialize(int *argc,char ***args,const char file[],const ch
   PetscFunctionBegin;
   if (EinsInitializeCalled) PetscFunctionReturn(0);
   ierr = PetscInitialized(&petscCalled);CHKERRQ(ierr);
-  if(!petscCalled)  {ierr = PetscInitialize(argc,args,file,help);CHKERRQ(ierr);}
+  if(!petscCalled)  {
+    ierr = PetscInitialize(argc,args,file,help);CHKERRQ(ierr);
+#if defined(HAVE_SLEPC)
+    ierr = SlepcInitialize(argc,args,file,help);CHKERRQ(ierr);
+#endif
+  }
   /* Register Classes */
   ierr = PetscClassIdRegister("Vector Exchange",&VEC_EXCHANGE_CLASSID);CHKERRQ(ierr);
   /*-- */
@@ -213,7 +222,12 @@ PetscErrorCode  EinsFinalize(void)
   }
   
   ierr = PetscFinalized(&petscFinalized);CHKERRQ(ierr);
-  if(!petscFinalized)  {ierr = PetscFinalize();CHKERRQ(ierr);}   
+  if(!petscFinalized)  {
+    ierr = PetscFinalize();CHKERRQ(ierr);
+#if defined(HAVE_SLEPC)
+    ierr = SlepcFinalize();CHKERRQ(ierr);
+#endif
+  }   
   EinsInitializeCalled  = PETSC_FALSE;
   EinsFinalizeCalled    = PETSC_TRUE;
   EinsRegisterAllCalled = PETSC_FALSE;

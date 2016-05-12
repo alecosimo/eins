@@ -29,9 +29,6 @@ set(CMAKE_DOC_OUTPUT_DIRECTORY     ${PROJECT_BINARY_DIR}/doc CACHE PATH "Output 
 set(CMAKE_TEST_OUTPUT_DIRECTORY    ${PROJECT_BINARY_DIR}/test CACHE PATH "Output directory for building and running tests")
 set(CMAKE_CTEST_ARGS               "" CACHE STRING "Options for running CTest. Eg: -V")
 
-# Configure a header file to pass some of the CMake settings to the source code
-set(configure_file  "${PROJECT_BINARY_DIR}/einsConfig.h")
-configure_file("${PROJECT_SOURCE_DIR}/einsConfig.h.in"  ${configure_file} )
 include_directories("${PROJECT_BINARY_DIR}")
 
 # --->>>> compiler configuration
@@ -66,16 +63,22 @@ find_library(MATH_LIB m)
 find_package(MPI REQUIRED)
 find_package(LAPACK REQUIRED)
 find_package(PETSc REQUIRED)
-include_directories(SYSTEM ${PETSC_INCLUDES})
+find_package(SLEPc)
+set(HAVE_SLEPC ${SLEPC_FOUND})
+include_directories(SYSTEM ${PETSC_INCLUDES} ${SLEPC_INCLUDES})
+
+# Configure a header file to pass some of the CMake settings to the source code
+set(configure_file  "${PROJECT_BINARY_DIR}/einsConfig.h")
+configure_file("${PROJECT_SOURCE_DIR}/einsConfig.h.in"  ${configure_file} )
 
 # Set libraries for the Eins project, Eins_Libraries
 set(Eins_libraries)
-list(APPEND Eins_libraries ${PETSC_LIBRARIES} ${MATH_LIB} ${MPI_LIBRARY} ${MPI_EXTRA_LIBRARY} ${LAPACK_LIBRARIES})
+list(APPEND Eins_libraries ${PETSC_LIBRARIES} ${SLEPC_LIBRARIES} ${MATH_LIB} ${MPI_LIBRARY} ${MPI_EXTRA_LIBRARY} ${LAPACK_LIBRARIES})
 
 # Set libraries for the compiling the tests using the Eins library, EinsTests_Libraries
 set(EINS_LIBRARY "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libeins.so")
 set(EinsTests_libraries)
-list(APPEND EinsTests_libraries ${EINS_LIBRARY} ${PETSC_LIBRARIES} ${MATH_LIB} ${MPI_LIBRARY} ${MPI_EXTRA_LIBRARY} ${LAPACK_LIBRARIES}) 
+list(APPEND EinsTests_libraries ${EINS_LIBRARY} ${PETSC_LIBRARIES} ${SLEPC_LIBRARIES} ${MATH_LIB} ${MPI_LIBRARY} ${MPI_EXTRA_LIBRARY} ${LAPACK_LIBRARIES}) 
 
 # Add tests. It must come after complete setting the libraries for linking
 enable_testing()

@@ -31,4 +31,11 @@ PETSC_EXTERN PetscErrorCode PetscViewerHDF5WriteGroupAttribute(PetscViewer,const
 PETSC_EXTERN PetscErrorCode PetscViewerHDF5CreateSoftLink(PetscViewer,const char[],const char[]);
 #endif
 
+
+#if defined(__cplusplus)
+#define EINS_INTERN extern "C" PETSC_VISIBILITY_INTERNAL
+#else
+#define EINS_INTERN extern PETSC_VISIBILITY_INTERNAL
+#endif
+
 #endif/* EINSSYS_H*/

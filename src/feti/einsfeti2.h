@@ -2,6 +2,20 @@
 #define FETI2_H
 
 #include <private/einsfetiimpl.h>
+#include <einssys.h>
+
+#if defined(HAVE_SLEPC)
+
+PETSC_INTERN PetscErrorCode FETI2ComputeMatrixG_GENEO(FETI);
+PETSC_INTERN PetscErrorCode FETISetUp_FETI2_GENEO(FETI);
+PETSC_INTERN PetscErrorCode FETIDestroy_FETI2_GENEO(FETI);
+
+#endif
+
+typedef struct {
+  PC    pc_dirichlet;
+} GENEO_C; /* underscore "_C" becuase it is for defining a coarse space */
+
 
 /* Private context for the FETI-2 method.  */
 typedef struct {
@@ -35,8 +49,10 @@ typedef struct {
   Mat             F_rbm; /* matrix object specifically suited for symbolic factorization: it must not be destroyed with MatDestroy() */
   KSP             ksp_rbm;
 
+  /* Coarse grid types */
   CoarseGridType  coarseGType;
-
+  GENEO_C         *geneo;
+  
   /* data for the coarse problem built in FETI2SetUpCoarseProblem_RBM */
   MPI_Request    *send2_reqs,*recv2_reqs;
   PetscInt       **neighs2,*n_neighs2; /* arrays to save which are the neighbours of neighbours */

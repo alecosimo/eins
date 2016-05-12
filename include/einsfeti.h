@@ -58,7 +58,8 @@ typedef enum {
 
 typedef enum {
   NO_COARSE_GRID,
-  RIGID_BODY_MODES
+  RIGID_BODY_MODES,
+  GENEO_MODES
 } CoarseGridType;
 PETSC_EXTERN const char *const CoarseGridTypes[];
 

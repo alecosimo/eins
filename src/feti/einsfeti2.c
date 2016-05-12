@@ -5,7 +5,7 @@
 #include <einssys.h>
 
 
-const char *const CoarseGridTypes[] = {"NO_COARSE_GRID","RIGID_BODY_MODES",0};
+const char *const CoarseGridTypes[] = {"NO_COARSE_GRID","RIGID_BODY_MODES","GENEO_MODES",0};
 
 /* private functions*/
 static PetscErrorCode FETI2BuildLambdaAndB_Private(FETI);
@@ -25,7 +25,7 @@ static PetscErrorCode FETI2ComputeInitialCondition_RBM(FETI);
 static PetscErrorCode FETI2ComputeInitialCondition_NOCOARSE(FETI);
 static PetscErrorCode FETISolve_FETI2(FETI,Vec);
 static PetscErrorCode FETI2SetInterfaceProblemRHS_Private(FETI);
-static PetscErrorCode DestroyCoarseProblemStructures_FETI2_RBM(FETI);
+static PetscErrorCode FETIDestroy_FETI2_RBM(FETI);
 static PetscErrorCode MultFv_Private(FETI,Vec,Vec);
 
 PetscErrorCode FETI2Project_RBM(void*,Vec,Vec);
@@ -50,7 +50,9 @@ static PetscErrorCode FETIDestroy_FETI2(FETI ft)
   PetscFunctionBegin;
   if (!ft2) PetscFunctionReturn(0);
 
-  if (ft2->coarseGType == RIGID_BODY_MODES) {ierr = DestroyCoarseProblemStructures_FETI2_RBM(ft);CHKERRQ(ierr);}
+  if (ft2->coarseGType == RIGID_BODY_MODES) {ierr = FETIDestroy_FETI2_RBM(ft);CHKERRQ(ierr);}
+  if (ft2->coarseGType == GENEO_MODES)      {ierr = FETIDestroy_FETI2_GENEO(ft);CHKERRQ(ierr);}
+  
   ierr = MatDestroy(&ft2->localG);CHKERRQ(ierr);
   ierr = MatDestroy(&ft2->stiffness_mat);CHKERRQ(ierr);
   ierr = VecDestroy(&ft2->local_e);CHKERRQ(ierr);
@@ -90,13 +92,21 @@ static PetscErrorCode FETISetUp_FETI2(FETI ft)
     ierr = FETIScalingSetUp(ft);CHKERRQ(ierr);
     ierr = FETI2BuildLambdaAndB_Private(ft);CHKERRQ(ierr);
     ierr = FETI2SetUpNeumannSolver_Private(ft);CHKERRQ(ierr);
+    ierr = FETI2BuildInterfaceProblem_Private(ft);CHKERRQ(ierr);
+    ierr = FETIBuildInterfaceKSP(ft);CHKERRQ(ierr); /* the PC for the interface problem is setup here */
+
     if (ft2->computeRBM && ft2->coarseGType == RIGID_BODY_MODES) {
       ierr = FETI2ComputeMatrixG_Private(ft);CHKERRQ(ierr);
       ft2->computeRBM = PETSC_FALSE;
+    } else if(ft2->coarseGType == GENEO_MODES) {
+#if !defined(HAVE_SLEPC)
+      SETERRQ(PetscObjectComm((PetscObject)ft),1,"EINS only supports the computation of GENEO modes by using SLEPc and SLEPc library is not found");
+#else
+      ierr = FETI2ComputeMatrixG_GENEO(ft);CHKERRQ(ierr);
+#endif
     }
-    ierr = FETI2BuildInterfaceProblem_Private(ft);CHKERRQ(ierr);
+    
     ierr = FETI2SetInterfaceProblemRHS_Private(ft);CHKERRQ(ierr);
-    ierr = FETIBuildInterfaceKSP(ft);CHKERRQ(ierr); /* the PC for the interface problem is setup here */
     /* set projection in ksp */
     if (ft2->coarseGType == RIGID_BODY_MODES) {
       ierr = KSPSetProjection(ft->ksp_interface,FETI2Project_RBM,(void*)ft);CHKERRQ(ierr);
@@ -1058,8 +1068,8 @@ static PetscErrorCode FETI2SetUpCoarseProblem_RBM(FETI ft)
 
 
 #undef __FUNCT__
-#define __FUNCT__ "DestroyCoarseProblemStructures_FETI2_RBM"
-static PetscErrorCode DestroyCoarseProblemStructures_FETI2_RBM(FETI ft)
+#define __FUNCT__ "FETIDestroy_FETI2_RBM"
+static PetscErrorCode FETIDestroy_FETI2_RBM(FETI ft)
 {
   PetscErrorCode ierr;
   FETI_2         *ft2 = (FETI_2*)ft->data;

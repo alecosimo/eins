@@ -1,3 +1,4 @@
 #define EINS_VERSION @EINS_VERSION@
 
 #cmakedefine FETI_DEBUG
+#cmakedefine HAVE_SLEPC
