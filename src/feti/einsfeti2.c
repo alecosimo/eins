@@ -52,6 +52,8 @@ static PetscErrorCode FETIDestroy_FETI2(FETI ft)
 
   if (ft2->coarseGType == RIGID_BODY_MODES) {ierr = FETIDestroy_FETI2_RBM(ft);CHKERRQ(ierr);}
   if (ft2->coarseGType == GENEO_MODES)      {ierr = FETIDestroy_FETI2_GENEO(ft);CHKERRQ(ierr);}
+  //ac
+  ierr = FETIDestroy_FETI2_GENEO(ft);CHKERRQ(ierr);
   
   ierr = MatDestroy(&ft2->localG);CHKERRQ(ierr);
   ierr = MatDestroy(&ft2->stiffness_mat);CHKERRQ(ierr);
@@ -105,7 +107,11 @@ static PetscErrorCode FETISetUp_FETI2(FETI ft)
       ierr = FETI2ComputeMatrixG_GENEO(ft);CHKERRQ(ierr);
 #endif
     }
-    
+    //ac
+    ierr = FETICreate_FETI2_GENEO(ft);CHKERRQ(ierr);
+    ierr = FETISetUp_FETI2_GENEO(ft);CHKERRQ(ierr);
+    ierr = FETI2ComputeMatrixG_GENEO(ft);CHKERRQ(ierr);
+	  
     ierr = FETI2SetInterfaceProblemRHS_Private(ft);CHKERRQ(ierr);
     /* set projection in ksp */
     if (ft2->coarseGType == RIGID_BODY_MODES) {
@@ -185,10 +191,11 @@ EXTERN_C_BEGIN
 .  -feti_scaling_type - Sets the scaling type
 .  -feti_scaling_factor - Sets a scaling factor different from one
 .  -feti2_pc_coarse_<ksp or pc option>: options for the KSP for the coarse problem
+.  -feti2_geneo_<option>: options for FETI2 using GENEO modes (e.g.:-feti2_geneo_eps_nev sets the number of eigenvalues)
 
    Level: beginner
 
-.keywords: FETI, FETI-1
+.keywords: FETI, FETI-2
 @*/
 PetscErrorCode FETICreate_FETI2(FETI ft);
 PetscErrorCode FETICreate_FETI2(FETI ft)

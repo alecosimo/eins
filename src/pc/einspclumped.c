@@ -59,8 +59,36 @@ static PetscErrorCode PCDestroy_LUMPED(PC pc)
 {
   PetscErrorCode ierr;
   PetscFunctionBegin;
+  ierr = PetscObjectComposeFunction((PetscObject)pc,"PCApplyLocal_C",NULL);CHKERRQ(ierr);
   ierr = PCReset_LUMPED(pc);CHKERRQ(ierr);
   ierr = PetscFree(pc->data);CHKERRQ(ierr);
+  PetscFunctionReturn(0);
+}
+
+
+#undef  __FUNCT__
+#define __FUNCT__ "PCApplyLocal_LUMPED"
+static PetscErrorCode PCApplyLocal_LUMPED(PC pc,Vec x,Vec y)
+{
+  PCFT_LUMPED      *pcl = (PCFT_LUMPED*)pc->data;
+  PetscErrorCode   ierr;
+  FETI             ft   = pcl->ft;
+  Subdomain        sd   = ft->subdomain;
+  Vec              lambda_local,y_local;
+  
+  PetscFunctionBegin;
+  ierr = VecUnAsmGetLocalVectorRead(x,&lambda_local);CHKERRQ(ierr);
+  ierr = VecUnAsmGetLocalVector(y,&y_local);CHKERRQ(ierr);
+  /* Application of B_Ddelta^T */
+  ierr = MatMultTranspose(ft->B_Ddelta,lambda_local,sd->vec1_B);CHKERRQ(ierr);
+  /* Application of local Schur complement */
+  ierr = MatMult(pcl->A_BB,sd->vec1_B,sd->vec2_B);CHKERRQ(ierr);
+  /* Application of B_Ddelta */
+  ierr = MatMult(ft->B_Ddelta,sd->vec2_B,y_local);CHKERRQ(ierr);
+  ierr = VecExchangeBegin(ft->exchange_lambda,y,ADD_VALUES);CHKERRQ(ierr);
+  ierr = VecExchangeEnd(ft->exchange_lambda,y,ADD_VALUES);CHKERRQ(ierr);
+  ierr = VecUnAsmRestoreLocalVectorRead(x,lambda_local);CHKERRQ(ierr);
+  ierr = VecUnAsmRestoreLocalVector(y,y_local);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 
@@ -121,6 +149,9 @@ PetscErrorCode PCCreate_LUMPED(PC pc)
   pc->ops->view                = 0;
   pc->ops->apply               = PCApply_LUMPED;
   pc->ops->applytranspose      = 0;
+
+  ierr = PetscObjectComposeFunction((PetscObject)pc,"PCApplyLocal_C",PCApplyLocal_LUMPED);CHKERRQ(ierr);
+  
   PetscFunctionReturn(0);
 }
 EXTERN_C_END

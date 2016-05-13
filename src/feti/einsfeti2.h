@@ -5,16 +5,29 @@
 #include <einssys.h>
 
 #if defined(HAVE_SLEPC)
+#include <slepceps.h>
 
 PETSC_INTERN PetscErrorCode FETI2ComputeMatrixG_GENEO(FETI);
 PETSC_INTERN PetscErrorCode FETISetUp_FETI2_GENEO(FETI);
+PETSC_INTERN PetscErrorCode FETICreate_FETI2_GENEO(FETI);
 PETSC_INTERN PetscErrorCode FETIDestroy_FETI2_GENEO(FETI);
-
-#endif
 
 typedef struct {
   PC    pc_dirichlet;
+  PC    pc; /* this is the preconditioner specified for using in the FETI solver. It can be the same as pc_dirichlet */
+  EPS   eps;
+  Mat   Bg; /* this is a shell matrix for defining the B of the generalized eigenvalue problem, mainly B^T*S*B */
+  Mat   Ag; /* this is a shell matrix for defining the A of the generalized eigenvalue problem, mainly S */
+  Vec   vec1; /* working vector */
 } GENEO_C; /* underscore "_C" becuase it is for defining a coarse space */
+
+struct _GENEOMat_ctx {
+  FETI    ft;
+  GENEO_C *gn;
+};
+typedef struct _GENEOMat_ctx *GENEOMat_ctx;
+
+#endif
 
 
 /* Private context for the FETI-2 method.  */
@@ -51,7 +64,9 @@ typedef struct {
 
   /* Coarse grid types */
   CoarseGridType  coarseGType;
+#if defined(HAVE_SLEPC)
   GENEO_C         *geneo;
+#endif
   
   /* data for the coarse problem built in FETI2SetUpCoarseProblem_RBM */
   MPI_Request    *send2_reqs,*recv2_reqs;

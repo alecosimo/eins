@@ -1,13 +1,7 @@
 #include <private/einspcimpl.h>
+#include <einspcdirichlet.h>
 #include <private/einsfetiimpl.h>
 #include <einssys.h>
-
-
-typedef struct {
-  PCFETIHEADER
-  Mat Sj;
-  KSP ksp_D;
-} PCFT_DIRICHLET;
 
 
 #undef  __FUNCT__
@@ -88,6 +82,7 @@ static PetscErrorCode PCDestroy_DIRICHLET(PC pc)
 {
   PetscErrorCode ierr;
   PetscFunctionBegin;
+  ierr = PetscObjectComposeFunction((PetscObject)pc,"PCApplyLocal_C",NULL);CHKERRQ(ierr);
   ierr = PCReset_DIRICHLET(pc);CHKERRQ(ierr);
   ierr = PetscFree(pc->data);CHKERRQ(ierr);
   PetscFunctionReturn(0);
@@ -117,6 +112,29 @@ static PetscErrorCode PCApply_DIRICHLET(PC pc,Vec x,Vec y)
   ierr = VecExchangeEnd(ft->exchange_lambda,y,ADD_VALUES);CHKERRQ(ierr);
   ierr = VecUnAsmRestoreLocalVectorRead(x,lambda_local);CHKERRQ(ierr);
   ierr = VecUnAsmRestoreLocalVector(y,y_local);CHKERRQ(ierr);
+  PetscFunctionReturn(0);
+}
+
+
+#undef  __FUNCT__
+#define __FUNCT__ "PCApplyLocal_DIRICHLET"
+static PetscErrorCode PCApplyLocal_DIRICHLET(PC pc,Vec x,Vec y)
+{
+  PCFT_DIRICHLET   *pcd = (PCFT_DIRICHLET*)pc->data;
+  PetscErrorCode   ierr;
+  FETI             ft   = pcd->ft;
+  Subdomain        sd   = ft->subdomain;
+  
+  PetscFunctionBegin;
+  /* Application of B_Ddelta^T */
+  ierr = MatMultTranspose(ft->B_Ddelta,x,sd->vec1_B);CHKERRQ(ierr);
+  /* Application of local Schur complement */
+  ierr = MatMult(pcd->Sj,sd->vec1_B,sd->vec2_B);CHKERRQ(ierr);
+  /* Application of B_Ddelta */
+  ierr = MatMult(ft->B_Ddelta,sd->vec2_B,y);CHKERRQ(ierr);
+
+  ierr = VecExchangeBegin(ft->exchange_lambda,y,ADD_VALUES);CHKERRQ(ierr);
+  ierr = VecExchangeEnd(ft->exchange_lambda,y,ADD_VALUES);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 
@@ -155,6 +173,9 @@ PetscErrorCode PCCreate_DIRICHLET(PC pc)
   pc->ops->view                = 0;
   pc->ops->apply               = PCApply_DIRICHLET;
   pc->ops->applytranspose      = 0;
+
+  ierr = PetscObjectComposeFunction((PetscObject)pc,"PCApplyLocal_C",PCApplyLocal_DIRICHLET);CHKERRQ(ierr);
+  
   PetscFunctionReturn(0);
 }
 EXTERN_C_END
