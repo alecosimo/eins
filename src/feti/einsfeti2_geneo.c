@@ -38,13 +38,13 @@ PetscErrorCode FETI2ComputeMatrixG_GENEO(FETI ft)
   ierr = EPSGetDimensions(gn->eps,&nev,NULL,NULL);CHKERRQ(ierr);
   ierr = EPSGetConverged(gn->eps,&nconv);CHKERRQ(ierr);
   if (nconv<nev) SETERRQ2(PetscObjectComm((PetscObject)ft),PETSC_ERR_ARG_WRONGSTATE,"Error: some of the GENEO modes did not converged: nev: %d, nconv: %d",nev,nconv);
-  /* for (i=0;i<nconv;i++) { */
-  /*   ierr = EPSGetEigenpair(gn->eps,i,&kr,NULL,gn->vec1,NULL);CHKERRQ(ierr); */
-  /*   ierr = MPI_Comm_rank(MPI_COMM_WORLD,&rank);CHKERRQ(ierr); */
-  /*   if(!rank) { */
-  /*     VecView(gn->vec1,PETSC_VIEWER_STDOUT_SELF); */
-  /*   } */
-  /* } */
+  for (i=0;i<nev;i++) {
+    ierr = EPSGetEigenpair(gn->eps,i,&kr,NULL,gn->vec1,NULL);CHKERRQ(ierr);
+    ierr = MPI_Comm_rank(MPI_COMM_WORLD,&rank);CHKERRQ(ierr);
+
+    VecView(gn->vec1,PETSC_VIEWER_STDOUT_WORLD);
+
+  }
   PetscFunctionReturn(0);
 }
 
@@ -57,7 +57,7 @@ static PetscErrorCode MatDestroyBg_FETI2_GENEO(Mat A)
   PetscErrorCode ierr;
 
   PetscFunctionBegin;
-  ierr = MatShellUnAsmGetContext(A,(void**)&mat_ctx);CHKERRQ(ierr);
+  ierr = MatShellGetContext(A,(void**)&mat_ctx);CHKERRQ(ierr);
   ierr = PetscFree(mat_ctx);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
@@ -67,24 +67,16 @@ static PetscErrorCode MatDestroyBg_FETI2_GENEO(Mat A)
 #define __FUNCT__ "MatGetVecsAg_FETI2_GENEO"
 static PetscErrorCode MatGetVecsAg_FETI2_GENEO(Mat mat,Vec *right,Vec *left)
 {
-  void           *ctx;
   PetscErrorCode ierr;
-  PetscBool      flg;
-  Mat            Sj;
   
   PetscFunctionBegin;
   PetscValidHeaderSpecific(mat,MAT_CLASSID,1);
-  ierr = MatShellUnAsmGetContext(mat,(void**)&ctx);CHKERRQ(ierr);
-  ft   = mat_ctx->ft;
-  if (!ft) SETERRQ(PETSC_COMM_SELF,PETSC_ERR_ARG_WRONG,"Matrix F is missing the FETI context");
-
   if (right) {
     if (mat->cmap->n < 0) SETERRQ(PetscObjectComm((PetscObject)mat),PETSC_ERR_ARG_WRONGSTATE,"PetscLayout for columns not yet setup");
     ierr = VecCreate(PetscObjectComm((PetscObject)mat),right);CHKERRQ(ierr);
     ierr = VecSetSizes(*right,mat->cmap->n,mat->cmap->N);CHKERRQ(ierr);
     ierr = VecSetType(*right,VECMPIUNASM);CHKERRQ(ierr);
     ierr = PetscLayoutReference(mat->cmap,&(*right)->map);CHKERRQ(ierr);
-    if(ft->multiplicity) {ierr = VecUnAsmSetMultiplicity(*right,ft->multiplicity);CHKERRQ(ierr);}
   }
   if (left) {
     if (mat->rmap->n < 0) SETERRQ(PetscObjectComm((PetscObject)mat),PETSC_ERR_ARG_WRONGSTATE,"PetscLayout for rows not yet setup");
@@ -92,9 +84,7 @@ static PetscErrorCode MatGetVecsAg_FETI2_GENEO(Mat mat,Vec *right,Vec *left)
     ierr = VecSetSizes(*left,mat->rmap->n,mat->rmap->N);CHKERRQ(ierr);
     ierr = VecSetType(*left,VECMPIUNASM);CHKERRQ(ierr);
     ierr = PetscLayoutReference(mat->rmap,&(*left)->map);CHKERRQ(ierr);
-    if(ft->multiplicity) {ierr = VecUnAsmSetMultiplicity(*left,ft->multiplicity);CHKERRQ(ierr);}
-  }
-  
+  }  
   PetscFunctionReturn(0);
 }
 
@@ -158,6 +148,7 @@ PetscErrorCode FETICreate_FETI2_GENEO(FETI ft)
   /* creating the mat context for the MatShell corresponding to operator A of the eigenvalue problem */
   ierr = MatCreateShell(comm,n,n,N,N,&pcd->Sj,&gn->Ag);CHKERRQ(ierr);
   ierr = MatShellSetOperation(gn->Ag,MATOP_MULT,(void(*)(void))MatMultAg_FETI2_GENEO);CHKERRQ(ierr);
+  ierr = MatShellSetOperation(gn->Ag,MATOP_GET_VECS,(void(*)(void))MatGetVecsAg_FETI2_GENEO);CHKERRQ(ierr);
   ierr = MatSetUp(gn->Ag);CHKERRQ(ierr);
   
   /* create and setup SLEPc solver */
@@ -170,8 +161,18 @@ PetscErrorCode FETICreate_FETI2_GENEO(FETI ft)
   ierr = EPSSetOptionsPrefix(gn->eps,"feti2_geneo_");CHKERRQ(ierr);
   ierr = EPSSetFromOptions(gn->eps);CHKERRQ(ierr);
 
+  //ac
+  {
+    PetscViewer viewer;
+    PetscViewerASCIIOpen(PETSC_COMM_SELF, "Amat.m", &viewer);
+    PetscViewerPushFormat(viewer, PETSC_VIEWER_ASCII_MATLAB);
+    MatView(pcd->Sj,viewer);
+    PetscViewerPopFormat(viewer);
+    PetscViewerDestroy(&viewer);
+  }
+ 
   /* create working vector */
-  ierr = MatCreateVecs(pcd->Sj,&gn->vec1,NULL);CHKERRQ(ierr);
+  ierr = MatCreateVecs(gn->Ag,&gn->vec1,NULL);CHKERRQ(ierr);
   
   PetscFunctionReturn(0);
 }
@@ -220,7 +221,7 @@ static PetscErrorCode MatMultAg_FETI2_GENEO(Mat A,Vec x,Vec y)
 
   ierr = VecUnAsmGetLocalVectorRead(x,&xl);CHKERRQ(ierr);
   ierr = VecUnAsmGetLocalVector(y,&yl);CHKERRQ(ierr);
-  ierr = MatMult(Sj,x,y);CHKERRQ(ierr);
+  ierr = MatMult(Sj,xl,yl);CHKERRQ(ierr);
   ierr = VecUnAsmGetLocalVectorRead(x,&xl);CHKERRQ(ierr);
   ierr = VecUnAsmGetLocalVector(y,&yl);CHKERRQ(ierr);
   PetscFunctionReturn(0);
@@ -265,10 +266,10 @@ PetscErrorCode FETIDestroy_FETI2_GENEO(FETI ft)
   GENEO_C        *gn  = ft2->geneo;
   
   PetscFunctionBegin;
-  ierr = PCDestroy(&gn->pc_dirichlet);CHKERRQ(ierr);
-  ierr = PCDestroy(&gn->pc);CHKERRQ(ierr);
   ierr = MatDestroy(&gn->Bg);CHKERRQ(ierr);
   ierr = MatDestroy(&gn->Ag);CHKERRQ(ierr);
+  ierr = PCDestroy(&gn->pc_dirichlet);CHKERRQ(ierr);
+  ierr = PCDestroy(&gn->pc);CHKERRQ(ierr);
   ierr = VecDestroy(&gn->vec1);CHKERRQ(ierr);
   ierr = EPSDestroy(&gn->eps);CHKERRQ(ierr);
   ierr = PetscFree(ft2->geneo);CHKERRQ(ierr);

@@ -1028,8 +1028,10 @@ static PetscErrorCode FETI2SetUpCoarseProblem_RBM(FETI ft)
   }
 
   /* creating strucutres for computing F_local*G_neighbors */
-  ierr = PetscMalloc3(sd->n*ft2->max_n_rbm,&ft2->bufferRHS,sd->n*ft2->max_n_rbm,&ft2->bufferX,ft->n_lambda_local*ft2->max_n_rbm,&ft2->bufferG);CHKERRQ(ierr); 
-  ierr = PetscMalloc1(n_recv+1,&ft2->FGholder);CHKERRQ(ierr);
+  ierr = PetscMalloc3(sd->n*ft2->max_n_rbm,&ft2->bufferRHS,sd->n*ft2->max_n_rbm,&ft2->bufferX,ft->n_lambda_local*ft2->max_n_rbm,&ft2->bufferG);CHKERRQ(ierr);
+
+  ft2->n_FGholder = n_recv + (ft2->n_rbm>0);
+  ierr            = PetscMalloc1(ft2->n_FGholder,&ft2->FGholder);CHKERRQ(ierr);
   for (i=0,k=0; k<ft->n_neigh_lb; k++) {
     n_rbm = ft2->n_rbm_comm[ft->neigh_lb[k]];
     if (n_rbm)  {
@@ -1101,7 +1103,7 @@ static PetscErrorCode FETIDestroy_FETI2_RBM(FETI ft)
   ierr = PetscFree(ft2->neighs2[0]);CHKERRQ(ierr);
   ierr = PetscFree(ft2->neighs2);CHKERRQ(ierr);
   if (ft2->FGholder) {
-    for (i=0;i<ft2->n_Gholder+1;i++) { ierr = MatDestroy(&ft2->FGholder[i]);CHKERRQ(ierr); }
+    for (i=0;i<ft2->n_FGholder;i++) { ierr = MatDestroy(&ft2->FGholder[i]);CHKERRQ(ierr); }
     ierr = PetscFree(ft2->FGholder);CHKERRQ(ierr);
   }
 

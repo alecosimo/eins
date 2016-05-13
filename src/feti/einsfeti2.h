@@ -72,6 +72,7 @@ typedef struct {
   MPI_Request    *send2_reqs,*recv2_reqs;
   PetscInt       **neighs2,*n_neighs2; /* arrays to save which are the neighbours of neighbours */
   Mat            *FGholder;  /* each entry is one neighbour's local F*G. The order follows, the order of ft2->neigh_lb. */
+  PetscInt       n_FGholder;
   PetscScalar    *bufferRHS,*bufferX,*bufferG; /* matrix data in column major order */
   PetscInt       localnnz; /* local nonzeros */
   PetscScalar    *fgmatrices; /* F*G matrices computed by my neighbors */
