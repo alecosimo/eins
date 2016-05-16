@@ -57,6 +57,40 @@ static PetscErrorCode PCSetUp_DIRICHLET(PC pc)
   
   /* create local Schur complement matrix */
   ierr = MatCreateSchurComplement(sd->A_II,sd->A_II,sd->A_IB,sd->A_BI,sd->A_BB,&pcd->Sj);CHKERRQ(ierr);
+
+  //ac
+  {
+    PetscInt    rank;
+    MPI_Comm_rank(PETSC_COMM_WORLD,&rank);   
+    PetscViewer viewer;
+    if(!rank) {
+      PetscViewerASCIIOpen(PETSC_COMM_SELF, "A_II.m", &viewer);
+      PetscViewerPushFormat(viewer, PETSC_VIEWER_ASCII_MATLAB);
+      MatView(sd->A_II,viewer);
+      PetscViewerPopFormat(viewer);
+      PetscViewerDestroy(&viewer);
+
+      PetscViewerASCIIOpen(PETSC_COMM_SELF, "A_IB.m", &viewer);
+      PetscViewerPushFormat(viewer, PETSC_VIEWER_ASCII_MATLAB);
+      MatView(sd->A_IB,viewer);
+      PetscViewerPopFormat(viewer);
+      PetscViewerDestroy(&viewer);
+
+      PetscViewerASCIIOpen(PETSC_COMM_SELF, "A_BI.m", &viewer);
+      PetscViewerPushFormat(viewer, PETSC_VIEWER_ASCII_MATLAB);
+      MatView(sd->A_BI,viewer);
+      PetscViewerPopFormat(viewer);
+      PetscViewerDestroy(&viewer);
+
+      PetscViewerASCIIOpen(PETSC_COMM_SELF, "A_BB.m", &viewer);
+      PetscViewerPushFormat(viewer, PETSC_VIEWER_ASCII_MATLAB);
+      MatView(sd->A_BB,viewer);
+      PetscViewerPopFormat(viewer);
+      PetscViewerDestroy(&viewer);
+
+    }
+  }
+
   ierr = MatSchurComplementSetKSP(pcd->Sj,pcd->ksp_D);CHKERRQ(ierr);
 
   PetscFunctionReturn(0);
@@ -124,17 +158,39 @@ static PetscErrorCode PCApplyLocal_DIRICHLET(PC pc,Vec x,Vec y)
   PetscErrorCode   ierr;
   FETI             ft   = pcd->ft;
   Subdomain        sd   = ft->subdomain;
+  Vec              lambda_local,y_local;
+  MPI_Comm         comm;
   
   PetscFunctionBegin;
+  ierr = VecUnAsmGetLocalVectorRead(x,&lambda_local);CHKERRQ(ierr);
+  ierr = VecUnAsmGetLocalVector(y,&y_local);CHKERRQ(ierr);
   /* Application of B_Ddelta^T */
-  ierr = MatMultTranspose(ft->B_Ddelta,x,sd->vec1_B);CHKERRQ(ierr);
+  ierr = MatMultTranspose(ft->B_Ddelta,lambda_local,sd->vec1_B);CHKERRQ(ierr);
   /* Application of local Schur complement */
   ierr = MatMult(pcd->Sj,sd->vec1_B,sd->vec2_B);CHKERRQ(ierr);
   /* Application of B_Ddelta */
-  ierr = MatMult(ft->B_Ddelta,sd->vec2_B,y);CHKERRQ(ierr);
+  ierr = MatMult(ft->B_Ddelta,sd->vec2_B,y_local);CHKERRQ(ierr);
+  /* communication */
+  ierr = PetscObjectGetComm((PetscObject)xin,&comm);CHKERRQ(ierr);
+  for (i=0; i<ft->n_neigh_lb; i++){
+    ierr = ISCreateGeneral(PETSC_COMM_SELF,ft->n_shared_lb[i],ft->shared_lb[i],PETSC_USE_POINTER,&isindex);CHKERRQ(ierr);
+    ierr = VecGetSubVector(xi->vlocal,isindex,&vec);CHKERRQ(ierr);
+    ierr = VecGetArrayRead(vec,&array_s);CHKERRQ(ierr);   
+    ierr = PetscMPIIntCast(ft->neigh_lb[i],&i_mpi);CHKERRQ(ierr);   
+    ierr = MPI_Isend(array_s,ft->n_shared_lb[i],MPIU_SCALAR,i_mpi,0,comm,&pcd->s_reqs[i]);CHKERRQ(ierr);
+    ierr = VecRestoreArrayRead(vec,&array_s);CHKERRQ(ierr);   
+    ierr = VecRestoreSubVector(xi->vlocal,isindex,&vec);CHKERRQ(ierr);
+    ierr = ISDestroy(&isindex);CHKERRQ(ierr);
+  }
 
-  ierr = VecExchangeBegin(ft->exchange_lambda,y,ADD_VALUES);CHKERRQ(ierr);
-  ierr = VecExchangeEnd(ft->exchange_lambda,y,ADD_VALUES);CHKERRQ(ierr);
+  for (i=0; i<ve->n_neigh; i++){
+    ierr = PetscMPIIntCast(ft->neigh_lb[i],&i_mpi);CHKERRQ(ierr);
+    ierr = MPI_Irecv(pcd->work_vecs[i],ft->n_shared_lb[i],MPIU_SCALAR,i_mpi,0,comm,&pcd->r_reqs[i]);CHKERRQ(ierr);    
+  }
+
+
+  ierr = VecUnAsmRestoreLocalVectorRead(x,lambda_local);CHKERRQ(ierr);
+  ierr = VecUnAsmRestoreLocalVector(y,y_local);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 

@@ -40,8 +40,11 @@ PetscErrorCode FETI2ComputeMatrixG_GENEO(FETI ft)
   if (nconv<nev) SETERRQ2(PetscObjectComm((PetscObject)ft),PETSC_ERR_ARG_WRONGSTATE,"Error: some of the GENEO modes did not converged: nev: %d, nconv: %d",nev,nconv);
   for (i=0;i<nev;i++) {
     ierr = EPSGetEigenpair(gn->eps,i,&kr,NULL,gn->vec1,NULL);CHKERRQ(ierr);
-    ierr = MPI_Comm_rank(MPI_COMM_WORLD,&rank);CHKERRQ(ierr);
 
+    ierr = MPI_Comm_rank(MPI_COMM_WORLD,&rank);CHKERRQ(ierr);
+    if(!rank) {
+      PetscPrintf(PETSC_COMM_SELF,"\n lambda: %g\n",kr);
+    }
     VecView(gn->vec1,PETSC_VIEWER_STDOUT_WORLD);
 
   }
@@ -155,21 +158,11 @@ PetscErrorCode FETICreate_FETI2_GENEO(FETI ft)
   ierr = EPSCreate(comm,&gn->eps);CHKERRQ(ierr);
   ierr = EPSSetOperators(gn->eps,gn->Ag,NULL);CHKERRQ(ierr);
   ierr = EPSSetProblemType(gn->eps,EPS_HEP);CHKERRQ(ierr);/* hermitanian problem */
-  ierr = EPSSetType(gn->eps,EPSLANCZOS);CHKERRQ(ierr);
+  ierr = EPSSetType(gn->eps,EPSKRYLOVSCHUR);CHKERRQ(ierr);
   ierr = EPSSetWhichEigenpairs(gn->eps,EPS_SMALLEST_REAL);CHKERRQ(ierr);
   ierr = EPSSetDimensions(gn->eps,3,PETSC_DEFAULT,PETSC_DEFAULT);CHKERRQ(ierr); /* -eps_nev <nev> - Sets the number of eigenvalues */
   ierr = EPSSetOptionsPrefix(gn->eps,"feti2_geneo_");CHKERRQ(ierr);
   ierr = EPSSetFromOptions(gn->eps);CHKERRQ(ierr);
-
-  //ac
-  {
-    PetscViewer viewer;
-    PetscViewerASCIIOpen(PETSC_COMM_SELF, "Amat.m", &viewer);
-    PetscViewerPushFormat(viewer, PETSC_VIEWER_ASCII_MATLAB);
-    MatView(pcd->Sj,viewer);
-    PetscViewerPopFormat(viewer);
-    PetscViewerDestroy(&viewer);
-  }
  
   /* create working vector */
   ierr = MatCreateVecs(gn->Ag,&gn->vec1,NULL);CHKERRQ(ierr);
