@@ -147,6 +147,7 @@ PetscErrorCode FETICreate_FETI2_GENEO(FETI ft)
   ierr = MatCreateShell(comm,n,n,N,N,matctx,&gn->Bg);CHKERRQ(ierr);
   ierr = MatShellSetOperation(gn->Bg,MATOP_MULT,(void(*)(void))MatMultBg_FETI2_GENEO);CHKERRQ(ierr);
   ierr = MatShellSetOperation(gn->Bg,MATOP_DESTROY,(void(*)(void))MatDestroyBg_FETI2_GENEO);CHKERRQ(ierr);
+  ierr = MatShellSetOperation(gn->Bg,MATOP_GET_VECS,(void(*)(void))MatGetVecsAg_FETI2_GENEO);CHKERRQ(ierr);
   ierr = MatSetUp(gn->Bg);CHKERRQ(ierr);
   /* creating the mat context for the MatShell corresponding to operator A of the eigenvalue problem */
   ierr = MatCreateShell(comm,n,n,N,N,&pcd->Sj,&gn->Ag);CHKERRQ(ierr);
@@ -156,9 +157,9 @@ PetscErrorCode FETICreate_FETI2_GENEO(FETI ft)
   
   /* create and setup SLEPc solver */
   ierr = EPSCreate(comm,&gn->eps);CHKERRQ(ierr);
-  ierr = EPSSetOperators(gn->eps,gn->Ag,NULL);CHKERRQ(ierr);
-  ierr = EPSSetProblemType(gn->eps,EPS_HEP);CHKERRQ(ierr);/* hermitanian problem */
-  ierr = EPSSetType(gn->eps,EPSKRYLOVSCHUR);CHKERRQ(ierr);
+  ierr = EPSSetOperators(gn->eps,gn->Ag,gn->Bg);CHKERRQ(ierr);
+  ierr = EPSSetProblemType(gn->eps,EPS_GHEP);CHKERRQ(ierr);/* hermitanian problem */
+  ierr = EPSSetType(gn->eps,EPSLANCZOS);CHKERRQ(ierr); /* KRYLOVSCHUR */
   ierr = EPSSetWhichEigenpairs(gn->eps,EPS_SMALLEST_REAL);CHKERRQ(ierr);
   ierr = EPSSetDimensions(gn->eps,3,PETSC_DEFAULT,PETSC_DEFAULT);CHKERRQ(ierr); /* -eps_nev <nev> - Sets the number of eigenvalues */
   ierr = EPSSetOptionsPrefix(gn->eps,"feti2_geneo_");CHKERRQ(ierr);

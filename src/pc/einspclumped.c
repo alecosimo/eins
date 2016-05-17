@@ -141,6 +141,10 @@ PetscErrorCode PCCreate_LUMPED(PC pc)
   
   pcl->ft                      = 0;
   pcl->A_BB                    = 0;
+  pcl->work_vecs               = 0;
+  pcl->s_reqs                  = 0;
+  pcl->r_reqs                  = 0;
+  pcl->isindex                 = 0;
   
   pc->ops->setup               = PCSetUp_LUMPED;
   pc->ops->reset               = PCReset_LUMPED;

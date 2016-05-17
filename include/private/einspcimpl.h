@@ -5,10 +5,24 @@
 #include <einsfeti.h>
 #include <petsc/private/pcimpl.h>
 
-#define PCFETIHEADER  \
-  FETI ft; 
+#define PCFETIHEADER                 \
+  FETI ft;                           \
+  /* MPI communications */           \
+  PetscInt        n_reqs;            \
+  MPI_Request     *s_reqs,*r_reqs;   \
+  PetscScalar     **work_vecs;       \
+  IS              *isindex;
+
+
+typedef struct {
+  PCFETIHEADER
+} PCFT_BASE;
+
 
 PETSC_EXTERN PetscErrorCode PCCreate_DIRICHLET(PC);
 PETSC_EXTERN PetscErrorCode PCCreate_LUMPED(PC);
+
+PetscErrorCode PCDeAllocateFETIWorkVecs_Private(PC);
+PetscErrorCode PCAllocateFETIWorkVecs_Private(PC,FETI);
 
 #endif/* EINSPCIMPL_H*/

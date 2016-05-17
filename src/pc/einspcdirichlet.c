@@ -57,40 +57,6 @@ static PetscErrorCode PCSetUp_DIRICHLET(PC pc)
   
   /* create local Schur complement matrix */
   ierr = MatCreateSchurComplement(sd->A_II,sd->A_II,sd->A_IB,sd->A_BI,sd->A_BB,&pcd->Sj);CHKERRQ(ierr);
-
-  //ac
-  {
-    PetscInt    rank;
-    MPI_Comm_rank(PETSC_COMM_WORLD,&rank);   
-    PetscViewer viewer;
-    if(!rank) {
-      PetscViewerASCIIOpen(PETSC_COMM_SELF, "A_II.m", &viewer);
-      PetscViewerPushFormat(viewer, PETSC_VIEWER_ASCII_MATLAB);
-      MatView(sd->A_II,viewer);
-      PetscViewerPopFormat(viewer);
-      PetscViewerDestroy(&viewer);
-
-      PetscViewerASCIIOpen(PETSC_COMM_SELF, "A_IB.m", &viewer);
-      PetscViewerPushFormat(viewer, PETSC_VIEWER_ASCII_MATLAB);
-      MatView(sd->A_IB,viewer);
-      PetscViewerPopFormat(viewer);
-      PetscViewerDestroy(&viewer);
-
-      PetscViewerASCIIOpen(PETSC_COMM_SELF, "A_BI.m", &viewer);
-      PetscViewerPushFormat(viewer, PETSC_VIEWER_ASCII_MATLAB);
-      MatView(sd->A_BI,viewer);
-      PetscViewerPopFormat(viewer);
-      PetscViewerDestroy(&viewer);
-
-      PetscViewerASCIIOpen(PETSC_COMM_SELF, "A_BB.m", &viewer);
-      PetscViewerPushFormat(viewer, PETSC_VIEWER_ASCII_MATLAB);
-      MatView(sd->A_BB,viewer);
-      PetscViewerPopFormat(viewer);
-      PetscViewerDestroy(&viewer);
-
-    }
-  }
-
   ierr = MatSchurComplementSetKSP(pcd->Sj,pcd->ksp_D);CHKERRQ(ierr);
 
   PetscFunctionReturn(0);
@@ -106,6 +72,7 @@ static PetscErrorCode PCReset_DIRICHLET(PC pc)
   PetscFunctionBegin;
   ierr = MatDestroy(&pcd->Sj);CHKERRQ(ierr);
   ierr = KSPDestroy(&pcd->ksp_D);CHKERRQ(ierr);
+  if(pcd->work_vecs) { ierr = PCDeAllocateFETIWorkVecs_Private(pc);CHKERRQ(ierr);}
   PetscFunctionReturn(0);
 }
 
@@ -154,42 +121,89 @@ static PetscErrorCode PCApply_DIRICHLET(PC pc,Vec x,Vec y)
 #define __FUNCT__ "PCApplyLocal_DIRICHLET"
 static PetscErrorCode PCApplyLocal_DIRICHLET(PC pc,Vec x,Vec y)
 {
-  PCFT_DIRICHLET   *pcd = (PCFT_DIRICHLET*)pc->data;
-  PetscErrorCode   ierr;
-  FETI             ft   = pcd->ft;
-  Subdomain        sd   = ft->subdomain;
-  Vec              lambda_local,y_local;
-  MPI_Comm         comm;
-  
+  PCFT_DIRICHLET      *pcd = (PCFT_DIRICHLET*)pc->data;
+  PetscErrorCode      ierr;
+  FETI                ft   = pcd->ft;
+  Subdomain           sd   = ft->subdomain;
+  Vec                 x_local,y_local;
+  MPI_Comm            comm;
+  PetscMPIInt         i_mpi;
+  PetscInt            i;
+  Vec                 vec,vec_res,vec_aux;
+  const PetscScalar   *array_s;
+
   PetscFunctionBegin;
-  ierr = VecUnAsmGetLocalVectorRead(x,&lambda_local);CHKERRQ(ierr);
+  /* allocate resources if not available */
+  if(!pcd->work_vecs) { ierr = PCDeAllocateFETIWorkVecs_Private(pc);CHKERRQ(ierr);}
+  PetscPrintf(PETSC_COMM_WORLD,"\n================================================================\n");
+  ierr = VecUnAsmGetLocalVectorRead(x,&x_local);CHKERRQ(ierr);
   ierr = VecUnAsmGetLocalVector(y,&y_local);CHKERRQ(ierr);
   /* Application of B_Ddelta^T */
-  ierr = MatMultTranspose(ft->B_Ddelta,lambda_local,sd->vec1_B);CHKERRQ(ierr);
+  ierr = MatMultTranspose(ft->B_Ddelta,x_local,sd->vec1_B);CHKERRQ(ierr);
   /* Application of local Schur complement */
   ierr = MatMult(pcd->Sj,sd->vec1_B,sd->vec2_B);CHKERRQ(ierr);
   /* Application of B_Ddelta */
   ierr = MatMult(ft->B_Ddelta,sd->vec2_B,y_local);CHKERRQ(ierr);
   /* communication */
-  ierr = PetscObjectGetComm((PetscObject)xin,&comm);CHKERRQ(ierr);
-  for (i=0; i<ft->n_neigh_lb; i++){
-    ierr = ISCreateGeneral(PETSC_COMM_SELF,ft->n_shared_lb[i],ft->shared_lb[i],PETSC_USE_POINTER,&isindex);CHKERRQ(ierr);
-    ierr = VecGetSubVector(xi->vlocal,isindex,&vec);CHKERRQ(ierr);
+  ierr = PetscObjectGetComm((PetscObject)x,&comm);CHKERRQ(ierr);
+
+  /* send to my neighbors my local vector to which my neighbors' preconditioner must be applied */
+  for (i=1; i<ft->n_neigh_lb; i++){
+    ierr = VecGetSubVector(x_local,pcd->isindex[i-1],&vec);CHKERRQ(ierr);
     ierr = VecGetArrayRead(vec,&array_s);CHKERRQ(ierr);   
     ierr = PetscMPIIntCast(ft->neigh_lb[i],&i_mpi);CHKERRQ(ierr);   
-    ierr = MPI_Isend(array_s,ft->n_shared_lb[i],MPIU_SCALAR,i_mpi,0,comm,&pcd->s_reqs[i]);CHKERRQ(ierr);
+    ierr = MPI_Isend(array_s,ft->n_shared_lb[i],MPIU_SCALAR,i_mpi,0,comm,&pcd->s_reqs[i-1]);CHKERRQ(ierr);
     ierr = VecRestoreArrayRead(vec,&array_s);CHKERRQ(ierr);   
-    ierr = VecRestoreSubVector(xi->vlocal,isindex,&vec);CHKERRQ(ierr);
-    ierr = ISDestroy(&isindex);CHKERRQ(ierr);
+    ierr = VecRestoreSubVector(x_local,pcd->isindex[i-1],&vec);CHKERRQ(ierr);
   }
-
-  for (i=0; i<ve->n_neigh; i++){
+  /* receive vectors from my neighbors */
+  for (i=1; i<ft->n_neigh_lb; i++){
     ierr = PetscMPIIntCast(ft->neigh_lb[i],&i_mpi);CHKERRQ(ierr);
-    ierr = MPI_Irecv(pcd->work_vecs[i],ft->n_shared_lb[i],MPIU_SCALAR,i_mpi,0,comm,&pcd->r_reqs[i]);CHKERRQ(ierr);    
+    ierr = MPI_Irecv(pcd->work_vecs[i-1],ft->n_shared_lb[i-1],MPIU_SCALAR,i_mpi,0,comm,&pcd->r_reqs[i-1]);CHKERRQ(ierr);    
   }
-
-
-  ierr = VecUnAsmRestoreLocalVectorRead(x,lambda_local);CHKERRQ(ierr);
+  ierr = MPI_Waitall(pcd->n_reqs,pcd->r_reqs,MPI_STATUSES_IGNORE);CHKERRQ(ierr);
+  ierr = MPI_Waitall(pcd->n_reqs,pcd->s_reqs,MPI_STATUSES_IGNORE);CHKERRQ(ierr);
+  /* apply preconditioner to received vectors */
+  ierr = VecDuplicate(x_local,&vec);CHKERRQ(ierr);
+  ierr = VecDuplicate(x_local,&vec_res);CHKERRQ(ierr);
+  for (i=1; i<ft->n_neigh_lb; i++){
+    ierr = VecSet(vec,0.0);CHKERRQ(ierr);
+    ierr = VecSetValues(vec,ft->n_shared_lb[i],ft->shared_lb[i],pcd->work_vecs[i-1],INSERT_VALUES);CHKERRQ(ierr);
+    ierr = VecAssemblyBegin(vec);CHKERRQ(ierr);
+    ierr = VecAssemblyEnd(vec);CHKERRQ(ierr);
+    /* Application of B_Ddelta^T */
+    ierr = MatMultTranspose(ft->B_Ddelta,vec,sd->vec1_B);CHKERRQ(ierr);
+    /* Application of local Schur complement */
+    ierr = MatMult(pcd->Sj,sd->vec1_B,sd->vec2_B);CHKERRQ(ierr);
+    /* Application of B_Ddelta */
+    ierr = MatMult(ft->B_Ddelta,sd->vec2_B,vec_res);CHKERRQ(ierr);
+    /* communicate result */
+    ierr = VecGetSubVector(vec_res,pcd->isindex[i-1],&vec_aux);CHKERRQ(ierr);
+    ierr = VecGetArrayRead(vec_aux,&array_s);CHKERRQ(ierr);   
+    ierr = PetscMPIIntCast(ft->neigh_lb[i],&i_mpi);CHKERRQ(ierr);   
+    ierr = MPI_Isend(array_s,ft->n_shared_lb[i],MPIU_SCALAR,i_mpi,0,comm,&pcd->s_reqs[i-1]);CHKERRQ(ierr);
+    ierr = VecRestoreArrayRead(vec_aux,&array_s);CHKERRQ(ierr);   
+    ierr = VecRestoreSubVector(vec_res,pcd->isindex[i-1],&vec_aux);CHKERRQ(ierr);   
+  } 
+  /* receive results */
+  for (i=1; i<ft->n_neigh_lb; i++){
+    ierr = PetscMPIIntCast(ft->neigh_lb[i],&i_mpi);CHKERRQ(ierr);
+    ierr = MPI_Irecv(pcd->work_vecs[i-1],ft->n_shared_lb[i-1],MPIU_SCALAR,i_mpi,0,comm,&pcd->r_reqs[i-1]);CHKERRQ(ierr);    
+  }
+  ierr = MPI_Waitall(pcd->n_reqs,pcd->r_reqs,MPI_STATUSES_IGNORE);CHKERRQ(ierr);
+  ierr = MPI_Waitall(pcd->n_reqs,pcd->s_reqs,MPI_STATUSES_IGNORE);CHKERRQ(ierr);
+  ierr = VecDestroy(&vec_res);CHKERRQ(ierr);
+  /* sum results of my neighbors */
+  for (i=1; i<ft->n_neigh_lb; i++){
+    ierr = VecSet(vec,0.0);CHKERRQ(ierr);
+    ierr = VecSetValues(vec,ft->n_shared_lb[i],ft->shared_lb[i],pcd->work_vecs[i-1],INSERT_VALUES);CHKERRQ(ierr);
+    ierr = VecAssemblyBegin(vec);CHKERRQ(ierr);
+    ierr = VecAssemblyEnd(vec);CHKERRQ(ierr);
+    ierr = VecAXPY(y_local,1.0,vec);CHKERRQ(ierr);
+  } 
+  ierr = VecDestroy(&vec);CHKERRQ(ierr);
+  
+  ierr = VecUnAsmRestoreLocalVectorRead(x,x_local);CHKERRQ(ierr);
   ierr = VecUnAsmRestoreLocalVector(y,y_local);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
@@ -221,6 +235,10 @@ PetscErrorCode PCCreate_DIRICHLET(PC pc)
   pcd->ft                      = 0;
   pcd->ksp_D                   = 0;
   pcd->Sj                      = 0;
+  pcd->work_vecs               = 0;
+  pcd->s_reqs                  = 0;
+  pcd->r_reqs                  = 0;
+  pcd->isindex                 = 0;
   
   pc->ops->setup               = PCSetUp_DIRICHLET;
   pc->ops->reset               = PCReset_DIRICHLET;

@@ -929,8 +929,11 @@ static PetscErrorCode VecCopy_UNASM(Vec xin,Vec yin)
   PetscErrorCode    ierr;
   Vec_UNASM         *xi = (Vec_UNASM*)xin->data;
   Vec_UNASM         *yi = (Vec_UNASM*)yin->data;
+  PetscBool         flg;
   
   PetscFunctionBegin;
+  ierr = PetscObjectTypeCompare((PetscObject)yin,VECMPIUNASM,&flg);CHKERRQ(ierr);
+  if(!flg) SETERRQ(PetscObjectComm((PetscObject)yin),PETSC_ERR_SUP,"Cannot copy globally unassembled vector to non globally unassembled vector");
   ierr = VecCopy(xi->vlocal,yi->vlocal);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
