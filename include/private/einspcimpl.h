@@ -11,7 +11,8 @@
   PetscInt        n_reqs;            \
   MPI_Request     *s_reqs,*r_reqs;   \
   PetscScalar     **work_vecs;       \
-  IS              *isindex;
+  IS              *isindex;          \
+  MPI_Comm        comm;
 
 typedef struct {
   PCFETIHEADER

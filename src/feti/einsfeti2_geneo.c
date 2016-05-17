@@ -11,8 +11,6 @@
 
 static PetscErrorCode MatMultBg_FETI2_GENEO(Mat,Vec,Vec);
 static PetscErrorCode MatDestroyBg_FETI2_GENEO(Mat);
-static PetscErrorCode MatMultAg_FETI2_GENEO(Mat,Vec,Vec);
-static PetscErrorCode MatGetVecsAg_FETI2_GENEO(Mat,Vec*,Vec*);
 
 #undef __FUNCT__
 #define __FUNCT__ "FETI2ComputeMatrixG_GENEO"
@@ -67,32 +65,6 @@ static PetscErrorCode MatDestroyBg_FETI2_GENEO(Mat A)
 
 
 #undef __FUNCT__
-#define __FUNCT__ "MatGetVecsAg_FETI2_GENEO"
-static PetscErrorCode MatGetVecsAg_FETI2_GENEO(Mat mat,Vec *right,Vec *left)
-{
-  PetscErrorCode ierr;
-  
-  PetscFunctionBegin;
-  PetscValidHeaderSpecific(mat,MAT_CLASSID,1);
-  if (right) {
-    if (mat->cmap->n < 0) SETERRQ(PetscObjectComm((PetscObject)mat),PETSC_ERR_ARG_WRONGSTATE,"PetscLayout for columns not yet setup");
-    ierr = VecCreate(PetscObjectComm((PetscObject)mat),right);CHKERRQ(ierr);
-    ierr = VecSetSizes(*right,mat->cmap->n,mat->cmap->N);CHKERRQ(ierr);
-    ierr = VecSetType(*right,VECMPIUNASM);CHKERRQ(ierr);
-    ierr = PetscLayoutReference(mat->cmap,&(*right)->map);CHKERRQ(ierr);
-  }
-  if (left) {
-    if (mat->rmap->n < 0) SETERRQ(PetscObjectComm((PetscObject)mat),PETSC_ERR_ARG_WRONGSTATE,"PetscLayout for rows not yet setup");
-    ierr = VecCreate(PetscObjectComm((PetscObject)mat),left);CHKERRQ(ierr);
-    ierr = VecSetSizes(*left,mat->rmap->n,mat->rmap->N);CHKERRQ(ierr);
-    ierr = VecSetType(*left,VECMPIUNASM);CHKERRQ(ierr);
-    ierr = PetscLayoutReference(mat->rmap,&(*left)->map);CHKERRQ(ierr);
-  }  
-  PetscFunctionReturn(0);
-}
-
-
-#undef __FUNCT__
 #define __FUNCT__ "FETICreate_FETI2_GENEO"
 /*@
    FETICreate_FETI2_GENEO - Creates structures need for FETI2 GENEO.
@@ -109,7 +81,7 @@ PetscErrorCode FETICreate_FETI2_GENEO(FETI ft)
   PCFT_DIRICHLET  *pcd; 
   PCType          pctype;
   PetscBool       flg;
-  PetscInt        n,N;
+  PetscInt        n;
   GENEO_C         *gn;
   GENEOMat_ctx    matctx;
   MPI_Comm        comm;
@@ -142,24 +114,16 @@ PetscErrorCode FETICreate_FETI2_GENEO(FETI ft)
   matctx->gn = gn;
   pcd  = (PCFT_DIRICHLET*)(gn->pc_dirichlet->data);
   ierr = MatGetSize(pcd->Sj,&n,NULL);CHKERRQ(ierr);
-  ierr = MPI_Comm_size(comm,&N);CHKERRQ(ierr);
-  N   *= n;
-  ierr = MatCreateShell(comm,n,n,N,N,matctx,&gn->Bg);CHKERRQ(ierr);
+  ierr = MatCreateShell(PETSC_COMM_SELF,n,n,n,n,matctx,&gn->Bg);CHKERRQ(ierr);
   ierr = MatShellSetOperation(gn->Bg,MATOP_MULT,(void(*)(void))MatMultBg_FETI2_GENEO);CHKERRQ(ierr);
   ierr = MatShellSetOperation(gn->Bg,MATOP_DESTROY,(void(*)(void))MatDestroyBg_FETI2_GENEO);CHKERRQ(ierr);
-  ierr = MatShellSetOperation(gn->Bg,MATOP_GET_VECS,(void(*)(void))MatGetVecsAg_FETI2_GENEO);CHKERRQ(ierr);
   ierr = MatSetUp(gn->Bg);CHKERRQ(ierr);
-  /* creating the mat context for the MatShell corresponding to operator A of the eigenvalue problem */
-  ierr = MatCreateShell(comm,n,n,N,N,&pcd->Sj,&gn->Ag);CHKERRQ(ierr);
-  ierr = MatShellSetOperation(gn->Ag,MATOP_MULT,(void(*)(void))MatMultAg_FETI2_GENEO);CHKERRQ(ierr);
-  ierr = MatShellSetOperation(gn->Ag,MATOP_GET_VECS,(void(*)(void))MatGetVecsAg_FETI2_GENEO);CHKERRQ(ierr);
-  ierr = MatSetUp(gn->Ag);CHKERRQ(ierr);
   
   /* create and setup SLEPc solver */
-  ierr = EPSCreate(comm,&gn->eps);CHKERRQ(ierr);
+  ierr = EPSCreate(PETSC_COMM_SELF,&gn->eps);CHKERRQ(ierr);
   ierr = EPSSetOperators(gn->eps,gn->Bg,NULL);CHKERRQ(ierr);
   ierr = EPSSetProblemType(gn->eps,EPS_HEP);CHKERRQ(ierr); /* hermitanian problem */
-  ierr = EPSSetType(gn->eps,EPSKRYLOVSCHUR);CHKERRQ(ierr); 
+  ierr = EPSSetType(gn->eps,EPSKRYLOVSCHUR);CHKERRQ(ierr); /* LANCZOS */
   ierr = EPSSetWhichEigenpairs(gn->eps,EPS_LARGEST_REAL);CHKERRQ(ierr);
   ierr = EPSSetDimensions(gn->eps,3,PETSC_DEFAULT,PETSC_DEFAULT);CHKERRQ(ierr); /* -eps_nev <nev> - Sets the number of eigenvalues */
   ierr = EPSSetOptionsPrefix(gn->eps,"feti2_geneo_");CHKERRQ(ierr);
@@ -167,8 +131,7 @@ PetscErrorCode FETICreate_FETI2_GENEO(FETI ft)
  
   /* create working vector */
   ierr = MatCreateVecs(gn->Bg,&gn->vec1,NULL);CHKERRQ(ierr);
-  ierr = VecDuplicate(ft->lambda_global,&gn->vec_lb1);CHKERRQ(ierr);
-  ierr = VecUnAsmSetMultiplicity(gn->vec_lb1,NULL);CHKERRQ(ierr);
+  ierr = VecCreateSeq(PETSC_COMM_SELF,ft->n_lambda_local,&gn->vec_lb1);CHKERRQ(ierr);
   ierr = VecDuplicate(gn->vec_lb1,&gn->vec_lb2);CHKERRQ(ierr);
   
   PetscFunctionReturn(0);
@@ -204,28 +167,6 @@ PetscErrorCode FETISetUp_FETI2_GENEO(FETI ft)
 
 
 #undef __FUNCT__
-#define __FUNCT__ "MatMultAg_FETI2_GENEO"
-static PetscErrorCode MatMultAg_FETI2_GENEO(Mat A,Vec x,Vec y)
-{
-  void              *ctx;
-  PetscErrorCode    ierr;
-  Mat               Sj;
-  Vec               xl,yl;
-  
-  PetscFunctionBeginUser;
-  ierr = MatShellGetContext(A,&ctx);CHKERRQ(ierr);
-  Sj = *(Mat*)ctx;
-
-  ierr = VecUnAsmGetLocalVectorRead(x,&xl);CHKERRQ(ierr);
-  ierr = VecUnAsmGetLocalVector(y,&yl);CHKERRQ(ierr);
-  ierr = MatMult(Sj,xl,yl);CHKERRQ(ierr);
-  ierr = VecUnAsmGetLocalVectorRead(x,&xl);CHKERRQ(ierr);
-  ierr = VecUnAsmGetLocalVector(y,&yl);CHKERRQ(ierr);
-  PetscFunctionReturn(0);
-}
-
-
-#undef __FUNCT__
 #define __FUNCT__ "MatMultBg_FETI2_GENEO"
 static PetscErrorCode MatMultBg_FETI2_GENEO(Mat A,Vec x,Vec y)
 {
@@ -233,7 +174,6 @@ static PetscErrorCode MatMultBg_FETI2_GENEO(Mat A,Vec x,Vec y)
   PetscErrorCode    ierr;
   FETI              ft;
   GENEO_C           *gn;
-  Vec               xl,yl,zl,wl;
   Subdomain         sd;
   
   PetscFunctionBeginUser;
@@ -243,27 +183,17 @@ static PetscErrorCode MatMultBg_FETI2_GENEO(Mat A,Vec x,Vec y)
   sd   = ft->subdomain;
 
   /* applying B^T*S_d*B */
-  ierr = VecUnAsmGetLocalVectorRead(x,&xl);CHKERRQ(ierr);
-  ierr = VecUnAsmGetLocalVector(y,&yl);CHKERRQ(ierr);
-  ierr = VecUnAsmGetLocalVector(gn->vec_lb1,&wl);CHKERRQ(ierr);
-  
-  ierr = MatMult(ft->B_delta,xl,wl);CHKERRQ(ierr);
+  ierr = MatMult(ft->B_delta,x,gn->vec_lb1);CHKERRQ(ierr);
   ierr = PCApplyLocal(gn->pc,gn->vec_lb1,gn->vec_lb2);CHKERRQ(ierr); 
-  ierr = VecUnAsmGetLocalVectorRead(gn->vec_lb2,&zl);CHKERRQ(ierr);
-  ierr = MatMultTranspose(ft->B_delta,zl,sd->vec1_B);CHKERRQ(ierr);
-  ierr = VecUnAsmRestoreLocalVectorRead(gn->vec_lb2,zl);CHKERRQ(ierr);
-  ierr = VecUnAsmRestoreLocalVector(gn->vec_lb1,wl);CHKERRQ(ierr);
+  ierr = MatMultTranspose(ft->B_delta,gn->vec_lb2,sd->vec1_B);CHKERRQ(ierr);
   
   /* applying S^-1 */
   ierr = VecSet(sd->vec1_N,0.0);CHKERRQ(ierr);
   ierr = VecScatterBegin(sd->N_to_B,sd->vec1_B,sd->vec1_N,INSERT_VALUES,SCATTER_REVERSE);CHKERRQ(ierr);
   ierr = VecScatterEnd(sd->N_to_B,sd->vec1_B,sd->vec1_N,INSERT_VALUES,SCATTER_REVERSE);CHKERRQ(ierr);  
   ierr = MatSolve(ft->F_neumann,sd->vec1_N,sd->vec2_N);CHKERRQ(ierr);
-  ierr = VecScatterBegin(sd->N_to_B,sd->vec2_N,yl,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
-  ierr = VecScatterEnd(sd->N_to_B,sd->vec2_N,yl,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
-
-  ierr = VecUnAsmRestoreLocalVectorRead(x,xl);CHKERRQ(ierr);
-  ierr = VecUnAsmRestoreLocalVector(y,yl);CHKERRQ(ierr);
+  ierr = VecScatterBegin(sd->N_to_B,sd->vec2_N,y,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
+  ierr = VecScatterEnd(sd->N_to_B,sd->vec2_N,y,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
   
   PetscFunctionReturn(0);
 }
@@ -286,7 +216,6 @@ PetscErrorCode FETIDestroy_FETI2_GENEO(FETI ft)
   
   PetscFunctionBegin;
   ierr = MatDestroy(&gn->Bg);CHKERRQ(ierr);
-  ierr = MatDestroy(&gn->Ag);CHKERRQ(ierr);
   ierr = PCDestroy(&gn->pc_dirichlet);CHKERRQ(ierr);
   ierr = PCDestroy(&gn->pc);CHKERRQ(ierr);
   ierr = VecDestroy(&gn->vec1);CHKERRQ(ierr);

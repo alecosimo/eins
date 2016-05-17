@@ -46,6 +46,7 @@ PetscErrorCode PCAllocateFETIWorkVecs_Private(PC pc, FETI ft) {
   for (i=1; i<ft->n_neigh_lb; i++){
     ierr = ISCreateGeneral(PETSC_COMM_SELF,ft->n_shared_lb[i],ft->shared_lb[i],PETSC_USE_POINTER,&pch->isindex[i-1]);CHKERRQ(ierr);
   }
+  ierr = PetscObjectGetComm((PetscObject)ft,&pch->comm);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 
