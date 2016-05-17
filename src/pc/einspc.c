@@ -3,9 +3,9 @@
 
 
 #undef __FUNCT__
-#define __FUNCT__ "KSPSetComputeJacobian"
+#define __FUNCT__ "PCApplyLocal"
 /*@
-   KSPSetComputeJacobian - Sets the variable controlling the computation of the jacobian.
+   PCApplyLocal - Sets the variable controlling the computation of the jacobian.
 
    Input Parameters:
 .  ksp - the KSP context

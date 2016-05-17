@@ -134,8 +134,8 @@ static PetscErrorCode PCApplyLocal_DIRICHLET(PC pc,Vec x,Vec y)
 
   PetscFunctionBegin;
   /* allocate resources if not available */
-  if(!pcd->work_vecs) { ierr = PCDeAllocateFETIWorkVecs_Private(pc);CHKERRQ(ierr);}
-  PetscPrintf(PETSC_COMM_WORLD,"\n================================================================\n");
+  if(!pcd->work_vecs) { ierr = PCAllocateFETIWorkVecs_Private(pc,ft);CHKERRQ(ierr);}
+
   ierr = VecUnAsmGetLocalVectorRead(x,&x_local);CHKERRQ(ierr);
   ierr = VecUnAsmGetLocalVector(y,&y_local);CHKERRQ(ierr);
   /* Application of B_Ddelta^T */
@@ -159,7 +159,7 @@ static PetscErrorCode PCApplyLocal_DIRICHLET(PC pc,Vec x,Vec y)
   /* receive vectors from my neighbors */
   for (i=1; i<ft->n_neigh_lb; i++){
     ierr = PetscMPIIntCast(ft->neigh_lb[i],&i_mpi);CHKERRQ(ierr);
-    ierr = MPI_Irecv(pcd->work_vecs[i-1],ft->n_shared_lb[i-1],MPIU_SCALAR,i_mpi,0,comm,&pcd->r_reqs[i-1]);CHKERRQ(ierr);    
+    ierr = MPI_Irecv(pcd->work_vecs[i-1],ft->n_shared_lb[i],MPIU_SCALAR,i_mpi,0,comm,&pcd->r_reqs[i-1]);CHKERRQ(ierr);    
   }
   ierr = MPI_Waitall(pcd->n_reqs,pcd->r_reqs,MPI_STATUSES_IGNORE);CHKERRQ(ierr);
   ierr = MPI_Waitall(pcd->n_reqs,pcd->s_reqs,MPI_STATUSES_IGNORE);CHKERRQ(ierr);
@@ -188,7 +188,7 @@ static PetscErrorCode PCApplyLocal_DIRICHLET(PC pc,Vec x,Vec y)
   /* receive results */
   for (i=1; i<ft->n_neigh_lb; i++){
     ierr = PetscMPIIntCast(ft->neigh_lb[i],&i_mpi);CHKERRQ(ierr);
-    ierr = MPI_Irecv(pcd->work_vecs[i-1],ft->n_shared_lb[i-1],MPIU_SCALAR,i_mpi,0,comm,&pcd->r_reqs[i-1]);CHKERRQ(ierr);    
+    ierr = MPI_Irecv(pcd->work_vecs[i-1],ft->n_shared_lb[i],MPIU_SCALAR,i_mpi,0,comm,&pcd->r_reqs[i-1]);CHKERRQ(ierr);    
   }
   ierr = MPI_Waitall(pcd->n_reqs,pcd->r_reqs,MPI_STATUSES_IGNORE);CHKERRQ(ierr);
   ierr = MPI_Waitall(pcd->n_reqs,pcd->s_reqs,MPI_STATUSES_IGNORE);CHKERRQ(ierr);
@@ -239,7 +239,7 @@ PetscErrorCode PCCreate_DIRICHLET(PC pc)
   pcd->s_reqs                  = 0;
   pcd->r_reqs                  = 0;
   pcd->isindex                 = 0;
-  
+    
   pc->ops->setup               = PCSetUp_DIRICHLET;
   pc->ops->reset               = PCReset_DIRICHLET;
   pc->ops->destroy             = PCDestroy_DIRICHLET;

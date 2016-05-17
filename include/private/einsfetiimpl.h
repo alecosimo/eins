@@ -49,6 +49,7 @@ struct _p_FETI {
   KSP                    ksp_interface;
   KSPType                ksp_type_interface;
   PCType                 pc_type_interface;
+  Mat                    F_neumann;
   /* mapping information for interface problem */
   VecExchange            exchange_lambda;
   Vec                    multiplicity; /* multiplicity of lambdas */

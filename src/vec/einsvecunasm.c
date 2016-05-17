@@ -691,13 +691,13 @@ PETSC_EXTERN PetscErrorCode VecUnAsmSetMultiplicity(Vec x,Vec multiplicity)
   
   PetscFunctionBegin;
   PetscValidHeaderSpecific(x,VEC_CLASSID,1);
-  PetscValidHeaderSpecific(multiplicity,VEC_CLASSID,2);
   ierr = PetscObjectTypeCompare((PetscObject)x,VECMPIUNASM,&flg);CHKERRQ(ierr);
   if(!flg) SETERRQ(PetscObjectComm((PetscObject)x),PETSC_ERR_SUP,"Cannot set multiplicity to non globally unassembled vector");
 
   xi = (Vec_UNASM*)x->data;
+  if (xi->multiplicity) {ierr = VecDestroy(&xi->multiplicity);CHKERRQ(ierr);}
   xi->multiplicity = multiplicity;
-  ierr             = PetscObjectReference((PetscObject)multiplicity);CHKERRQ(ierr);
+  if (multiplicity) { ierr = PetscObjectReference((PetscObject)multiplicity);CHKERRQ(ierr);}
   PetscFunctionReturn(0);
 }
 

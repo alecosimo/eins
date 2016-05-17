@@ -18,7 +18,7 @@ typedef struct {
   EPS   eps;
   Mat   Bg; /* this is a shell matrix for defining the B of the generalized eigenvalue problem, mainly B^T*S*B */
   Mat   Ag; /* this is a shell matrix for defining the A of the generalized eigenvalue problem, mainly S */
-  Vec   vec1; /* working vector */
+  Vec   vec1,vec_lb1,vec_lb2; /* working vectors */
 } GENEO_C; /* underscore "_C" becuase it is for defining a coarse space */
 
 struct _GENEOMat_ctx {
@@ -51,7 +51,6 @@ typedef struct {
   Vec          local_e;
   Mat          coarse_problem;
   Mat          F_coarse;        /* matrix object specifically suited for symbolic factorization: it must not be destroyed with MatDestroy() */
-  Mat          F_neumann;
   KSP          ksp_coarse;
 
   /* To compute rigid body modes */

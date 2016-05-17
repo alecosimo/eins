@@ -13,7 +13,6 @@
   PetscScalar     **work_vecs;       \
   IS              *isindex;
 
-
 typedef struct {
   PCFETIHEADER
 } PCFT_BASE;

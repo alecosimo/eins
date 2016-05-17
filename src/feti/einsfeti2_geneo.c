@@ -134,7 +134,7 @@ PetscErrorCode FETICreate_FETI2_GENEO(FETI ft)
     ierr = PetscObjectIncrementTabLevel((PetscObject)gn->pc_dirichlet,(PetscObject)ft,0);CHKERRQ(ierr);
     ierr = PetscLogObjectParent((PetscObject)ft,(PetscObject)gn->pc_dirichlet);CHKERRQ(ierr);
   }
-
+  
   /* create MATSHELLs */
   /* creating the mat context for the MatShell corresponding to operator B of the eigenvalue problem */
   ierr = PetscNew(&matctx);CHKERRQ(ierr);
@@ -157,16 +157,19 @@ PetscErrorCode FETICreate_FETI2_GENEO(FETI ft)
   
   /* create and setup SLEPc solver */
   ierr = EPSCreate(comm,&gn->eps);CHKERRQ(ierr);
-  ierr = EPSSetOperators(gn->eps,gn->Ag,gn->Bg);CHKERRQ(ierr);
-  ierr = EPSSetProblemType(gn->eps,EPS_GHEP);CHKERRQ(ierr);/* hermitanian problem */
-  ierr = EPSSetType(gn->eps,EPSLANCZOS);CHKERRQ(ierr); /* KRYLOVSCHUR */
-  ierr = EPSSetWhichEigenpairs(gn->eps,EPS_SMALLEST_REAL);CHKERRQ(ierr);
+  ierr = EPSSetOperators(gn->eps,gn->Bg,NULL);CHKERRQ(ierr);
+  ierr = EPSSetProblemType(gn->eps,EPS_HEP);CHKERRQ(ierr); /* hermitanian problem */
+  ierr = EPSSetType(gn->eps,EPSKRYLOVSCHUR);CHKERRQ(ierr); 
+  ierr = EPSSetWhichEigenpairs(gn->eps,EPS_LARGEST_REAL);CHKERRQ(ierr);
   ierr = EPSSetDimensions(gn->eps,3,PETSC_DEFAULT,PETSC_DEFAULT);CHKERRQ(ierr); /* -eps_nev <nev> - Sets the number of eigenvalues */
   ierr = EPSSetOptionsPrefix(gn->eps,"feti2_geneo_");CHKERRQ(ierr);
   ierr = EPSSetFromOptions(gn->eps);CHKERRQ(ierr);
  
   /* create working vector */
-  ierr = MatCreateVecs(gn->Ag,&gn->vec1,NULL);CHKERRQ(ierr);
+  ierr = MatCreateVecs(gn->Bg,&gn->vec1,NULL);CHKERRQ(ierr);
+  ierr = VecDuplicate(ft->lambda_global,&gn->vec_lb1);CHKERRQ(ierr);
+  ierr = VecUnAsmSetMultiplicity(gn->vec_lb1,NULL);CHKERRQ(ierr);
+  ierr = VecDuplicate(gn->vec_lb1,&gn->vec_lb2);CHKERRQ(ierr);
   
   PetscFunctionReturn(0);
 }
@@ -230,15 +233,37 @@ static PetscErrorCode MatMultBg_FETI2_GENEO(Mat A,Vec x,Vec y)
   PetscErrorCode    ierr;
   FETI              ft;
   GENEO_C           *gn;
+  Vec               xl,yl,zl,wl;
+  Subdomain         sd;
   
   PetscFunctionBeginUser;
   ierr = MatShellGetContext(A,&mat_ctx);CHKERRQ(ierr);
   ft   = mat_ctx->ft;
   gn   = mat_ctx->gn;
+  sd   = ft->subdomain;
+
+  /* applying B^T*S_d*B */
+  ierr = VecUnAsmGetLocalVectorRead(x,&xl);CHKERRQ(ierr);
+  ierr = VecUnAsmGetLocalVector(y,&yl);CHKERRQ(ierr);
+  ierr = VecUnAsmGetLocalVector(gn->vec_lb1,&wl);CHKERRQ(ierr);
   
-  ierr = MatMult(ft->B_delta,x,y);CHKERRQ(ierr);
-  ierr = PCApplyLocal(gn->pc,y,gn->vec1);CHKERRQ(ierr);
-  ierr = MatMultTranspose(ft->B_delta,gn->vec1,y);CHKERRQ(ierr);
+  ierr = MatMult(ft->B_delta,xl,wl);CHKERRQ(ierr);
+  ierr = PCApplyLocal(gn->pc,gn->vec_lb1,gn->vec_lb2);CHKERRQ(ierr); 
+  ierr = VecUnAsmGetLocalVectorRead(gn->vec_lb2,&zl);CHKERRQ(ierr);
+  ierr = MatMultTranspose(ft->B_delta,zl,sd->vec1_B);CHKERRQ(ierr);
+  ierr = VecUnAsmRestoreLocalVectorRead(gn->vec_lb2,zl);CHKERRQ(ierr);
+  ierr = VecUnAsmRestoreLocalVector(gn->vec_lb1,wl);CHKERRQ(ierr);
+  
+  /* applying S^-1 */
+  ierr = VecSet(sd->vec1_N,0.0);CHKERRQ(ierr);
+  ierr = VecScatterBegin(sd->N_to_B,sd->vec1_B,sd->vec1_N,INSERT_VALUES,SCATTER_REVERSE);CHKERRQ(ierr);
+  ierr = VecScatterEnd(sd->N_to_B,sd->vec1_B,sd->vec1_N,INSERT_VALUES,SCATTER_REVERSE);CHKERRQ(ierr);  
+  ierr = MatSolve(ft->F_neumann,sd->vec1_N,sd->vec2_N);CHKERRQ(ierr);
+  ierr = VecScatterBegin(sd->N_to_B,sd->vec2_N,yl,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
+  ierr = VecScatterEnd(sd->N_to_B,sd->vec2_N,yl,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
+
+  ierr = VecUnAsmRestoreLocalVectorRead(x,xl);CHKERRQ(ierr);
+  ierr = VecUnAsmRestoreLocalVector(y,yl);CHKERRQ(ierr);
   
   PetscFunctionReturn(0);
 }
@@ -265,6 +290,8 @@ PetscErrorCode FETIDestroy_FETI2_GENEO(FETI ft)
   ierr = PCDestroy(&gn->pc_dirichlet);CHKERRQ(ierr);
   ierr = PCDestroy(&gn->pc);CHKERRQ(ierr);
   ierr = VecDestroy(&gn->vec1);CHKERRQ(ierr);
+  ierr = VecDestroy(&gn->vec_lb1);CHKERRQ(ierr);
+  ierr = VecDestroy(&gn->vec_lb2);CHKERRQ(ierr);
   ierr = EPSDestroy(&gn->eps);CHKERRQ(ierr);
   ierr = PetscFree(ft2->geneo);CHKERRQ(ierr);
   PetscFunctionReturn(0);

@@ -530,7 +530,6 @@ static PetscErrorCode FETI1MatMult_Private(Mat F, Vec lambda_global, Vec y) /* y
 {
   FETIMat_ctx  mat_ctx;
   FETI         ft;
-  FETI_1       *ft1;
   Subdomain    sd;
   Vec          lambda_local,y_local;
   
@@ -539,7 +538,6 @@ static PetscErrorCode FETI1MatMult_Private(Mat F, Vec lambda_global, Vec y) /* y
   PetscFunctionBegin;
   ierr = MatShellUnAsmGetContext(F,(void**)&mat_ctx);CHKERRQ(ierr);
   ft   = mat_ctx->ft;
-  ft1  = (FETI_1*)ft->data;
   sd   = ft->subdomain;
   ierr = VecUnAsmGetLocalVectorRead(lambda_global,&lambda_local);CHKERRQ(ierr);
   ierr = VecUnAsmGetLocalVector(y,&y_local);CHKERRQ(ierr);
@@ -549,8 +547,8 @@ static PetscErrorCode FETI1MatMult_Private(Mat F, Vec lambda_global, Vec y) /* y
   ierr = VecScatterBegin(sd->N_to_B,sd->vec1_B,sd->vec1_N,INSERT_VALUES,SCATTER_REVERSE);CHKERRQ(ierr);
   ierr = VecScatterEnd(sd->N_to_B,sd->vec1_B,sd->vec1_N,INSERT_VALUES,SCATTER_REVERSE);CHKERRQ(ierr);
   /* Application of the already factorized pseudo-inverse */
-  ierr = MatMumpsSetIcntl(ft1->F_neumann,25,0);CHKERRQ(ierr);
-  ierr = MatSolve(ft1->F_neumann,sd->vec1_N,sd->vec2_N);CHKERRQ(ierr);
+  ierr = MatMumpsSetIcntl(ft->F_neumann,25,0);CHKERRQ(ierr);
+  ierr = MatSolve(ft->F_neumann,sd->vec1_N,sd->vec2_N);CHKERRQ(ierr);
   /* Application of B_delta */
   ierr = VecScatterBegin(sd->N_to_B,sd->vec2_N,sd->vec1_B,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
   ierr = VecScatterEnd(sd->N_to_B,sd->vec2_N,sd->vec1_B,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
@@ -615,13 +613,12 @@ static PetscErrorCode FETI1SetInterfaceProblemRHS_Private(FETI ft)
 {
   PetscErrorCode ierr;
   Subdomain      sd = ft->subdomain;
-  FETI_1         *ft1 = (FETI_1*)ft->data;
   Vec            d_local;
   
   PetscFunctionBegin;
   /** Application of the already factorized pseudo-inverse */
-  ierr = MatMumpsSetIcntl(ft1->F_neumann,25,0);CHKERRQ(ierr);
-  ierr = MatSolve(ft1->F_neumann,sd->localRHS,sd->vec1_N);CHKERRQ(ierr);
+  ierr = MatMumpsSetIcntl(ft->F_neumann,25,0);CHKERRQ(ierr);
+  ierr = MatSolve(ft->F_neumann,sd->localRHS,sd->vec1_N);CHKERRQ(ierr);
   /** Application of B_delta */
   ierr = VecUnAsmGetLocalVector(ft->d,&d_local);CHKERRQ(ierr);
   ierr = VecScatterBegin(sd->N_to_B,sd->vec1_N,sd->vec1_B,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
@@ -676,7 +673,7 @@ static PetscErrorCode FETI1ComputeRhsE_Private(FETI ft)
   PetscFunctionBegin;
   ierr   = VecDestroy(&ft1->local_e);CHKERRQ(ierr);
   /* get number of rigid body modes */
-  ierr   = MatMumpsGetInfog(ft1->F_neumann,28,&ft1->n_rbm);CHKERRQ(ierr);
+  ierr   = MatMumpsGetInfog(ft->F_neumann,28,&ft1->n_rbm);CHKERRQ(ierr);
   if(ft1->n_rbm){
     /* compute matrix local_e */
     ierr = VecCreateSeq(PETSC_COMM_SELF,ft1->n_rbm,&ft1->local_e);CHKERRQ(ierr);
@@ -706,15 +703,15 @@ static PetscErrorCode FETI1ComputeMatrixG_Private(FETI ft)
   PetscFunctionBegin;
   ierr   = MatDestroy(&ft1->localG);CHKERRQ(ierr);
   /* get number of rigid body modes */
-  ierr   = MatMumpsGetInfog(ft1->F_neumann,28,&ft1->n_rbm);CHKERRQ(ierr);
+  ierr   = MatMumpsGetInfog(ft->F_neumann,28,&ft1->n_rbm);CHKERRQ(ierr);
   if(ft1->n_rbm){
     /* Compute rigid body modes */
     ierr = MatCreateSeqDense(PETSC_COMM_SELF,sd->n,ft1->n_rbm,NULL,&ft1->rbm);CHKERRQ(ierr);
     ierr = MatDuplicate(ft1->rbm,MAT_DO_NOT_COPY_VALUES,&x);CHKERRQ(ierr);
     ierr = MatAssemblyBegin(ft1->rbm,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
     ierr = MatAssemblyEnd(ft1->rbm,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
-    ierr = MatMumpsSetIcntl(ft1->F_neumann,25,-1);CHKERRQ(ierr);
-    ierr = MatMatSolve(ft1->F_neumann,x,ft1->rbm);CHKERRQ(ierr);
+    ierr = MatMumpsSetIcntl(ft->F_neumann,25,-1);CHKERRQ(ierr);
+    ierr = MatMatSolve(ft->F_neumann,x,ft1->rbm);CHKERRQ(ierr);
     ierr = MatDestroy(&x);CHKERRQ(ierr);
 
     /* compute matrix localG */
@@ -748,7 +745,6 @@ static PetscErrorCode FETI1SetUpNeumannSolver_Private(FETI ft)
   PetscErrorCode ierr;
   PC             pc;
   PetscBool      issbaij;
-  FETI_1         *ft1 = (FETI_1*)ft->data;
   Subdomain      sd = ft->subdomain;
   
   PetscFunctionBegin;
@@ -773,13 +769,13 @@ static PetscErrorCode FETI1SetUpNeumannSolver_Private(FETI ft)
     ierr = KSPSetOptionsPrefix(ft->ksp_neumann,"feti1_neumann_");CHKERRQ(ierr);
     ierr = MatSetOptionsPrefix(sd->localA,"feti1_neumann_");CHKERRQ(ierr);
     ierr = PCFactorSetUpMatSolverPackage(pc);CHKERRQ(ierr);
-    ierr = PCFactorGetMatrix(pc,&ft1->F_neumann);CHKERRQ(ierr);
+    ierr = PCFactorGetMatrix(pc,&ft->F_neumann);CHKERRQ(ierr);
     /* sequential ordering */
-    ierr = MatMumpsSetIcntl(ft1->F_neumann,7,2);CHKERRQ(ierr);
+    ierr = MatMumpsSetIcntl(ft->F_neumann,7,2);CHKERRQ(ierr);
     /* Null row pivot detection */
-    ierr = MatMumpsSetIcntl(ft1->F_neumann,24,1);CHKERRQ(ierr);
+    ierr = MatMumpsSetIcntl(ft->F_neumann,24,1);CHKERRQ(ierr);
     /* threshhold for row pivot detection */
-    ierr = MatMumpsSetCntl(ft1->F_neumann,3,1.e-6);CHKERRQ(ierr);
+    ierr = MatMumpsSetCntl(ft->F_neumann,3,1.e-6);CHKERRQ(ierr);
 
     /* Maybe the following two options should be given as external options and not here*/
     ierr = KSPSetFromOptions(ft->ksp_neumann);CHKERRQ(ierr);
@@ -1358,8 +1354,8 @@ static PetscErrorCode FETISolve_FETI1(FETI ft, Vec u){
   /* computing f - B_delta^T*lambda */
   ierr = VecAYPX(sd->vec1_N,-1.0,sd->localRHS);CHKERRQ(ierr);   
   /* Application of the already factorized pseudo-inverse */
-  ierr = MatMumpsSetIcntl(ft1->F_neumann,25,0);CHKERRQ(ierr);
-  ierr = MatSolve(ft1->F_neumann,sd->vec1_N,u);CHKERRQ(ierr);
+  ierr = MatMumpsSetIcntl(ft->F_neumann,25,0);CHKERRQ(ierr);
+  ierr = MatSolve(ft->F_neumann,sd->vec1_N,u);CHKERRQ(ierr);
   if (ft1->n_rbm) {
     /* computing R*alpha */
     ierr = MatMult(ft1->rbm,ft1->alpha_local,sd->vec1_N);CHKERRQ(ierr);
