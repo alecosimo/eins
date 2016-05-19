@@ -12,6 +12,28 @@
 static PetscErrorCode MatMultBg_FETI2_GENEO(Mat,Vec,Vec);
 static PetscErrorCode MatDestroyBg_FETI2_GENEO(Mat);
 
+
+#undef __FUNCT__
+#define __FUNCT__ "EPSStoppingGeneo_Private"
+static PetscErrorCode EPSStoppingGeneo_Private(EPS eps,PetscInt its,PetscInt max_it,PetscInt nconv,PetscInt nev,EPSConvergedReason *reason,void *ctx)
+{
+  PetscErrorCode ierr;
+  PetscInt       n2c;
+  PC             pc;
+  
+  PetscFunctionBegin;
+  ierr = EPSStoppingBasic(eps,its,max_it,nconv,nev,reason,ctx);CHKERRQ(ierr);
+  if ((*reason == EPS_CONVERGED_TOL) || (*reason == EPS_DIVERGED_ITS)) {
+    n2c = 1;
+    pc = *((PC*)ctx);
+    while (n2c) {
+      ierr = PCApplyLocal(pc,NULL,NULL,&n2c);CHKERRQ(ierr);
+    }
+  }
+  PetscFunctionReturn(0);
+}
+
+
 #undef __FUNCT__
 #define __FUNCT__ "FETI2ComputeMatrixG_GENEO"
 /*@
@@ -126,6 +148,7 @@ PetscErrorCode FETICreate_FETI2_GENEO(FETI ft)
   ierr = EPSSetType(gn->eps,EPSKRYLOVSCHUR);CHKERRQ(ierr); /* KRYLOVSCHUR */
   ierr = EPSSetWhichEigenpairs(gn->eps,EPS_LARGEST_REAL);CHKERRQ(ierr);
   ierr = EPSSetDimensions(gn->eps,8,PETSC_DEFAULT,PETSC_DEFAULT);CHKERRQ(ierr); /* -eps_nev <nev> - Sets the number of eigenvalues */
+  ierr = EPSSetStoppingTestFunction(gn->eps,EPSStoppingGeneo_Private,(void*)&gn->pc,NULL);CHKERRQ(ierr);
   ierr = EPSSetOptionsPrefix(gn->eps,"feti2_geneo_");CHKERRQ(ierr);
   ierr = EPSSetFromOptions(gn->eps);CHKERRQ(ierr);
  
@@ -184,7 +207,7 @@ static PetscErrorCode MatMultBg_FETI2_GENEO(Mat A,Vec x,Vec y)
 
   /* applying B^T*S_d*B */
   ierr = MatMult(ft->B_delta,x,gn->vec_lb1);CHKERRQ(ierr);
-  ierr = PCApplyLocal(gn->pc,gn->vec_lb1,gn->vec_lb2);CHKERRQ(ierr); 
+  ierr = PCApplyLocal(gn->pc,gn->vec_lb1,gn->vec_lb2,NULL);CHKERRQ(ierr); 
   ierr = MatMultTranspose(ft->B_delta,gn->vec_lb2,sd->vec1_B);CHKERRQ(ierr);
   
   /* applying S^-1 */

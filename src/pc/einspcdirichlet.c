@@ -119,83 +119,105 @@ static PetscErrorCode PCApply_DIRICHLET(PC pc,Vec x,Vec y)
 
 #undef  __FUNCT__
 #define __FUNCT__ "PCApplyLocal_DIRICHLET"
-static PetscErrorCode PCApplyLocal_DIRICHLET(PC pc,Vec x,Vec y)
+static PetscErrorCode PCApplyLocal_DIRICHLET(PC pc,Vec x,Vec y,PetscInt *_n2c)
 {
   PCFT_DIRICHLET      *pcd = (PCFT_DIRICHLET*)pc->data;
   PetscErrorCode      ierr;
   FETI                ft   = pcd->ft;
   Subdomain           sd   = ft->subdomain;
   PetscMPIInt         i_mpi;
-  PetscInt            i;
+  PetscInt            i,is,ir;
   Vec                 vec,vec_res,vec_aux;
+  PetscInt            n2c,n2c0;
   const PetscScalar   *array_s;
-
+  
   PetscFunctionBegin;
   /* allocate resources if not available */
   if(!pcd->work_vecs) { ierr = PCAllocateFETIWorkVecs_Private(pc,ft);CHKERRQ(ierr);}
 
-  /* Application of B_Ddelta^T */
-  ierr = MatMultTranspose(ft->B_Ddelta,x,sd->vec1_B);CHKERRQ(ierr);
-  /* Application of local Schur complement */
-  ierr = MatMult(pcd->Sj,sd->vec1_B,sd->vec2_B);CHKERRQ(ierr);
-  /* Application of B_Ddelta */
-  ierr = MatMult(ft->B_Ddelta,sd->vec2_B,y);CHKERRQ(ierr);
+  n2c  = ((!x)==0);
+  n2c0 = n2c;
+  ierr = PCAllocateCommunication_Private(pc,&n2c);CHKERRQ(ierr);
+  if (_n2c) *_n2c = n2c;
 
-  /* send to my neighbors my local vector to which my neighbors' preconditioner must be applied */
-  for (i=1; i<ft->n_neigh_lb; i++){
-    ierr = VecGetSubVector(x,pcd->isindex[i-1],&vec);CHKERRQ(ierr);
-    ierr = VecGetArrayRead(vec,&array_s);CHKERRQ(ierr);   
-    ierr = PetscMPIIntCast(ft->neigh_lb[i],&i_mpi);CHKERRQ(ierr);   
-    ierr = MPI_Isend(array_s,ft->n_shared_lb[i],MPIU_SCALAR,i_mpi,0,pcd->comm,&pcd->s_reqs[i-1]);CHKERRQ(ierr);
-    ierr = VecRestoreArrayRead(vec,&array_s);CHKERRQ(ierr);   
-    ierr = VecRestoreSubVector(x,pcd->isindex[i-1],&vec);CHKERRQ(ierr);
+  if (n2c) {
+    is = 0;
+    if (n2c0) {
+      /* Application of B_Ddelta^T */
+      ierr = MatMultTranspose(ft->B_Ddelta,x,sd->vec1_B);CHKERRQ(ierr);
+      /* Application of local Schur complement */
+      ierr = MatMult(pcd->Sj,sd->vec1_B,sd->vec2_B);CHKERRQ(ierr);
+      /* Application of B_Ddelta */
+      ierr = MatMult(ft->B_Ddelta,sd->vec2_B,y);CHKERRQ(ierr);
+
+      /* send to my neighbors my local vector to which my neighbors' preconditioner must be applied */
+      for (is=0; is<ft->n_neigh_lb-1; is++){
+	ierr = VecGetSubVector(x,pcd->isindex[is],&vec);CHKERRQ(ierr);
+	ierr = VecGetArrayRead(vec,&array_s);CHKERRQ(ierr);   
+	ierr = PetscMPIIntCast(ft->neigh_lb[is+1],&i_mpi);CHKERRQ(ierr);   
+	ierr = MPI_Isend(array_s,ft->n_shared_lb[is+1],MPIU_SCALAR,i_mpi,0,pcd->comm,&pcd->s_reqs[is]);CHKERRQ(ierr);
+	ierr = VecRestoreArrayRead(vec,&array_s);CHKERRQ(ierr);   
+	ierr = VecRestoreSubVector(x,pcd->isindex[is],&vec);CHKERRQ(ierr);
+      }
+    }
+    /* receive vectors from my neighbors */
+    ir = 0;
+    for (i=0; i<ft->n_neigh_lb-1; i++){
+      if (pcd->pnc[i]) {
+	ierr = PetscMPIIntCast(ft->neigh_lb[i+1],&i_mpi);CHKERRQ(ierr);
+	ierr = MPI_Irecv(pcd->work_vecs[i],ft->n_shared_lb[i+1],MPIU_SCALAR,i_mpi,0,pcd->comm,&pcd->r_reqs[ir++]);CHKERRQ(ierr);
+      }
+    }
+    ierr = MPI_Waitall(ir,pcd->r_reqs,MPI_STATUSES_IGNORE);CHKERRQ(ierr);
+    if(is) { ierr = MPI_Waitall(is,pcd->s_reqs,MPI_STATUSES_IGNORE);CHKERRQ(ierr);}
+
+    /* apply preconditioner to received vectors */
+    ierr = VecDuplicate(pcd->vec1,&vec_res);CHKERRQ(ierr);
+    is   = 0;
+    for (i=0; i<ft->n_neigh_lb-1; i++){
+      if (pcd->pnc[i]) {
+	ierr = VecSet(pcd->vec1,0.0);CHKERRQ(ierr);
+	ierr = VecSetValues(pcd->vec1,ft->n_shared_lb[i+1],ft->shared_lb[i+1],pcd->work_vecs[i],INSERT_VALUES);CHKERRQ(ierr);
+	ierr = VecAssemblyBegin(pcd->vec1);CHKERRQ(ierr);
+	ierr = VecAssemblyEnd(pcd->vec1);CHKERRQ(ierr);
+	/* Application of B_Ddelta^T */
+	ierr = MatMultTranspose(ft->B_Ddelta,pcd->vec1,sd->vec1_B);CHKERRQ(ierr);
+	/* Application of local Schur complement */
+	ierr = MatMult(pcd->Sj,sd->vec1_B,sd->vec2_B);CHKERRQ(ierr);
+	/* Application of B_Ddelta */
+	ierr = MatMult(ft->B_Ddelta,sd->vec2_B,vec_res);CHKERRQ(ierr);
+	/* communicate result */
+	ierr = VecGetSubVector(vec_res,pcd->isindex[i],&vec_aux);CHKERRQ(ierr);
+	ierr = VecGetArrayRead(vec_aux,&array_s);CHKERRQ(ierr);   
+	ierr = PetscMPIIntCast(ft->neigh_lb[i+1],&i_mpi);CHKERRQ(ierr);   
+	ierr = MPI_Isend(array_s,ft->n_shared_lb[i+1],MPIU_SCALAR,i_mpi,0,pcd->comm,&pcd->s_reqs[is++]);CHKERRQ(ierr);
+	ierr = VecRestoreArrayRead(vec_aux,&array_s);CHKERRQ(ierr);   
+	ierr = VecRestoreSubVector(vec_res,pcd->isindex[i],&vec_aux);CHKERRQ(ierr);
+      }
+    } 
+    /* receive results */
+    ir = 0;
+    if (n2c0) {
+      for (ir=0; ir<ft->n_neigh_lb-1; ir++){
+	ierr = PetscMPIIntCast(ft->neigh_lb[ir+1],&i_mpi);CHKERRQ(ierr);
+	ierr = MPI_Irecv(pcd->work_vecs[ir],ft->n_shared_lb[ir+1],MPIU_SCALAR,i_mpi,0,pcd->comm,&pcd->r_reqs[ir]);CHKERRQ(ierr);    
+      }
+    }
+    if (ir) { ierr = MPI_Waitall(ir,pcd->r_reqs,MPI_STATUSES_IGNORE);CHKERRQ(ierr);}
+    ierr = MPI_Waitall(is,pcd->s_reqs,MPI_STATUSES_IGNORE);CHKERRQ(ierr);
+    ierr = VecDestroy(&vec_res);CHKERRQ(ierr);
+
+    if(n2c0) {
+      /* sum results of my neighbors */
+      for (i=0; i<ft->n_neigh_lb-1; i++){
+	ierr = VecSet(pcd->vec1,0.0);CHKERRQ(ierr);
+	ierr = VecSetValues(pcd->vec1,ft->n_shared_lb[i+1],ft->shared_lb[i+1],pcd->work_vecs[i],INSERT_VALUES);CHKERRQ(ierr);
+	ierr = VecAssemblyBegin(pcd->vec1);CHKERRQ(ierr);
+	ierr = VecAssemblyEnd(pcd->vec1);CHKERRQ(ierr);
+	ierr = VecAXPY(y,1.0,pcd->vec1);CHKERRQ(ierr);
+      }
+    }
   }
-  /* receive vectors from my neighbors */
-  for (i=1; i<ft->n_neigh_lb; i++){
-    ierr = PetscMPIIntCast(ft->neigh_lb[i],&i_mpi);CHKERRQ(ierr);
-    ierr = MPI_Irecv(pcd->work_vecs[i-1],ft->n_shared_lb[i],MPIU_SCALAR,i_mpi,0,pcd->comm,&pcd->r_reqs[i-1]);CHKERRQ(ierr);    
-  }
-  ierr = MPI_Waitall(pcd->n_reqs,pcd->r_reqs,MPI_STATUSES_IGNORE);CHKERRQ(ierr);
-  ierr = MPI_Waitall(pcd->n_reqs,pcd->s_reqs,MPI_STATUSES_IGNORE);CHKERRQ(ierr);
-  /* apply preconditioner to received vectors */
-  ierr = VecDuplicate(x,&vec);CHKERRQ(ierr);
-  ierr = VecDuplicate(x,&vec_res);CHKERRQ(ierr);
-  for (i=1; i<ft->n_neigh_lb; i++){
-    ierr = VecSet(vec,0.0);CHKERRQ(ierr);
-    ierr = VecSetValues(vec,ft->n_shared_lb[i],ft->shared_lb[i],pcd->work_vecs[i-1],INSERT_VALUES);CHKERRQ(ierr);
-    ierr = VecAssemblyBegin(vec);CHKERRQ(ierr);
-    ierr = VecAssemblyEnd(vec);CHKERRQ(ierr);
-    /* Application of B_Ddelta^T */
-    ierr = MatMultTranspose(ft->B_Ddelta,vec,sd->vec1_B);CHKERRQ(ierr);
-    /* Application of local Schur complement */
-    ierr = MatMult(pcd->Sj,sd->vec1_B,sd->vec2_B);CHKERRQ(ierr);
-    /* Application of B_Ddelta */
-    ierr = MatMult(ft->B_Ddelta,sd->vec2_B,vec_res);CHKERRQ(ierr);
-    /* communicate result */
-    ierr = VecGetSubVector(vec_res,pcd->isindex[i-1],&vec_aux);CHKERRQ(ierr);
-    ierr = VecGetArrayRead(vec_aux,&array_s);CHKERRQ(ierr);   
-    ierr = PetscMPIIntCast(ft->neigh_lb[i],&i_mpi);CHKERRQ(ierr);   
-    ierr = MPI_Isend(array_s,ft->n_shared_lb[i],MPIU_SCALAR,i_mpi,0,pcd->comm,&pcd->s_reqs[i-1]);CHKERRQ(ierr);
-    ierr = VecRestoreArrayRead(vec_aux,&array_s);CHKERRQ(ierr);   
-    ierr = VecRestoreSubVector(vec_res,pcd->isindex[i-1],&vec_aux);CHKERRQ(ierr);   
-  } 
-  /* receive results */
-  for (i=1; i<ft->n_neigh_lb; i++){
-    ierr = PetscMPIIntCast(ft->neigh_lb[i],&i_mpi);CHKERRQ(ierr);
-    ierr = MPI_Irecv(pcd->work_vecs[i-1],ft->n_shared_lb[i],MPIU_SCALAR,i_mpi,0,pcd->comm,&pcd->r_reqs[i-1]);CHKERRQ(ierr);    
-  }
-  ierr = MPI_Waitall(pcd->n_reqs,pcd->r_reqs,MPI_STATUSES_IGNORE);CHKERRQ(ierr);
-  ierr = MPI_Waitall(pcd->n_reqs,pcd->s_reqs,MPI_STATUSES_IGNORE);CHKERRQ(ierr);
-  ierr = VecDestroy(&vec_res);CHKERRQ(ierr);
-  /* sum results of my neighbors */
-  for (i=1; i<ft->n_neigh_lb; i++){
-    ierr = VecSet(vec,0.0);CHKERRQ(ierr);
-    ierr = VecSetValues(vec,ft->n_shared_lb[i],ft->shared_lb[i],pcd->work_vecs[i-1],INSERT_VALUES);CHKERRQ(ierr);
-    ierr = VecAssemblyBegin(vec);CHKERRQ(ierr);
-    ierr = VecAssemblyEnd(vec);CHKERRQ(ierr);
-    ierr = VecAXPY(y,1.0,vec);CHKERRQ(ierr);
-  } 
-  ierr = VecDestroy(&vec);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 

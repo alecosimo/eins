@@ -12,6 +12,8 @@
   MPI_Request     *s_reqs,*r_reqs;   \
   PetscScalar     **work_vecs;       \
   IS              *isindex;          \
+  PetscBool       *pnc;              \
+  Vec             vec1;              \
   MPI_Comm        comm;
 
 typedef struct {
@@ -24,5 +26,6 @@ PETSC_EXTERN PetscErrorCode PCCreate_LUMPED(PC);
 
 PetscErrorCode PCDeAllocateFETIWorkVecs_Private(PC);
 PetscErrorCode PCAllocateFETIWorkVecs_Private(PC,FETI);
+PetscErrorCode PCAllocateCommunication_Private(PC,PetscInt*);
 
 #endif/* EINSPCIMPL_H*/
