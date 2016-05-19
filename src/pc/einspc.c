@@ -32,6 +32,34 @@ PETSC_EXTERN PetscErrorCode PCApplyLocal(PC pc,Vec x,Vec y,PetscInt *n2c)
 
 
 #undef __FUNCT__
+#define __FUNCT__ "PCApplyLocalMult"
+/*@
+   PCApplyLocalMult - Applies the preconditioner locally to multiple vectors.
+
+   Input Parameters:
+.  PC - the pc context
+.  X  - the matrix with column vectors to which to apply the preconditioner
+
+   Output Parameters:
+.  Y   - matrix to store the results
+
+   Level: developer
+
+@*/
+PETSC_EXTERN PetscErrorCode PCApplyLocalMult(PC pc,Mat X,Mat Y)
+{
+  PetscErrorCode ierr;
+  
+  PetscFunctionBegin;
+  PetscValidHeaderSpecific(pc,PC_CLASSID,1);
+  PetscValidHeaderSpecific(X,MAT_CLASSID,2);
+  PetscValidHeaderSpecific(Y,MAT_CLASSID,3);
+  ierr = PetscUseMethod(pc,"PCApplyLocalMult_C",(PC,Mat,Mat),(pc,X,Y));CHKERRQ(ierr);
+  PetscFunctionReturn(0);
+}
+
+
+#undef __FUNCT__
 #define __FUNCT__ "PCAllocateFETIWorkVecs_Private"
 PetscErrorCode PCAllocateFETIWorkVecs_Private(PC pc, FETI ft)
 {

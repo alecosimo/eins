@@ -118,6 +118,33 @@ static PetscErrorCode PCApply_DIRICHLET(PC pc,Vec x,Vec y)
 
 
 #undef  __FUNCT__
+#define __FUNCT__ "PCApplyLocalMult_DIRICHLET"
+static PetscErrorCode PCApplyLocalMult_DIRICHLET(PC pc,Mat X,Mat Y)
+{
+  PCFT_DIRICHLET   *pcd = (PCFT_DIRICHLET*)pc->data;
+  PetscErrorCode   ierr;
+  FETI             ft   = pcd->ft;
+  Subdomain        sd   = ft->subdomain;
+  Vec              lambda_local,y_local;
+  
+  PetscFunctionBegin;
+  ierr = VecUnAsmGetLocalVectorRead(x,&lambda_local);CHKERRQ(ierr);
+  ierr = VecUnAsmGetLocalVector(y,&y_local);CHKERRQ(ierr);
+  /* Application of B_Ddelta^T */
+  ierr = MatMultTranspose(ft->B_Ddelta,lambda_local,sd->vec1_B);CHKERRQ(ierr);
+  /* Application of local Schur complement */
+  ierr = MatMult(pcd->Sj,sd->vec1_B,sd->vec2_B);CHKERRQ(ierr);
+  /* Application of B_Ddelta */
+  ierr = MatMult(ft->B_Ddelta,sd->vec2_B,y_local);CHKERRQ(ierr);
+  ierr = VecExchangeBegin(ft->exchange_lambda,y,ADD_VALUES);CHKERRQ(ierr);
+  ierr = VecExchangeEnd(ft->exchange_lambda,y,ADD_VALUES);CHKERRQ(ierr);
+  ierr = VecUnAsmRestoreLocalVectorRead(x,lambda_local);CHKERRQ(ierr);
+  ierr = VecUnAsmRestoreLocalVector(y,y_local);CHKERRQ(ierr);
+  PetscFunctionReturn(0);
+}
+
+
+#undef  __FUNCT__
 #define __FUNCT__ "PCApplyLocal_DIRICHLET"
 static PetscErrorCode PCApplyLocal_DIRICHLET(PC pc,Vec x,Vec y,PetscInt *_n2c)
 {
@@ -262,6 +289,7 @@ PetscErrorCode PCCreate_DIRICHLET(PC pc)
   pc->ops->applytranspose      = 0;
 
   ierr = PetscObjectComposeFunction((PetscObject)pc,"PCApplyLocal_C",PCApplyLocal_DIRICHLET);CHKERRQ(ierr);
+  ierr = PetscObjectComposeFunction((PetscObject)pc,"PCApplyLocalMult_C",PCApplyLocalMult_DIRICHLET);CHKERRQ(ierr);
   
   PetscFunctionReturn(0);
 }

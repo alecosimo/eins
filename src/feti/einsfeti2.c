@@ -629,7 +629,6 @@ static PetscErrorCode FETI2ComputeMatrixG_Private(FETI ft)
 {
   PetscErrorCode ierr;
   Subdomain      sd = ft->subdomain;
-  PetscInt       rank;
   MPI_Comm       comm;
   Mat            x; 
   FETI_2         *ft2 = (FETI_2*)ft->data;
@@ -638,7 +637,6 @@ static PetscErrorCode FETI2ComputeMatrixG_Private(FETI ft)
   
   PetscFunctionBegin;
   ierr   = PetscObjectGetComm((PetscObject)ft,&comm);CHKERRQ(ierr);
-  ierr   = MPI_Comm_rank(comm,&rank);CHKERRQ(ierr);
   ierr   = MatDestroy(&ft2->localG);CHKERRQ(ierr);
   /* Solve system and get number of rigid body modes */
   if (!ft2->stiffness_mat) {
@@ -701,6 +699,7 @@ static PetscErrorCode FETI2ComputeMatrixG_Private(FETI ft)
   }
   ierr = KSPDestroy(&ft2->ksp_rbm);CHKERRQ(ierr);
   ierr = MatDestroy(&ft2->stiffness_mat);CHKERRQ(ierr);
+  ierr = MatDestroy(&ft2->rbm);CHKERRQ(ierr);
   
   PetscFunctionReturn(0);
 }

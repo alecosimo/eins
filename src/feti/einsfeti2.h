@@ -13,12 +13,13 @@ PETSC_INTERN PetscErrorCode FETICreate_FETI2_GENEO(FETI);
 PETSC_INTERN PetscErrorCode FETIDestroy_FETI2_GENEO(FETI);
 
 typedef struct {
-  PC    pc_dirichlet;
-  PC    pc; /* this is the preconditioner specified for using in the FETI solver. It can be the same as pc_dirichlet */
-  EPS   eps;
-  Mat   Bg; /* this is a shell matrix for defining the B of the generalized eigenvalue problem, mainly B^T*S*B */
-  Mat   Ag; /* this is a shell matrix for defining the A of the generalized eigenvalue problem, mainly S */
-  Vec   vec1,vec_lb1,vec_lb2; /* working vectors */
+  PC            pc_dirichlet;
+  PC            pc; /* this is the preconditioner specified for using in the FETI solver. It can be the same as pc_dirichlet */
+  EPS           eps;
+  Mat           Bg; /* this is a shell matrix for defining the B of the generalized eigenvalue problem, mainly B^T*S*B */
+  PetscScalar   *pointer_v;
+  Mat           Vexpanded; /* Mat with pointer_v as storage */
+  Vec           vec1,vec_lb1,vec_lb2; /* working vectors */
 } GENEO_C; /* underscore "_C" becuase it is for defining a coarse space */
 
 struct _GENEOMat_ctx {
