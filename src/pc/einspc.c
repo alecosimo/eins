@@ -90,7 +90,9 @@ PetscErrorCode PCAllocateFETIWorkVecs_Private(PC pc, FETI ft)
   ierr = PetscMalloc1(total*ft->n_cs,&pch->work_vecs_r[0]);CHKERRQ(ierr);
   for (i=1;i<pch->n_reqs;i++) pch->work_vecs_r[i] = pch->work_vecs_r[i-1]+ft->n_shared_lb[i]*ft->n_cs;
   ierr = PetscMalloc1(sd->n*ft->n_cs,&pch->buffer_rhs);CHKERRQ(ierr);
+  ierr = PetscMalloc1(sd->n*ft->n_cs,&pch->buffer_xs);CHKERRQ(ierr);
   ierr = MatCreateSeqDense(PETSC_COMM_SELF,sd->n,ft->n_cs,pch->buffer_rhs,&pch->RHS);CHKERRQ(ierr);
+  ierr = MatCreateSeqDense(PETSC_COMM_SELF,sd->n,ft->n_cs,pch->buffer_xs,&pch->Xs);CHKERRQ(ierr);
   
   /* this communicator is going to be used by an external library */
   ierr = MPI_Comm_dup(PetscObjectComm((PetscObject)ft),&pch->comm);CHKERRQ(ierr); 
@@ -116,9 +118,11 @@ PetscErrorCode PCDeAllocateFETIWorkVecs_Private(PC pc)
   for (i=0;i<pch->n_reqs;i++){ ierr = ISDestroy(&pch->isindex[i]);CHKERRQ(ierr);}
   ierr = PetscFree(pch->isindex);CHKERRQ(ierr);
   ierr = PetscFree(pch->buffer_rhs);CHKERRQ(ierr);
+  ierr = PetscFree(pch->buffer_xs);CHKERRQ(ierr);
   ierr = PetscFree(pch->work_vecs_r[0]);CHKERRQ(ierr);
   ierr = PetscFree(pch->work_vecs_r);CHKERRQ(ierr);
   ierr = MatDestroy(&pch->RHS);CHKERRQ(ierr);
+  ierr = MatDestroy(&pch->Xs);CHKERRQ(ierr);
   ierr = MPI_Comm_free(&pch->comm);CHKERRQ(ierr);
   pch->n_reqs = 0;
   PetscFunctionReturn(0);
