@@ -53,7 +53,7 @@ static PetscErrorCode FETIDestroy_FETI2(FETI ft)
   if (ft2->coarseGType == RIGID_BODY_MODES) {ierr = FETIDestroy_FETI2_RBM(ft);CHKERRQ(ierr);}
   if (ft2->coarseGType == GENEO_MODES) {
 #if !defined(HAVE_SLEPC)
-      SETERRQ(PetscObjectComm((PetscObject)ft),1,"EINS only supports the computation of GENEO modes by using SLEPc and SLEPc library is not found");
+    SETERRQ(PetscObjectComm((PetscObject)ft),1,"EINS only supports the computation of GENEO modes by using SLEPc and SLEPc library is not found");
 #else /* ft2->coarseGType == GENEO_MODES */
     ierr = FETIDestroy_FETI2_GENEO(ft);CHKERRQ(ierr);
 #endif /* ft2->coarseGType == GENEO_MODES */

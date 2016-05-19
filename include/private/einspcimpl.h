@@ -15,7 +15,7 @@
   PetscBool       *pnc;              \
   Vec             vec1;              \
   Mat             RHS;               \
-  PetscScalar     buffer_rhs;        \
+  PetscScalar     *buffer_rhs;       \
   PetscScalar     **work_vecs_r;     \
   MPI_Comm        comm;
 
