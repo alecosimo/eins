@@ -6,7 +6,7 @@
 #define PCFETI_DIRICHLET "pcfeti_dirichlet"
 #define PCFETI_LUMPED    "pcfeti_lumped"
 
-PETSC_EXTERN PetscErrorCode PCApplyLocal(PC,Vec,Vec,PetscInt*);
-PETSC_EXTERN PetscErrorCode PCApplyLocalMultipleVecs(PC,Mat,Mat);
+PETSC_EXTERN PetscErrorCode PCApplyLocalWithPolling(PC,Vec,Vec,PetscInt*);
+PETSC_EXTERN PetscErrorCode PCApplyLocal(PC,Vec,Vec);
   
 #endif/* EINSPC_H*/

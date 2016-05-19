@@ -3,9 +3,10 @@
 
 
 #undef __FUNCT__
-#define __FUNCT__ "PCApplyLocal"
+#define __FUNCT__ "PCApplyLocalWithPolling"
 /*@
-   PCApplyLocal - Applies the preconditioner locally.
+   PCApplyLocalWithPolling - Applies the preconditioner locally
+   exchanging information with neighbors, and polling their status.
 
    Input Parameters:
 .  PC - the pc context
@@ -26,35 +27,36 @@ PETSC_EXTERN PetscErrorCode PCApplyLocal(PC pc,Vec x,Vec y,PetscInt *n2c)
   PetscValidHeaderSpecific(pc,PC_CLASSID,1);
   if(x) { PetscValidHeaderSpecific(x,VEC_CLASSID,2);}
   if(y) { PetscValidHeaderSpecific(y,VEC_CLASSID,3);}
-  ierr = PetscUseMethod(pc,"PCApplyLocal_C",(PC,Vec,Vec,PetscInt*),(pc,x,y,n2c));CHKERRQ(ierr);
+  ierr = PetscUseMethod(pc,"PCApplyLocalWithPolling_C",(PC,Vec,Vec,PetscInt*),(pc,x,y,n2c));CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 
 
 #undef __FUNCT__
-#define __FUNCT__ "PCApplyLocalMultipleVecs"
+#define __FUNCT__ "PCApplyLocal"
 /*@
-   PCApplyLocalMultipleVecs - Applies the preconditioner locally to multiple vectors.
+   PCApplyLocal - Applies the preconditioner locally exchanging
+   information with neighbors. There is NO polling.
 
    Input Parameters:
 .  PC - the pc context
-.  X  - the matrix with column vectors to which to apply the preconditioner
+.  x  - the vector to which to apply the preconditioner
 
    Output Parameters:
-.  Y   - matrix to store the results
+.  y   - result of the application of the preconditioner
 
    Level: developer
 
 @*/
-PETSC_EXTERN PetscErrorCode PCApplyLocalMultipleVecs(PC pc,Mat X,Mat Y)
+PETSC_EXTERN PetscErrorCode PCApplyLocal(PC pc,Vec x,Vec y)
 {
   PetscErrorCode ierr;
   
   PetscFunctionBegin;
   PetscValidHeaderSpecific(pc,PC_CLASSID,1);
-  PetscValidHeaderSpecific(X,MAT_CLASSID,2);
-  PetscValidHeaderSpecific(Y,MAT_CLASSID,3);
-  ierr = PetscUseMethod(pc,"PCApplyLocalMultipleVecs_C",(PC,Mat,Mat),(pc,X,Y));CHKERRQ(ierr);
+  PetscValidHeaderSpecific(x,VEC_CLASSID,2);
+  PetscValidHeaderSpecific(y,VEC_CLASSID,3);
+  ierr = PetscUseMethod(pc,"PCApplyLocal_C",(PC,Vec,Vec),(pc,x,y));CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 

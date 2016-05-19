@@ -118,8 +118,8 @@ static PetscErrorCode PCApply_DIRICHLET(PC pc,Vec x,Vec y)
 
 
 #undef  __FUNCT__
-#define __FUNCT__ "PCApplyLocalMultipleVecs_DIRICHLET"
-static PetscErrorCode PCApplyLocalMultipleVecs_DIRICHLET(PC pc,Mat X,Mat Y)
+#define __FUNCT__ "PCApplyLocal_DIRICHLET"
+static PetscErrorCode PCApplyLocal_DIRICHLET(PC pc,Vec x,Vec y)
 {
   PCFT_DIRICHLET      *pcd = (PCFT_DIRICHLET*)pc->data;
   PetscErrorCode      ierr;
@@ -160,8 +160,8 @@ static PetscErrorCode PCApplyLocalMultipleVecs_DIRICHLET(PC pc,Mat X,Mat Y)
 
 
 #undef  __FUNCT__
-#define __FUNCT__ "PCApplyLocal_DIRICHLET"
-static PetscErrorCode PCApplyLocal_DIRICHLET(PC pc,Vec x,Vec y,PetscInt *_n2c)
+#define __FUNCT__ "PCApplyLocalWithPolling_DIRICHLET"
+static PetscErrorCode PCApplyLocalWithPolling_DIRICHLET(PC pc,Vec x,Vec y,PetscInt *_n2c)
 {
   PCFT_DIRICHLET      *pcd = (PCFT_DIRICHLET*)pc->data;
   PetscErrorCode      ierr;
@@ -303,8 +303,8 @@ PetscErrorCode PCCreate_DIRICHLET(PC pc)
   pc->ops->apply               = PCApply_DIRICHLET;
   pc->ops->applytranspose      = 0;
 
+  ierr = PetscObjectComposeFunction((PetscObject)pc,"PCApplyLocalWithPolling_C",PCApplyLocalWithPolling_DIRICHLET);CHKERRQ(ierr);
   ierr = PetscObjectComposeFunction((PetscObject)pc,"PCApplyLocal_C",PCApplyLocal_DIRICHLET);CHKERRQ(ierr);
-  ierr = PetscObjectComposeFunction((PetscObject)pc,"PCApplyLocalMultipleVecs_C",PCApplyLocalMultipleVecs_DIRICHLET);CHKERRQ(ierr);
   
   PetscFunctionReturn(0);
 }
