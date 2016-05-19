@@ -16,7 +16,8 @@
    Level: intermediate
 
 @*/
-PETSC_EXTERN PetscErrorCode KSPGetResidual(KSP ksp,Vec *res) {
+PETSC_EXTERN PetscErrorCode KSPGetResidual(KSP ksp,Vec *res)
+{
   PetscErrorCode ierr;
   
   PetscFunctionBegin;
@@ -38,7 +39,8 @@ PETSC_EXTERN PetscErrorCode KSPGetResidual(KSP ksp,Vec *res) {
    Level: intermediate
 
 @*/
-PETSC_EXTERN PetscErrorCode KSPSetComputeJacobian(KSP ksp,PetscBool flg) {
+PETSC_EXTERN PetscErrorCode KSPSetComputeJacobian(KSP ksp,PetscBool flg)
+{
   PetscErrorCode ierr;
   
   PetscFunctionBegin;
@@ -61,7 +63,8 @@ PETSC_EXTERN PetscErrorCode KSPSetComputeJacobian(KSP ksp,PetscBool flg) {
    Level: intermediate
 
 @*/
-PETSC_EXTERN PetscErrorCode KSPSetProjection(KSP ksp,PetscErrorCode (*project)(void*,Vec,Vec),void *ctx) {
+PETSC_EXTERN PetscErrorCode KSPSetProjection(KSP ksp,PetscErrorCode (*project)(void*,Vec,Vec),void *ctx)
+{
   KSP_PROJECTION *pj;
   PetscErrorCode ierr;
   
@@ -87,7 +90,8 @@ PETSC_EXTERN PetscErrorCode KSPSetProjection(KSP ksp,PetscErrorCode (*project)(v
    Level: intermediate
 
 @*/
-PETSC_EXTERN PetscErrorCode KSPSetReProjection(KSP ksp,PetscErrorCode (*reproject)(void*,Vec,Vec),void *ctx) {
+PETSC_EXTERN PetscErrorCode KSPSetReProjection(KSP ksp,PetscErrorCode (*reproject)(void*,Vec,Vec),void *ctx)
+{
   KSP_PROJECTION *pj;
   PetscErrorCode ierr;
   

@@ -11,6 +11,7 @@
 
 static PetscErrorCode MatMultBg_FETI2_GENEO(Mat,Vec,Vec);
 static PetscErrorCode MatDestroyBg_FETI2_GENEO(Mat);
+static PetscErrorCode EPSStoppingGeneo_Private(EPS,PetscInt,PetscInt,PetscInt,PetscInt,EPSConvergedReason*,void*);
 
 
 #undef __FUNCT__

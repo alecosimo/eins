@@ -18,7 +18,8 @@
    Level: developer
 
 @*/
-PETSC_EXTERN PetscErrorCode PCApplyLocal(PC pc,Vec x,Vec y,PetscInt *n2c) {
+PETSC_EXTERN PetscErrorCode PCApplyLocal(PC pc,Vec x,Vec y,PetscInt *n2c)
+{
   PetscErrorCode ierr;
   
   PetscFunctionBegin;
@@ -32,7 +33,8 @@ PETSC_EXTERN PetscErrorCode PCApplyLocal(PC pc,Vec x,Vec y,PetscInt *n2c) {
 
 #undef __FUNCT__
 #define __FUNCT__ "PCAllocateFETIWorkVecs_Private"
-PetscErrorCode PCAllocateFETIWorkVecs_Private(PC pc, FETI ft) {
+PetscErrorCode PCAllocateFETIWorkVecs_Private(PC pc, FETI ft)
+{
   PetscErrorCode ierr;
   PCFT_BASE      *pch = (PCFT_BASE*)pc->data;
   PetscInt       i,total;
@@ -63,7 +65,8 @@ PetscErrorCode PCAllocateFETIWorkVecs_Private(PC pc, FETI ft) {
 
 #undef __FUNCT__
 #define __FUNCT__ "PCDeAllocateFETIWorkVecs_Private"
-PetscErrorCode PCDeAllocateFETIWorkVecs_Private(PC pc) {
+PetscErrorCode PCDeAllocateFETIWorkVecs_Private(PC pc)
+{
   PetscErrorCode ierr;
   PCFT_BASE      *pch = (PCFT_BASE*)pc->data;
   PetscInt       i;
@@ -85,7 +88,8 @@ PetscErrorCode PCDeAllocateFETIWorkVecs_Private(PC pc) {
 
 #undef __FUNCT__
 #define __FUNCT__ "PCAllocateCommunication_Private"
-PetscErrorCode PCAllocateCommunication_Private(PC pc,PetscInt *n2c) {
+PetscErrorCode PCAllocateCommunication_Private(PC pc,PetscInt *n2c)
+{
   PetscErrorCode ierr;
   PCFT_BASE      *pch = (PCFT_BASE*)pc->data;
   PetscInt       i;
