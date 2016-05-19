@@ -38,9 +38,8 @@ typedef struct {
   /* Coarse problem stuff */
   PetscMPIInt  *displ;          /* Entry i specifies the displacement at which to place the incoming data from process i in gather operations */
                                          /* displ is relative to the global communicator*/
-  PetscInt     n_rbm;           /* local number of rigid body modes */
   PetscInt     total_rbm;       /* total number of rigid body modes */
-  PetscInt     max_n_rbm;       /* the maximum of the number of rbm from me and my neighbours */
+  PetscInt     max_n_cs;       /* the maximum of the number of rbm from me and my neighbours */
   Mat          localG;          /* local G matrix (current processor) */
   Mat          rbm;             /* matrix storing rigid body modes */ 
   Mat          *Gholder;        /* each entry is one neighbour's localG matrix. The order follows, the order of ft2->neighs_lb. */
@@ -82,7 +81,7 @@ typedef struct {
   PetscInt       n_sum_mats,*i2rank;
   Mat            local_rows_matrix; /* matrix storing the rows of the matrix of the coarse problem corresponding to the current processor */
   PetscInt       *c_coarse,*r_coarse,*c_count; /* used for storing rows and columns indices of the matrix of the coarse problem */
-  PetscInt       *n_rbm_comm; /* each entry i is the number of RBM of subdomain i */
+  PetscInt       *n_cs_comm; /* each entry i is the number of RBM of subdomain i */
   
 } FETI_2;
 

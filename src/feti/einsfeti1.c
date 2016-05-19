@@ -144,15 +144,15 @@ static PetscErrorCode FETISetUp_FETI1(FETI ft)
     ierr = VecCreateSeq(PETSC_COMM_SELF,ft1->total_rbm,&asm_e);CHKERRQ(ierr);
     ierr = VecScatterBegin(ft->l2g_lambda,g_global,ft->lambda_local,INSERT_VALUES,SCATTER_REVERSE);CHKERRQ(ierr);
     ierr = VecScatterEnd(ft->l2g_lambda,g_global,ft->lambda_local,INSERT_VALUES,SCATTER_REVERSE);CHKERRQ(ierr);
-    if (ft1->n_rbm) {
-      ierr = VecCreateSeq(PETSC_COMM_SELF,ft1->n_rbm,&localv);CHKERRQ(ierr);
+    if (ft->n_cs) {
+      ierr = VecCreateSeq(PETSC_COMM_SELF,ft->n_cs,&localv);CHKERRQ(ierr);
       ierr = MatMultTranspose(ft1->localG,ft->lambda_local,localv);CHKERRQ(ierr);   
       ierr = VecGetArrayRead(localv,&sbuff);CHKERRQ(ierr);
     }
     ierr = VecGetArray(asm_e,&rbuff);CHKERRQ(ierr); 
-    ierr = MPI_Allgatherv(sbuff,ft1->n_rbm,MPIU_SCALAR,rbuff,ft1->count_rbm,ft1->displ,MPIU_SCALAR,comm);CHKERRQ(ierr);
+    ierr = MPI_Allgatherv(sbuff,ft->n_cs,MPIU_SCALAR,rbuff,ft1->count_rbm,ft1->displ,MPIU_SCALAR,comm);CHKERRQ(ierr);
     ierr = VecRestoreArray(asm_e,&rbuff);CHKERRQ(ierr);
-    if (ft1->n_rbm) {
+    if (ft->n_cs) {
       ierr = VecRestoreArrayRead(localv,&sbuff);CHKERRQ(ierr);
       ierr = VecDestroy(&localv);CHKERRQ(ierr);
     }
@@ -251,9 +251,9 @@ PetscErrorCode FETICreate_FETI1(FETI ft)
   feti1->coarse_problem        = 0;
   feti1->F_coarse              = 0;
   feti1->destroy_coarse        = PETSC_FALSE;
-  feti1->n_rbm                 = 0;
+  ft->n_cs                     = 0;
   feti1->total_rbm             = 0;
-  feti1->max_n_rbm             = 0;
+  feti1->max_n_cs             = 0;
   feti1->displ                 = 0;
   feti1->count_rbm             = 0;
   feti1->displ_f               = 0;
@@ -673,10 +673,10 @@ static PetscErrorCode FETI1ComputeRhsE_Private(FETI ft)
   PetscFunctionBegin;
   ierr   = VecDestroy(&ft1->local_e);CHKERRQ(ierr);
   /* get number of rigid body modes */
-  ierr   = MatMumpsGetInfog(ft->F_neumann,28,&ft1->n_rbm);CHKERRQ(ierr);
-  if(ft1->n_rbm){
+  ierr   = MatMumpsGetInfog(ft->F_neumann,28,&ft->n_cs);CHKERRQ(ierr);
+  if(ft->n_cs){
     /* compute matrix local_e */
-    ierr = VecCreateSeq(PETSC_COMM_SELF,ft1->n_rbm,&ft1->local_e);CHKERRQ(ierr);
+    ierr = VecCreateSeq(PETSC_COMM_SELF,ft->n_cs,&ft1->local_e);CHKERRQ(ierr);
     ierr = MatMultTranspose(ft1->rbm,sd->localRHS,ft1->local_e);CHKERRQ(ierr);
   }
   PetscFunctionReturn(0);
@@ -703,10 +703,10 @@ static PetscErrorCode FETI1ComputeMatrixG_Private(FETI ft)
   PetscFunctionBegin;
   ierr   = MatDestroy(&ft1->localG);CHKERRQ(ierr);
   /* get number of rigid body modes */
-  ierr   = MatMumpsGetInfog(ft->F_neumann,28,&ft1->n_rbm);CHKERRQ(ierr);
-  if(ft1->n_rbm){
+  ierr   = MatMumpsGetInfog(ft->F_neumann,28,&ft->n_cs);CHKERRQ(ierr);
+  if(ft->n_cs){
     /* Compute rigid body modes */
-    ierr = MatCreateSeqDense(PETSC_COMM_SELF,sd->n,ft1->n_rbm,NULL,&ft1->rbm);CHKERRQ(ierr);
+    ierr = MatCreateSeqDense(PETSC_COMM_SELF,sd->n,ft->n_cs,NULL,&ft1->rbm);CHKERRQ(ierr);
     ierr = MatDuplicate(ft1->rbm,MAT_DO_NOT_COPY_VALUES,&x);CHKERRQ(ierr);
     ierr = MatAssemblyBegin(ft1->rbm,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
     ierr = MatAssemblyEnd(ft1->rbm,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
@@ -716,7 +716,7 @@ static PetscErrorCode FETI1ComputeMatrixG_Private(FETI ft)
 
     /* compute matrix localG */
     ierr = MatGetSubMatrix(ft1->rbm,sd->is_B_local,NULL,MAT_INITIAL_MATRIX,&x);CHKERRQ(ierr);
-    ierr = MatCreateSeqDense(PETSC_COMM_SELF,ft->n_lambda_local,ft1->n_rbm,NULL,&ft1->localG);CHKERRQ(ierr);
+    ierr = MatCreateSeqDense(PETSC_COMM_SELF,ft->n_lambda_local,ft->n_cs,NULL,&ft1->localG);CHKERRQ(ierr);
     ierr = MatMatMult(ft->B_delta,x,MAT_REUSE_MATRIX,PETSC_DEFAULT,&ft1->localG);CHKERRQ(ierr);    
   }
   PetscFunctionReturn(0);
@@ -817,7 +817,7 @@ static PetscErrorCode FETI1SetUpCoarseProblem_Private(FETI ft)
   PetscMPIInt    i_mpi,i_mpi1,sizeG,size,*c_displ,*c_count,n_recv,n_send,rankG;
   PetscInt       k,k0,*c_coarse,*r_coarse,total_c_coarse,*idxm=NULL,*idxn=NULL;
   /* nnz: array containing the number of block nonzeros in the upper triangular plus diagonal portion of each block*/
-  PetscInt       i,j,idx,*n_rbm_comm,*nnz,size_floating,total_size_matrices=0,localnnz=0;
+  PetscInt       i,j,idx,*n_cs_comm,*nnz,size_floating,total_size_matrices=0,localnnz=0;
   PetscScalar    *m_pointer=NULL,*m_pointer1=NULL,**array=NULL;
   MPI_Comm       comm;
   MPI_Request    *send_reqs=NULL,*recv_reqs=NULL;
@@ -834,25 +834,25 @@ static PetscErrorCode FETI1SetUpCoarseProblem_Private(FETI ft)
   ierr = MPI_Comm_rank(comm,&rankG);CHKERRQ(ierr);
   ierr = MPI_Comm_size(comm,&sizeG);CHKERRQ(ierr);
   
-  /* computing n_rbm_comm that is number of rbm per subdomain and the communicator of floating structures */
-  ierr = PetscMalloc1(sizeG,&n_rbm_comm);CHKERRQ(ierr);
-  ierr = MPI_Allgather(&ft1->n_rbm,1,MPIU_INT,n_rbm_comm,1,MPIU_INT,comm);CHKERRQ(ierr);
-  ierr = MPI_Comm_split(comm,(n_rbm_comm[rankG]>0),rankG,&ft1->floatingComm);CHKERRQ(ierr);
+  /* computing n_cs_comm that is number of rbm per subdomain and the communicator of floating structures */
+  ierr = PetscMalloc1(sizeG,&n_cs_comm);CHKERRQ(ierr);
+  ierr = MPI_Allgather(&ft->n_cs,1,MPIU_INT,n_cs_comm,1,MPIU_INT,comm);CHKERRQ(ierr);
+  ierr = MPI_Comm_split(comm,(n_cs_comm[rankG]>0),rankG,&ft1->floatingComm);CHKERRQ(ierr);
 
-  if (ft1->n_rbm){
+  if (ft->n_cs){
     /* creates alpha_local vector for holding local coefficients for vector with rigid body modes */
-    ierr = VecCreateSeq(PETSC_COMM_SELF,ft1->n_rbm,&ft1->alpha_local);CHKERRQ(ierr);
+    ierr = VecCreateSeq(PETSC_COMM_SELF,ft->n_cs,&ft1->alpha_local);CHKERRQ(ierr);
     /* compute size and rank to the new communicator */
     ierr = MPI_Comm_size(ft1->floatingComm,&size);CHKERRQ(ierr);
     /* computing displ_f and count_f_rbm */
     ierr                 = PetscMalloc1(size,&ft1->displ_f);CHKERRQ(ierr);
     ierr                 = PetscMalloc1(size,&ft1->count_f_rbm);CHKERRQ(ierr);
     ft1->displ_f[0]      = 0;
-    ft1->count_f_rbm[0]  = n_rbm_comm[0];
-    k                    = (n_rbm_comm[0]>0);
+    ft1->count_f_rbm[0]  = n_cs_comm[0];
+    k                    = (n_cs_comm[0]>0);
     for (i=1;i<sizeG;i++){
-      if(n_rbm_comm[i]) {
-	ft1->count_f_rbm[k] = n_rbm_comm[i];
+      if(n_cs_comm[i]) {
+	ft1->count_f_rbm[k] = n_cs_comm[i];
 	ft1->displ_f[k]     = ft1->displ_f[k-1] + ft1->count_f_rbm[k-1];
 	k++;
       }
@@ -863,35 +863,35 @@ static PetscErrorCode FETI1SetUpCoarseProblem_Private(FETI ft)
   ierr               = PetscMalloc1(sizeG,&ft1->displ);CHKERRQ(ierr);
   ierr               = PetscMalloc1(sizeG,&ft1->count_rbm);CHKERRQ(ierr);
   ft1->displ[0]      = 0;
-  ft1->count_rbm[0]  = n_rbm_comm[0];
-  ft1->total_rbm     = n_rbm_comm[0];
-  size_floating      = (n_rbm_comm[0]>0);
+  ft1->count_rbm[0]  = n_cs_comm[0];
+  ft1->total_rbm     = n_cs_comm[0];
+  size_floating      = (n_cs_comm[0]>0);
   for (i=1;i<sizeG;i++){
-    ft1->total_rbm    += n_rbm_comm[i];
-    size_floating     += (n_rbm_comm[i]>0);
-    ft1->count_rbm[i]  = n_rbm_comm[i];
+    ft1->total_rbm    += n_cs_comm[i];
+    size_floating     += (n_cs_comm[i]>0);
+    ft1->count_rbm[i]  = n_cs_comm[i];
     ft1->displ[i]      = ft1->displ[i-1] + ft1->count_rbm[i-1];
   }
 
   /* localnnz: nonzeros for my row of the coarse probem */
-  localnnz            = ft1->n_rbm;
+  localnnz            = ft->n_cs;
   total_size_matrices = 0;
-  ft1->max_n_rbm      = ft1->n_rbm;
-  n_send              = (ft->n_neigh_lb-1)*(ft1->n_rbm>0);
+  ft1->max_n_cs      = ft->n_cs;
+  n_send              = (ft->n_neigh_lb-1)*(ft->n_cs>0);
   n_recv              = 0;
-  if(ft1->n_rbm) {
+  if(ft->n_cs) {
     for (i=1;i<ft->n_neigh_lb;i++){
-      i_mpi                = n_rbm_comm[ft->neigh_lb[i]];
+      i_mpi                = n_cs_comm[ft->neigh_lb[i]];
       n_recv              += (i_mpi>0);
-      ft1->max_n_rbm       = (ft1->max_n_rbm > i_mpi) ? ft1->max_n_rbm : i_mpi;
+      ft1->max_n_cs       = (ft1->max_n_cs > i_mpi) ? ft1->max_n_cs : i_mpi;
       total_size_matrices += i_mpi*ft->n_shared_lb[i];
       localnnz            += i_mpi*(ft->neigh_lb[i]>rankG);
     }
   } else {
     for (i=1;i<ft->n_neigh_lb;i++){
-      i_mpi                = n_rbm_comm[ft->neigh_lb[i]];
+      i_mpi                = n_cs_comm[ft->neigh_lb[i]];
       n_recv              += (i_mpi>0);
-      ft1->max_n_rbm       = (ft1->max_n_rbm > i_mpi) ? ft1->max_n_rbm : i_mpi;
+      ft1->max_n_cs       = (ft1->max_n_cs > i_mpi) ? ft1->max_n_cs : i_mpi;
       total_size_matrices += i_mpi*ft->n_shared_lb[i];
     }
   }
@@ -900,13 +900,13 @@ static PetscErrorCode FETI1SetUpCoarseProblem_Private(FETI ft)
   ierr = PetscMalloc1(size_floating,&idxm);CHKERRQ(ierr);
   ierr = PetscMalloc1(sizeG,&c_displ);CHKERRQ(ierr);
   ierr = PetscMalloc1(sizeG,&c_count);CHKERRQ(ierr);
-  c_count[0]     = (n_rbm_comm[0]>0);
+  c_count[0]     = (n_cs_comm[0]>0);
   c_displ[0]     = 0;
   for (i=1;i<sizeG;i++) {
     c_displ[i] = c_displ[i-1] + c_count[i-1];
-    c_count[i] = (n_rbm_comm[i]>0);
+    c_count[i] = (n_cs_comm[i]>0);
   }
-  ierr = MPI_Allgatherv(&localnnz,(n_rbm_comm[rankG]>0),MPIU_INT,idxm,c_count,c_displ,MPIU_INT,comm);CHKERRQ(ierr);
+  ierr = MPI_Allgatherv(&localnnz,(n_cs_comm[rankG]>0),MPIU_INT,idxm,c_count,c_displ,MPIU_INT,comm);CHKERRQ(ierr);
   for (k0=0,k=0,i=0;i<sizeG;i++) {
     for(j=0;j<ft1->count_rbm[i];j++) nnz[k++] = idxm[k0];
     k0 += (ft1->count_rbm[i]>0);
@@ -933,7 +933,7 @@ static PetscErrorCode FETI1SetUpCoarseProblem_Private(FETI ft)
       ierr = MatGetSubMatrix(ft1->localG,isindex,NULL,MAT_INITIAL_MATRIX,&submat[j]);CHKERRQ(ierr);
       ierr = MatDenseGetArray(submat[j],&array[j]);CHKERRQ(ierr);   
       ierr = PetscMPIIntCast(ft->neigh_lb[i],&i_mpi);CHKERRQ(ierr);   
-      ierr = MPI_Isend(array[j],ft1->n_rbm*ft->n_shared_lb[i],MPIU_SCALAR,i_mpi,0,comm,&send_reqs[j]);CHKERRQ(ierr);
+      ierr = MPI_Isend(array[j],ft->n_cs*ft->n_shared_lb[i],MPIU_SCALAR,i_mpi,0,comm,&send_reqs[j]);CHKERRQ(ierr);
       ierr = ISDestroy(&isindex);CHKERRQ(ierr);
       j++;
     }
@@ -942,10 +942,10 @@ static PetscErrorCode FETI1SetUpCoarseProblem_Private(FETI ft)
     ierr = PetscMalloc1(total_size_matrices,&ft1->matrices);CHKERRQ(ierr);
     ierr = PetscMalloc1(n_recv,&recv_reqs);CHKERRQ(ierr);
     for (j=0,idx=0,i=1; i<ft->n_neigh_lb; i++){
-      if (n_rbm_comm[ft->neigh_lb[i]]>0) {
+      if (n_cs_comm[ft->neigh_lb[i]]>0) {
 	ierr = PetscMPIIntCast(ft->neigh_lb[i],&i_mpi);CHKERRQ(ierr);
-	ierr = MPI_Irecv(&ft1->matrices[idx],n_rbm_comm[ft->neigh_lb[i]]*ft->n_shared_lb[i],MPIU_SCALAR,i_mpi,0,comm,&recv_reqs[j]);CHKERRQ(ierr);    
-	idx += n_rbm_comm[ft->neigh_lb[i]]*ft->n_shared_lb[i]; 
+	ierr = MPI_Irecv(&ft1->matrices[idx],n_cs_comm[ft->neigh_lb[i]]*ft->n_shared_lb[i],MPIU_SCALAR,i_mpi,0,comm,&recv_reqs[j]);CHKERRQ(ierr);    
+	idx += n_cs_comm[ft->neigh_lb[i]]*ft->n_shared_lb[i]; 
 	j++;
       }	  
     }
@@ -971,57 +971,57 @@ static PetscErrorCode FETI1SetUpCoarseProblem_Private(FETI ft)
       ft1->neigh_holder[i] = ft1->neigh_holder[i-1] + 2;
     }
     for (i=0,idx=0,k=1; k<ft->n_neigh_lb; k++){
-      if (n_rbm_comm[ft->neigh_lb[k]]>0) {
+      if (n_cs_comm[ft->neigh_lb[k]]>0) {
 	ft1->neigh_holder[i][0] = ft->neigh_lb[k];
 	ft1->neigh_holder[i][1] = k;
-	ierr  = MatCreateSeqDense(PETSC_COMM_SELF,ft->n_shared_lb[k],n_rbm_comm[ft->neigh_lb[k]],&ft1->matrices[idx],&ft1->Gholder[i++]);CHKERRQ(ierr);
-	idx  += n_rbm_comm[ft->neigh_lb[k]]*ft->n_shared_lb[k];
+	ierr  = MatCreateSeqDense(PETSC_COMM_SELF,ft->n_shared_lb[k],n_cs_comm[ft->neigh_lb[k]],&ft1->matrices[idx],&ft1->Gholder[i++]);CHKERRQ(ierr);
+	idx  += n_cs_comm[ft->neigh_lb[k]]*ft->n_shared_lb[k];
       }
     }
   }
   
   /** perfoming the actual multiplication G_{rankG}^T*G_{neigh_rankG>=rankG} */   
-  if (ft1->n_rbm) {
+  if (ft->n_cs) {
     ierr = PetscMalloc1(ft->n_lambda_local,&idxm);CHKERRQ(ierr);
-    ierr = PetscMalloc1(ft1->max_n_rbm,&idxn);CHKERRQ(ierr);
+    ierr = PetscMalloc1(ft1->max_n_cs,&idxn);CHKERRQ(ierr);
     for (i=0;i<ft->n_lambda_local;i++) idxm[i] = i;
-    for (i=0;i<ft1->n_rbm;i++) idxn[i] = i;
+    for (i=0;i<ft->n_cs;i++) idxn[i] = i;
     ierr = MatCreateSeqDense(PETSC_COMM_SELF,ft->n_lambda_local,localnnz,NULL,&aux_mat);CHKERRQ(ierr);
     ierr = MatZeroEntries(aux_mat);CHKERRQ(ierr);
     ierr = MatSetOption(aux_mat,MAT_ROW_ORIENTED,PETSC_FALSE);CHKERRQ(ierr);
     ierr = MatDenseGetArray(ft1->localG,&m_pointer);CHKERRQ(ierr);
-    ierr = MatSetValuesBlocked(aux_mat,ft->n_lambda_local,idxm,ft1->n_rbm,idxn,m_pointer,INSERT_VALUES);CHKERRQ(ierr);
+    ierr = MatSetValuesBlocked(aux_mat,ft->n_lambda_local,idxm,ft->n_cs,idxn,m_pointer,INSERT_VALUES);CHKERRQ(ierr);
     ierr = MatDenseRestoreArray(ft1->localG,&m_pointer);CHKERRQ(ierr);
 
     for (k=0; k<ft1->n_Gholder; k++){
       j   = ft1->neigh_holder[k][0];
       idx = ft1->neigh_holder[k][1];
       if (j>rankG) {
-	for (k0=0;k0<n_rbm_comm[j];k0++) idxn[k0] = i++;
+	for (k0=0;k0<n_cs_comm[j];k0++) idxn[k0] = i++;
 	ierr = MatDenseGetArray(ft1->Gholder[k],&m_pointer);CHKERRQ(ierr);
-	ierr = MatSetValuesBlocked(aux_mat,ft->n_shared_lb[idx],ft->shared_lb[idx],n_rbm_comm[j],idxn,m_pointer,INSERT_VALUES);CHKERRQ(ierr);
+	ierr = MatSetValuesBlocked(aux_mat,ft->n_shared_lb[idx],ft->shared_lb[idx],n_cs_comm[j],idxn,m_pointer,INSERT_VALUES);CHKERRQ(ierr);
 	ierr = MatDenseRestoreArray(ft1->Gholder[k],&m_pointer);CHKERRQ(ierr);	
       }
     }
     ierr = MatAssemblyBegin(aux_mat,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
     ierr = MatAssemblyEnd(aux_mat,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
 
-    ierr = MatCreateSeqDense(PETSC_COMM_SELF,ft1->n_rbm,localnnz,NULL,&result);CHKERRQ(ierr);
+    ierr = MatCreateSeqDense(PETSC_COMM_SELF,ft->n_cs,localnnz,NULL,&result);CHKERRQ(ierr);
     ierr = MatTransposeMatMult(ft1->localG,aux_mat,MAT_REUSE_MATRIX,PETSC_DEFAULT,&result);CHKERRQ(ierr);
     ierr = MatDestroy(&aux_mat);CHKERRQ(ierr);
     ierr = PetscFree(idxm);CHKERRQ(ierr);
     ierr = PetscFree(idxn);CHKERRQ(ierr);
     
     /* building structures for assembling the "global matrix" of the coarse problem */
-    ierr   = PetscMalloc1(ft1->n_rbm,&idxm);CHKERRQ(ierr);
+    ierr   = PetscMalloc1(ft->n_cs,&idxm);CHKERRQ(ierr);
     ierr   = PetscMalloc1(localnnz,&idxn);CHKERRQ(ierr);
     /** row indices */
     idx = ft1->displ[rankG];
-    for (i=0; i<ft1->n_rbm; i++) idxm[i] = i + idx;
+    for (i=0; i<ft->n_cs; i++) idxm[i] = i + idx;
     /** col indices */
-    for (i=0; i<ft1->n_rbm; i++) idxn[i] = i + idx;
+    for (i=0; i<ft->n_cs; i++) idxn[i] = i + idx;
     for (j=1; j<ft->n_neigh_lb; j++) {
-      k0  = n_rbm_comm[ft->neigh_lb[j]];
+      k0  = n_cs_comm[ft->neigh_lb[j]];
       if ((ft->neigh_lb[j]>rankG)&&(k0>0)) {
 	idx = ft1->displ[ft->neigh_lb[j]];
 	for (k=0;k<k0;k++, i++) idxn[i] = k + idx;
@@ -1033,40 +1033,40 @@ static PetscErrorCode FETI1SetUpCoarseProblem_Private(FETI ft)
   
   /* assemble matrix */
   ierr           = PetscMalloc1(ft1->total_rbm,&r_coarse);CHKERRQ(ierr);
-  total_c_coarse = nnz[0]*(n_rbm_comm[0]>0);
-  c_count[0]     = nnz[0]*(n_rbm_comm[0]>0);
+  total_c_coarse = nnz[0]*(n_cs_comm[0]>0);
+  c_count[0]     = nnz[0]*(n_cs_comm[0]>0);
   c_displ[0]     = 0;
-  idx            = n_rbm_comm[0];
+  idx            = n_cs_comm[0];
   for (i=1;i<sizeG;i++) {
-    total_c_coarse += nnz[idx]*(n_rbm_comm[i]>0);
+    total_c_coarse += nnz[idx]*(n_cs_comm[i]>0);
     c_displ[i]      = c_displ[i-1] + c_count[i-1];
-    c_count[i]      = nnz[idx]*(n_rbm_comm[i]>0);
-    idx            += n_rbm_comm[i];
+    c_count[i]      = nnz[idx]*(n_cs_comm[i]>0);
+    idx            += n_cs_comm[i];
   }
   ierr = PetscMalloc1(total_c_coarse,&c_coarse);CHKERRQ(ierr);
   /* gather rows and columns*/
-  ierr = MPI_Allgatherv(idxm,ft1->n_rbm,MPIU_INT,r_coarse,ft1->count_rbm,ft1->displ,MPIU_INT,comm);CHKERRQ(ierr);
+  ierr = MPI_Allgatherv(idxm,ft->n_cs,MPIU_INT,r_coarse,ft1->count_rbm,ft1->displ,MPIU_INT,comm);CHKERRQ(ierr);
   ierr = MPI_Allgatherv(idxn,localnnz,MPIU_INT,c_coarse,c_count,c_displ,MPIU_INT,comm);CHKERRQ(ierr);
 
   /* gather values for the coarse problem's matrix and assemble it */
   ierr = MatZeroEntries(ft1->coarse_problem);CHKERRQ(ierr);
   for (k=0,k0=0,i=0; i<sizeG; i++) {
-    if(n_rbm_comm[i]>0){
-      ierr = PetscMPIIntCast(n_rbm_comm[i]*c_count[i],&i_mpi);CHKERRQ(ierr);
+    if(n_cs_comm[i]>0){
+      ierr = PetscMPIIntCast(n_cs_comm[i]*c_count[i],&i_mpi);CHKERRQ(ierr);
       ierr = PetscMPIIntCast(i,&i_mpi1);CHKERRQ(ierr);
       if(i==rankG) {
 	ierr = MPI_Bcast(m_pointer,i_mpi,MPIU_SCALAR,i_mpi1,comm);CHKERRQ(ierr);
-	ierr = MatSetValuesBlocked(ft1->coarse_problem,n_rbm_comm[i],&r_coarse[k],c_count[i],&c_coarse[k0],m_pointer,INSERT_VALUES);CHKERRQ(ierr);
+	ierr = MatSetValuesBlocked(ft1->coarse_problem,n_cs_comm[i],&r_coarse[k],c_count[i],&c_coarse[k0],m_pointer,INSERT_VALUES);CHKERRQ(ierr);
 	ierr = MatDenseRestoreArray(result,&m_pointer);CHKERRQ(ierr);
 	ierr = MatDestroy(&result);CHKERRQ(ierr);
       } else {
 	ierr = PetscMalloc1(i_mpi,&m_pointer1);CHKERRQ(ierr);	  
 	ierr = MPI_Bcast(m_pointer1,i_mpi,MPIU_SCALAR,i_mpi1,comm);CHKERRQ(ierr);
-	ierr = MatSetValuesBlocked(ft1->coarse_problem,n_rbm_comm[i],&r_coarse[k],c_count[i],&c_coarse[k0],m_pointer1,INSERT_VALUES);CHKERRQ(ierr);
+	ierr = MatSetValuesBlocked(ft1->coarse_problem,n_cs_comm[i],&r_coarse[k],c_count[i],&c_coarse[k0],m_pointer1,INSERT_VALUES);CHKERRQ(ierr);
 	ierr = PetscFree(m_pointer1);CHKERRQ(ierr);
       }
       k0 += c_count[i];
-      k  += n_rbm_comm[i];
+      k  += n_cs_comm[i];
     }
   }
   ierr = MatAssemblyBegin(ft1->coarse_problem,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
@@ -1081,7 +1081,7 @@ static PetscErrorCode FETI1SetUpCoarseProblem_Private(FETI ft)
   ierr = PetscFree(c_displ);CHKERRQ(ierr);
   ierr = PetscFree(send_reqs);CHKERRQ(ierr);
   ierr = PetscFree(recv_reqs);CHKERRQ(ierr);
-  ierr = PetscFree(n_rbm_comm);CHKERRQ(ierr);
+  ierr = PetscFree(n_cs_comm);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 
@@ -1158,7 +1158,7 @@ static PetscErrorCode FETI1ApplyCoarseProblem_Private(FETI ft,Vec v,Vec r)
   PetscErrorCode     ierr;
   FETI_1             *ft1 = (FETI_1*)ft->data;
   Vec                v_rbm; /* vec of dimension total_rbm */
-  Vec                v0;    /* vec of dimension n_rbm */
+  Vec                v0;    /* vec of dimension n_cs */
   Vec                r_local,vec_holder;
   IS                 subset;
   PetscMPIInt        rank;
@@ -1180,11 +1180,11 @@ static PetscErrorCode FETI1ApplyCoarseProblem_Private(FETI ft,Vec v,Vec r)
 
   /* apply G: compute r = G*v_rbm */
   ierr = VecUnAsmGetLocalVector(r,&r_local);CHKERRQ(ierr);
-  ierr = PetscMalloc1(ft1->max_n_rbm,&indices);CHKERRQ(ierr);
+  ierr = PetscMalloc1(ft1->max_n_cs,&indices);CHKERRQ(ierr);
   /** mulplying by localG for the current processor */
-  if(ft1->n_rbm) {
-    for (i=0;i<ft1->n_rbm;i++) indices[i] = ft1->displ[rank] + i;
-    ierr = ISCreateGeneral(PETSC_COMM_SELF,ft1->n_rbm,indices,PETSC_USE_POINTER,&subset);CHKERRQ(ierr);
+  if(ft->n_cs) {
+    for (i=0;i<ft->n_cs;i++) indices[i] = ft1->displ[rank] + i;
+    ierr = ISCreateGeneral(PETSC_COMM_SELF,ft->n_cs,indices,PETSC_USE_POINTER,&subset);CHKERRQ(ierr);
     ierr = VecGetSubVector(v_rbm,subset,&v0);CHKERRQ(ierr);
     ierr = MatMult(ft1->localG,v0,r_local);CHKERRQ(ierr);
     ierr = VecRestoreSubVector(v_rbm,subset,&v0);CHKERRQ(ierr);
@@ -1246,13 +1246,13 @@ static PetscErrorCode FETI1ComputeInitialCondition_Private(FETI ft)
   PetscFunctionBegin;
   ierr = PetscObjectGetComm((PetscObject)ft,&comm);CHKERRQ(ierr);
   ierr = VecCreateSeq(PETSC_COMM_SELF,ft1->total_rbm,&asm_e);CHKERRQ(ierr);
-  if (ft1->n_rbm) { ierr = VecGetArrayRead(ft1->local_e,&sbuff);CHKERRQ(ierr);}
+  if (ft->n_cs) { ierr = VecGetArrayRead(ft1->local_e,&sbuff);CHKERRQ(ierr);}
   ierr = VecGetArray(asm_e,&rbuff);CHKERRQ(ierr);
-  ierr = MPI_Allgatherv(sbuff,ft1->n_rbm,MPIU_SCALAR,rbuff,ft1->count_rbm,ft1->displ,MPIU_SCALAR,comm);CHKERRQ(ierr);
+  ierr = MPI_Allgatherv(sbuff,ft->n_cs,MPIU_SCALAR,rbuff,ft1->count_rbm,ft1->displ,MPIU_SCALAR,comm);CHKERRQ(ierr);
   ierr = VecRestoreArray(asm_e,&rbuff);CHKERRQ(ierr);
-  if (ft1->n_rbm) { ierr = VecRestoreArrayRead(ft1->local_e,&sbuff);CHKERRQ(ierr);}
+  if (ft->n_cs) { ierr = VecRestoreArrayRead(ft1->local_e,&sbuff);CHKERRQ(ierr);}
   ierr = FETI1ApplyCoarseProblem_Private(ft,asm_e,ft->lambda_global);CHKERRQ(ierr);
-  if (ft1->n_rbm) { ierr = VecDestroy(&ft1->local_e);CHKERRQ(ierr);}
+  if (ft->n_cs) { ierr = VecDestroy(&ft1->local_e);CHKERRQ(ierr);}
   ierr = VecDestroy(&asm_e);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
@@ -1294,16 +1294,16 @@ PetscErrorCode FETI1Project_RBM(void* ft_ctx, Vec g_global, Vec y)
   if (y == g_global) SETERRQ(comm,PETSC_ERR_ARG_INCOMP,"Cannot use g_global == y");
   ierr = VecUnAsmGetLocalVectorRead(g_global,&lambda_local);CHKERRQ(ierr);
   ierr = VecCreateSeq(PETSC_COMM_SELF,ft1->total_rbm,&asm_e);CHKERRQ(ierr);
-  if (ft1->n_rbm) {
-    ierr = VecCreateSeq(PETSC_COMM_SELF,ft1->n_rbm,&localv);CHKERRQ(ierr);
+  if (ft->n_cs) {
+    ierr = VecCreateSeq(PETSC_COMM_SELF,ft->n_cs,&localv);CHKERRQ(ierr);
     ierr = MatMultTranspose(ft1->localG,lambda_local,localv);CHKERRQ(ierr);   
     ierr = VecGetArrayRead(localv,&sbuff);CHKERRQ(ierr);
   }
   ierr = VecUnAsmRestoreLocalVectorRead(g_global,lambda_local);CHKERRQ(ierr);
   ierr = VecGetArray(asm_e,&rbuff);CHKERRQ(ierr); 
-  ierr = MPI_Allgatherv(sbuff,ft1->n_rbm,MPIU_SCALAR,rbuff,ft1->count_rbm,ft1->displ,MPIU_SCALAR,comm);CHKERRQ(ierr);
+  ierr = MPI_Allgatherv(sbuff,ft->n_cs,MPIU_SCALAR,rbuff,ft1->count_rbm,ft1->displ,MPIU_SCALAR,comm);CHKERRQ(ierr);
   ierr = VecRestoreArray(asm_e,&rbuff);CHKERRQ(ierr);
-  if (ft1->n_rbm) {
+  if (ft->n_cs) {
     ierr = VecRestoreArrayRead(localv,&sbuff);CHKERRQ(ierr);
     ierr = VecDestroy(&localv);CHKERRQ(ierr);
   }
@@ -1356,7 +1356,7 @@ static PetscErrorCode FETISolve_FETI1(FETI ft, Vec u){
   /* Application of the already factorized pseudo-inverse */
   ierr = MatMumpsSetIcntl(ft->F_neumann,25,0);CHKERRQ(ierr);
   ierr = MatSolve(ft->F_neumann,sd->vec1_N,u);CHKERRQ(ierr);
-  if (ft1->n_rbm) {
+  if (ft->n_cs) {
     /* computing R*alpha */
     ierr = MatMult(ft1->rbm,ft1->alpha_local,sd->vec1_N);CHKERRQ(ierr);
     /* computing u = A^+*(f - B_delta^T*lambda) + R*alpha */
@@ -1390,14 +1390,14 @@ static PetscErrorCode FETI1ComputeAlpha_Private(FETI ft)
   
   PetscFunctionBegin;
   ierr = VecUnAsmGetLocalVectorRead(ft1->res_interface,&lambda_local);CHKERRQ(ierr);
-  if (!ft1->n_rbm)  PetscFunctionReturn(0);
+  if (!ft->n_cs)  PetscFunctionReturn(0);
   ierr = MPI_Comm_rank(ft1->floatingComm,&rank);CHKERRQ(ierr);
   ierr = VecCreateSeq(PETSC_COMM_SELF,ft1->total_rbm,&alpha_g);CHKERRQ(ierr);
   ierr = VecCreateSeq(PETSC_COMM_SELF,ft1->total_rbm,&asm_g);CHKERRQ(ierr);  
   ierr = MatMultTranspose(ft1->localG,lambda_local,ft1->alpha_local);CHKERRQ(ierr);   
   ierr = VecGetArrayRead(ft1->alpha_local,&sbuff);CHKERRQ(ierr);
   ierr = VecGetArray(asm_g,&rbuff);CHKERRQ(ierr);
-  ierr = MPI_Allgatherv(sbuff,ft1->n_rbm,MPIU_SCALAR,rbuff,ft1->count_f_rbm,ft1->displ_f,MPIU_SCALAR,ft1->floatingComm);CHKERRQ(ierr);
+  ierr = MPI_Allgatherv(sbuff,ft->n_cs,MPIU_SCALAR,rbuff,ft1->count_f_rbm,ft1->displ_f,MPIU_SCALAR,ft1->floatingComm);CHKERRQ(ierr);
   ierr = VecRestoreArray(asm_g,&rbuff);CHKERRQ(ierr);
   ierr = VecRestoreArrayRead(ft1->alpha_local,&sbuff);CHKERRQ(ierr);
   ierr = VecUnAsmRestoreLocalVectorRead(ft1->res_interface,lambda_local);CHKERRQ(ierr);

@@ -68,9 +68,9 @@ PetscErrorCode FETI2ComputeMatrixG_GENEO(FETI ft)
   }
   ierr = VecDestroy(&vec);CHKERRQ(ierr);
 
-  ft2->n_rbm = nev;
+  ft->n_cs = nev;
   ierr = MatDestroy(&ft2->localG);CHKERRQ(ierr);
-  ierr = MatCreateSeqDense(PETSC_COMM_SELF,ft->n_lambda_local,ft2->n_rbm,NULL,&ft2->localG);CHKERRQ(ierr);
+  ierr = MatCreateSeqDense(PETSC_COMM_SELF,ft->n_lambda_local,ft->n_cs,NULL,&ft2->localG);CHKERRQ(ierr);
   ierr = MatSetOption(ft2->localG,MAT_ROW_ORIENTED,PETSC_FALSE);CHKERRQ(ierr);
   ierr = PCApplyLocalMult(gn->pc,gn->Vexpanded,ft2->localG);CHKERRQ(ierr);
     

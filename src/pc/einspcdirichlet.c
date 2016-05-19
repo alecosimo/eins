@@ -121,25 +121,39 @@ static PetscErrorCode PCApply_DIRICHLET(PC pc,Vec x,Vec y)
 #define __FUNCT__ "PCApplyLocalMult_DIRICHLET"
 static PetscErrorCode PCApplyLocalMult_DIRICHLET(PC pc,Mat X,Mat Y)
 {
-  PCFT_DIRICHLET   *pcd = (PCFT_DIRICHLET*)pc->data;
-  PetscErrorCode   ierr;
-  FETI             ft   = pcd->ft;
-  Subdomain        sd   = ft->subdomain;
-  Vec              lambda_local,y_local;
   
   PetscFunctionBegin;
-  ierr = VecUnAsmGetLocalVectorRead(x,&lambda_local);CHKERRQ(ierr);
-  ierr = VecUnAsmGetLocalVector(y,&y_local);CHKERRQ(ierr);
-  /* Application of B_Ddelta^T */
-  ierr = MatMultTranspose(ft->B_Ddelta,lambda_local,sd->vec1_B);CHKERRQ(ierr);
-  /* Application of local Schur complement */
-  ierr = MatMult(pcd->Sj,sd->vec1_B,sd->vec2_B);CHKERRQ(ierr);
-  /* Application of B_Ddelta */
-  ierr = MatMult(ft->B_Ddelta,sd->vec2_B,y_local);CHKERRQ(ierr);
-  ierr = VecExchangeBegin(ft->exchange_lambda,y,ADD_VALUES);CHKERRQ(ierr);
-  ierr = VecExchangeEnd(ft->exchange_lambda,y,ADD_VALUES);CHKERRQ(ierr);
-  ierr = VecUnAsmRestoreLocalVectorRead(x,lambda_local);CHKERRQ(ierr);
-  ierr = VecUnAsmRestoreLocalVector(y,y_local);CHKERRQ(ierr);
+
+  /* ierr = MatDenseGetArray(Gexpanded,&pointer_vec2);CHKERRQ(ierr); */
+  /* ierr = MatDenseGetArray(X,&pointer_vec1);CHKERRQ(ierr); */
+  /* ierr = VecCreateSeqWithArray(PETSC_COMM_SELF,1,ft->n_lambda_local,NULL,&vec2);CHKERRQ(ierr); */
+  /* ierr = VecCreateSeqWithArray(PETSC_COMM_SELF,1,sd->n,NULL,&vec1);CHKERRQ(ierr); */
+  /* for (j=0;j<n_rbm;j++) { */
+  /*   ierr = VecPlaceArray(vec2,(const PetscScalar*)(pointer_vec2+ft->n_lambda_local*j));CHKERRQ(ierr); */
+  /*   ierr = VecPlaceArray(vec1,(const PetscScalar*)(pointer_vec1+sd->n*j));CHKERRQ(ierr); */
+  /*   ierr = MatMultTranspose(ft->B_delta,vec2,sd->vec1_B);CHKERRQ(ierr); */
+  /*   ierr = VecSet(vec1,0);CHKERRQ(ierr); */
+  /*   ierr = VecScatterBegin(sd->N_to_B,sd->vec1_B,vec1,INSERT_VALUES,SCATTER_REVERSE);CHKERRQ(ierr); */
+  /*   ierr = VecScatterEnd(sd->N_to_B,sd->vec1_B,vec1,INSERT_VALUES,SCATTER_REVERSE);CHKERRQ(ierr); */
+  /*   ierr = VecResetArray(vec2);CHKERRQ(ierr); */
+  /*   ierr = VecResetArray(vec1);CHKERRQ(ierr); */
+  /* }    */
+  /* ierr = MatDenseRestoreArray(Gexpanded,&pointer_vec2);CHKERRQ(ierr); */
+  /* ierr = MatDenseRestoreArray(RHS,&pointer_vec1);CHKERRQ(ierr); */
+  /* ierr = VecDestroy(&vec2);CHKERRQ(ierr); */
+  /* ierr = VecDestroy(&vec1);CHKERRQ(ierr); */
+
+  /* /\**** solve system Kt*X = RHS *\/ */
+  /* ierr = MatMatSolve(ft->F_neumann,RHS,X);CHKERRQ(ierr); */
+
+  /* /\****  compute B*X *\/ */
+  /* ierr = MatGetSubMatrix(X,sd->is_B_local,NULL,MAT_INITIAL_MATRIX,&x);CHKERRQ(ierr); */
+  /* ierr = MatMatMult(ft->B_delta,x,MAT_REUSE_MATRIX,PETSC_DEFAULT,&ft2->FGholder[i]);CHKERRQ(ierr); */
+  /* ierr = MatDestroy(&x);CHKERRQ(ierr); */
+  /* ierr = MatDestroy(&RHS);CHKERRQ(ierr); */
+  /* ierr = MatDestroy(&X);CHKERRQ(ierr); */
+
+
   PetscFunctionReturn(0);
 }
 

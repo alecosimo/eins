@@ -67,6 +67,7 @@ struct _p_FETI {
   PetscInt         setfromoptionscalled;
   void             *data;
   PetscBool        factor_local_problem,resetup_pc_interface;
+  PetscInt         n_cs;           /* local number of vector for the Coarse Space */
 };
 
 PETSC_EXTERN PetscLogEvent FETI_SetUp;
