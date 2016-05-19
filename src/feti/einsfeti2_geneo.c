@@ -43,7 +43,7 @@ PetscErrorCode FETI2ComputeMatrixG_GENEO(FETI ft)
     if(!rank) {
       PetscPrintf(PETSC_COMM_SELF,"\n lambda: %g\n",kr);
     }
-    VecView(gn->vec1,PETSC_VIEWER_STDOUT_WORLD);
+    /* VecView(gn->vec1,PETSC_VIEWER_STDOUT_WORLD);*/
 
   }
   PetscFunctionReturn(0);
@@ -123,9 +123,9 @@ PetscErrorCode FETICreate_FETI2_GENEO(FETI ft)
   ierr = EPSCreate(PETSC_COMM_SELF,&gn->eps);CHKERRQ(ierr);
   ierr = EPSSetOperators(gn->eps,gn->Bg,NULL);CHKERRQ(ierr);
   ierr = EPSSetProblemType(gn->eps,EPS_HEP);CHKERRQ(ierr); /* hermitanian problem */
-  ierr = EPSSetType(gn->eps,EPSKRYLOVSCHUR);CHKERRQ(ierr); /* LANCZOS */
+  ierr = EPSSetType(gn->eps,EPSKRYLOVSCHUR);CHKERRQ(ierr); /* KRYLOVSCHUR */
   ierr = EPSSetWhichEigenpairs(gn->eps,EPS_LARGEST_REAL);CHKERRQ(ierr);
-  ierr = EPSSetDimensions(gn->eps,3,PETSC_DEFAULT,PETSC_DEFAULT);CHKERRQ(ierr); /* -eps_nev <nev> - Sets the number of eigenvalues */
+  ierr = EPSSetDimensions(gn->eps,8,PETSC_DEFAULT,PETSC_DEFAULT);CHKERRQ(ierr); /* -eps_nev <nev> - Sets the number of eigenvalues */
   ierr = EPSSetOptionsPrefix(gn->eps,"feti2_geneo_");CHKERRQ(ierr);
   ierr = EPSSetFromOptions(gn->eps);CHKERRQ(ierr);
  
