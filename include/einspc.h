@@ -7,6 +7,6 @@
 #define PCFETI_LUMPED    "pcfeti_lumped"
 
 PETSC_EXTERN PetscErrorCode PCApplyLocal(PC,Vec,Vec,PetscInt*);
-PETSC_EXTERN PetscErrorCode PCApplyLocalMult(PC,Mat,Mat);
+PETSC_EXTERN PetscErrorCode PCApplyLocalMultipleVecs(PC,Mat,Mat);
   
 #endif/* EINSPC_H*/
