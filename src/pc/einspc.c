@@ -88,7 +88,7 @@ PetscErrorCode PCDeAllocateFETIWorkVecs_Private(PC pc) {
 PetscErrorCode PCAllocateCommunication_Private(PC pc,PetscInt *n2c) {
   PetscErrorCode ierr;
   PCFT_BASE      *pch = (PCFT_BASE*)pc->data;
-  PetscInt       i,aux;
+  PetscInt       i;
   FETI           ft   = pch->ft;
   PetscMPIInt    i_mpi;
   
@@ -100,8 +100,6 @@ PetscErrorCode PCAllocateCommunication_Private(PC pc,PetscInt *n2c) {
   }
   ierr = MPI_Waitall(pch->n_reqs,pch->r_reqs,MPI_STATUSES_IGNORE);CHKERRQ(ierr);
   ierr = MPI_Waitall(pch->n_reqs,pch->s_reqs,MPI_STATUSES_IGNORE);CHKERRQ(ierr);
-  aux  = *n2c;
-  for (i=1; i<ft->n_neigh_lb; i++) { aux += pch->pnc[i-1];}
-  *n2c = aux;
+  ierr = MPI_Allreduce(MPI_IN_PLACE,n2c,1,MPIU_INT,MPI_SUM,pch->comm);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
