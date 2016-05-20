@@ -56,6 +56,11 @@ PetscErrorCode FETI2ComputeMatrixG_GENEO(FETI ft)
   
   PetscFunctionBegin;
   if (!gn) SETERRQ(PetscObjectComm((PetscObject)ft),PETSC_ERR_ARG_WRONGSTATE,"Error: GENEO must be first created");
+  /* update status of preconditioners */
+  if (PetscNot(gn->flg)) { ierr = PCPreApply(gn->pc_dirichlet);CHKERRQ(ierr);}
+
+  /* solve eingenvalue problem */
+  ierr = EPSSetOperators(gn->eps,gn->Bg,NULL);CHKERRQ(ierr); 
   ierr = EPSSolve(gn->eps);CHKERRQ(ierr);
   
   ierr = EPSGetDimensions(gn->eps,&nev,NULL,NULL);CHKERRQ(ierr);
@@ -187,15 +192,14 @@ PetscErrorCode FETISetUp_FETI2_GENEO(FETI ft)
   FETI_2         *ft2 = (FETI_2*)ft->data;
   PC             pc;
   PCType         pctype;
-  PetscBool      flg;
   GENEO_C        *gn = ft2->geneo;
   
   PetscFunctionBegin;
   if (!gn) SETERRQ(PetscObjectComm((PetscObject)ft),PETSC_ERR_ARG_WRONGSTATE,"Error: GENEO must be first created");
   ierr = KSPGetPC(ft->ksp_interface,&pc);CHKERRQ(ierr);
   ierr = PCGetType(pc,&pctype);CHKERRQ(ierr);
-  ierr = PetscStrcmp(PCFETI_DIRICHLET,pctype,&flg);CHKERRQ(ierr);
-  if (!flg) { ierr = PCSetUp(gn->pc_dirichlet);CHKERRQ(ierr);}
+  ierr = PetscStrcmp(PCFETI_DIRICHLET,pctype,&gn->flg);CHKERRQ(ierr);
+  if (PetscNot(gn->flg)) { ierr = PCSetUp(gn->pc_dirichlet);CHKERRQ(ierr);}
   PetscFunctionReturn(0);
 }
 

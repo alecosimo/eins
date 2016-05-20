@@ -8,5 +8,6 @@
 
 PETSC_EXTERN PetscErrorCode PCApplyLocalWithPolling(PC,Vec,Vec,PetscInt*);
 PETSC_EXTERN PetscErrorCode PCApplyLocal(PC,Vec,Vec);
+PETSC_EXTERN PetscErrorCode PCPreApply(PC);
   
 #endif/* EINSPC_H*/

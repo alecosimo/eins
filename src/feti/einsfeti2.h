@@ -18,6 +18,7 @@ typedef struct {
   EPS           eps;
   Mat           Bg; /* this is a shell matrix for defining the B of the generalized eigenvalue problem, mainly B^T*S*B */
   Vec           vec_lb1,vec_lb2; /* working vectors */
+  PetscBool     flg; /* if TRUE, it indicates that pc_dirichlet==pc*/
 } GENEO_C; /* underscore "_C" becuase it is for defining a coarse space */
 
 struct _GENEOMat_ctx {
@@ -63,6 +64,10 @@ typedef struct {
 #if defined(HAVE_SLEPC)
   GENEO_C         *geneo;
 #endif
+
+  /* data structures for gathering G neighbors */
+  MPI_Request    *send_reqs,*recv_reqs;
+  PetscMPIInt    n_recv,n_send;
   
   /* data for the coarse problem built in FETI2SetUpCoarseProblem_RBM */
   MPI_Request    *send2_reqs,*recv2_reqs;
@@ -72,7 +77,7 @@ typedef struct {
   PetscScalar    *bufferRHS,*bufferX,*bufferG; /* matrix data in column major order */
   PetscInt       localnnz; /* local nonzeros */
   PetscScalar    *fgmatrices; /* F*G matrices computed by my neighbors */
-  PetscInt       n_send2,n_recv2; /* number of sends and receives when communicating F*G's */
+  PetscMPIInt    n_send2,n_recv2; /* number of sends and receives when communicating F*G's */
   Mat            *sum_mats;   /* petsc matrices storing the sum: F_s*G, the actual data is stored in bufferPSum */
   PetscScalar    *bufferPSum; /* buffer for storing the data of F_s*G */
   PetscInt       n_sum_mats,*i2rank;
