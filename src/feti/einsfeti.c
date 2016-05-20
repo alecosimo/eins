@@ -911,7 +911,7 @@ PetscErrorCode  FETICreate(MPI_Comm comm,FETI *newfeti)
   feti->Wscaling             = 0;
   feti->scaling_factor       = 1.;
   feti->scaling_type         = SCUNK;
-  
+
   ierr = KSPCreate(comm,&feti->ksp_interface);CHKERRQ(ierr);
   
   *newfeti = feti;

@@ -50,7 +50,7 @@ static PetscErrorCode FETIDestroy_FETI2(FETI ft)
   PetscFunctionBegin;
   if (!ft2) PetscFunctionReturn(0);
 
-  if (ft2->coarseGType == RIGID_BODY_MODES) {ierr = FETIDestroy_FETI2_RBM(ft);CHKERRQ(ierr);}
+  if (ft2->coarseGType != NO_COARSE_GRID) {ierr = FETIDestroy_FETI2_RBM(ft);CHKERRQ(ierr);}
   if (ft2->coarseGType == GENEO_MODES) {
 #if !defined(HAVE_SLEPC)
     SETERRQ(PetscObjectComm((PetscObject)ft),1,"EINS only supports the computation of GENEO modes by using SLEPc and SLEPc library is not found");
@@ -61,7 +61,6 @@ static PetscErrorCode FETIDestroy_FETI2(FETI ft)
   
   ierr = MatDestroy(&ft2->localG);CHKERRQ(ierr);
   ierr = MatDestroy(&ft2->stiffness_mat);CHKERRQ(ierr);
-  ierr = VecDestroy(&ft2->local_e);CHKERRQ(ierr);
   ierr = KSPDestroy(&ft2->ksp_coarse);CHKERRQ(ierr);
   if(ft2->neigh_holder) {
     ierr = PetscFree(ft2->neigh_holder[0]);CHKERRQ(ierr);
@@ -116,13 +115,11 @@ static PetscErrorCode FETISetUp_FETI2(FETI ft)
 	  
     ierr = FETI2SetInterfaceProblemRHS_Private(ft);CHKERRQ(ierr);
     /* set projection in ksp */
-    if (ft2->coarseGType == RIGID_BODY_MODES) {
+    if (ft2->coarseGType != NO_COARSE_GRID) {
       ierr = KSPSetProjection(ft->ksp_interface,FETI2Project_RBM,(void*)ft);CHKERRQ(ierr);
       ierr = KSPSetReProjection(ft->ksp_interface,FETI2ReProject_RBM,(void*)ft);CHKERRQ(ierr);
       ierr = FETI2SetUpCoarseProblem_RBM(ft);CHKERRQ(ierr);
       ierr = FETI2ComputeCoarseProblem_RBM(ft);CHKERRQ(ierr);
-    }
-    if (ft2->coarseGType != NO_COARSE_GRID) {
       ierr = FETI2FactorizeCoarseProblem_Private(ft);CHKERRQ(ierr);
     }
   } else {
@@ -132,14 +129,18 @@ static PetscErrorCode FETISetUp_FETI2(FETI ft)
 	ierr = KSPGetPC(ft->ksp_interface,&pc);CHKERRQ(ierr);
 	ierr = PCSetUp(pc);CHKERRQ(ierr);
       }
+      
       ierr = FETI2SetUpNeumannSolver_Private(ft);CHKERRQ(ierr);
-      if (ft2->coarseGType == RIGID_BODY_MODES) { ierr = FETI2ComputeCoarseProblem_RBM(ft);CHKERRQ(ierr);}
-      if (ft2->coarseGType != NO_COARSE_GRID) {	ierr = FETI2FactorizeCoarseProblem_Private(ft);CHKERRQ(ierr); }      
+      if (ft->resetup_pc_interface) { ierr = FETI2ComputeMatrixG_GENEO(ft);CHKERRQ(ierr);}
+      if (ft2->coarseGType != NO_COARSE_GRID) {
+	ierr = FETI2ComputeCoarseProblem_RBM(ft);CHKERRQ(ierr);
+	ierr = FETI2FactorizeCoarseProblem_Private(ft);CHKERRQ(ierr);
+      }      
     }
     ierr = FETI2SetInterfaceProblemRHS_Private(ft);CHKERRQ(ierr);
   }
   
-  if (ft2->coarseGType == RIGID_BODY_MODES) {
+  if (ft2->coarseGType != NO_COARSE_GRID) {
     ierr = FETI2ComputeInitialCondition_RBM(ft);CHKERRQ(ierr);
   } else {
     ierr = FETI2ComputeInitialCondition_NOCOARSE(ft);CHKERRQ(ierr);
@@ -1480,8 +1481,7 @@ static PetscErrorCode FETI2ApplyCoarseProblem_Private(FETI ft,Vec v,Vec r)
 #define __FUNCT__ "FETI2ComputeInitialCondition_RBM"
 /*@
    FETI2ComputeInitialCondition_RBM - Computes initial condition
-   for the interface problem. Once the initial condition is computed
-   local_e is destroyed.
+   for the interface problem. 
 
    Input Parameter:
 .  ft - the FETI context

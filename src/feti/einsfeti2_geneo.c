@@ -46,33 +46,29 @@ static PetscErrorCode EPSStoppingGeneo_Private(EPS eps,PetscInt its,PetscInt max
 @*/
 PetscErrorCode FETI2ComputeMatrixG_GENEO(FETI ft)
 {
-  PetscErrorCode ierr;
-  FETI_2         *ft2 = (FETI_2*)ft->data;
-  GENEO_C        *gn  = ft2->geneo;
-  PetscInt       nconv,nev,i;
-  Vec            vec;
-  PetscScalar   *pointer_vec;
+  PetscErrorCode    ierr;
+  FETI_2            *ft2 = (FETI_2*)ft->data;
+  GENEO_C           *gn  = ft2->geneo;
+  PetscInt          nconv,nev,i;
+  Vec               vec;
+  PetscScalar       *pointer_vec;
+  Subdomain         sd = ft->subdomain;
   
   PetscFunctionBegin;
   if (!gn) SETERRQ(PetscObjectComm((PetscObject)ft),PETSC_ERR_ARG_WRONGSTATE,"Error: GENEO must be first created");
-  ierr = EPSSolve(gn->eps);CHKERRQ(ierr);  
-
+  ierr = EPSSolve(gn->eps);CHKERRQ(ierr);
+  
   ierr = EPSGetDimensions(gn->eps,&nev,NULL,NULL);CHKERRQ(ierr);
   ierr = EPSGetConverged(gn->eps,&nconv);CHKERRQ(ierr);
-  ierr = VecCreateSeqWithArray(PETSC_COMM_SELF,1,ft->n_lambda_local,NULL,&vec);CHKERRQ(ierr);
   if (nconv<nev) SETERRQ2(PetscObjectComm((PetscObject)ft),PETSC_ERR_ARG_WRONGSTATE,"Error: some of the GENEO modes did not converged: nev: %d, nconv: %d",nev,nconv);
-  /* crete localG matrix */
-  ft->n_cs = nev;
-  ierr = MatDestroy(&ft2->localG);CHKERRQ(ierr);
-  ierr = MatCreateSeqDense(PETSC_COMM_SELF,ft->n_lambda_local,ft->n_cs,NULL,&ft2->localG);CHKERRQ(ierr);
-  ierr = MatSetOption(ft2->localG,MAT_ROW_ORIENTED,PETSC_FALSE);CHKERRQ(ierr);
   /* augement and apply precondtioner */
+  ierr = VecCreateSeqWithArray(PETSC_COMM_SELF,1,ft->n_lambda_local,NULL,&vec);CHKERRQ(ierr);
   ierr = MatDenseGetArray(ft2->localG,&pointer_vec);CHKERRQ(ierr);
   for (i=0;i<nev;i++) {
     ierr = VecPlaceArray(vec,(const PetscScalar*)(pointer_vec+ft->n_lambda_local*i));CHKERRQ(ierr);
-    ierr = EPSGetEigenpair(gn->eps,i,NULL,NULL,gn->vec1,NULL);CHKERRQ(ierr);
-    ierr = MatMult(ft->B_delta,gn->vec1,vec);CHKERRQ(ierr);
-    ierr = PCApplyLocal(gn->pc,gn->Vexpanded,vec);CHKERRQ(ierr);
+    ierr = EPSGetEigenpair(gn->eps,i,NULL,NULL,sd->vec1_B,NULL);CHKERRQ(ierr);
+    ierr = MatMult(ft->B_delta,sd->vec1_B,gn->vec_lb1);CHKERRQ(ierr);
+    ierr = PCApplyLocal(gn->pc,gn->vec_lb1,vec);CHKERRQ(ierr);
     ierr = VecResetArray(vec);CHKERRQ(ierr);
   }
   ierr = VecDestroy(&vec);CHKERRQ(ierr);
@@ -161,14 +157,14 @@ PetscErrorCode FETICreate_FETI2_GENEO(FETI ft)
   ierr = EPSSetOptionsPrefix(gn->eps,"feti2_geneo_");CHKERRQ(ierr);
   ierr = EPSSetFromOptions(gn->eps);CHKERRQ(ierr);
 
-  /* create mat for expanding eigenvectors */
+  /* crete localG matrix */
   ierr = EPSGetDimensions(gn->eps,&nev,NULL,NULL);CHKERRQ(ierr);
-  ierr = PetscMalloc1(ft->n_lambda_local*nev,&gn->pointer_v);CHKERRQ(ierr);
-  ierr = MatCreateSeqDense(PETSC_COMM_SELF,ft->n_lambda_local,nev,gn->pointer_v,&gn->Vexpanded);CHKERRQ(ierr);
-  ierr = MatSetOption(gn->Vexpanded,MAT_ROW_ORIENTED,PETSC_FALSE);CHKERRQ(ierr);
+  ft->n_cs = nev;
+  ierr = MatDestroy(&ft2->localG);CHKERRQ(ierr);
+  ierr = MatCreateSeqDense(PETSC_COMM_SELF,ft->n_lambda_local,ft->n_cs,NULL,&ft2->localG);CHKERRQ(ierr);
+  ierr = MatSetOption(ft2->localG,MAT_ROW_ORIENTED,PETSC_FALSE);CHKERRQ(ierr);
 
   /* create working vector */
-  ierr = MatCreateVecs(gn->Bg,&gn->vec1,NULL);CHKERRQ(ierr);
   ierr = VecCreateSeq(PETSC_COMM_SELF,ft->n_lambda_local,&gn->vec_lb1);CHKERRQ(ierr);
   ierr = VecDuplicate(gn->vec_lb1,&gn->vec_lb2);CHKERRQ(ierr);
   
@@ -254,11 +250,8 @@ PetscErrorCode FETIDestroy_FETI2_GENEO(FETI ft)
   
   PetscFunctionBegin;
   ierr = MatDestroy(&gn->Bg);CHKERRQ(ierr);
-  ierr = PetscFree(gn->pointer_v);CHKERRQ(ierr);
   ierr = PCDestroy(&gn->pc_dirichlet);CHKERRQ(ierr);
   ierr = PCDestroy(&gn->pc);CHKERRQ(ierr);
-  ierr = VecDestroy(&gn->vec1);CHKERRQ(ierr);
-  ierr = MatDestroy(&gn->Vexpanded);CHKERRQ(ierr);
   ierr = VecDestroy(&gn->vec_lb1);CHKERRQ(ierr);
   ierr = VecDestroy(&gn->vec_lb2);CHKERRQ(ierr);
   ierr = EPSDestroy(&gn->eps);CHKERRQ(ierr);

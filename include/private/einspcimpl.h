@@ -14,9 +14,6 @@
   IS              *isindex;          \
   PetscBool       *pnc;              \
   Vec             vec1;              \
-  Mat             RHS,Xs;	     \
-  PetscScalar     *buffer_rhs,*buffer_xs;   \
-  PetscScalar     **work_vecs_r;           \
   MPI_Comm        comm;
 
 typedef struct {

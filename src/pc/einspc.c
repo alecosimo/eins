@@ -19,7 +19,7 @@
    Level: developer
 
 @*/
-PETSC_EXTERN PetscErrorCode PCApplyLocal(PC pc,Vec x,Vec y,PetscInt *n2c)
+PETSC_EXTERN PetscErrorCode PCApplyLocalWithPolling(PC pc,Vec x,Vec y,PetscInt *n2c)
 {
   PetscErrorCode ierr;
   
@@ -69,7 +69,6 @@ PetscErrorCode PCAllocateFETIWorkVecs_Private(PC pc, FETI ft)
   PCFT_BASE      *pch = (PCFT_BASE*)pc->data;
   PetscInt       i,total;
   Vec            lambda_local;
-  Subdomain      sd = ft->subdomain;
   
   PetscFunctionBegin;
   pch->n_reqs = ft->n_neigh_lb - 1;
@@ -88,13 +87,6 @@ PetscErrorCode PCAllocateFETIWorkVecs_Private(PC pc, FETI ft)
   for (i=1; i<ft->n_neigh_lb; i++){
     ierr = ISCreateGeneral(PETSC_COMM_SELF,ft->n_shared_lb[i],ft->shared_lb[i],PETSC_USE_POINTER,&pch->isindex[i-1]);CHKERRQ(ierr);
   }
-  /* CONSTRAINT: I assume that the number of modes is the same for every neighbor */
-  ierr = PetscMalloc1(total*ft->n_cs,&pch->work_vecs_r[0]);CHKERRQ(ierr);
-  for (i=1;i<pch->n_reqs;i++) pch->work_vecs_r[i] = pch->work_vecs_r[i-1]+ft->n_shared_lb[i]*ft->n_cs;
-  ierr = PetscMalloc1(sd->n*ft->n_cs,&pch->buffer_rhs);CHKERRQ(ierr);
-  ierr = PetscMalloc1(sd->n*ft->n_cs,&pch->buffer_xs);CHKERRQ(ierr);
-  ierr = MatCreateSeqDense(PETSC_COMM_SELF,sd->n,ft->n_cs,pch->buffer_rhs,&pch->RHS);CHKERRQ(ierr);
-  ierr = MatCreateSeqDense(PETSC_COMM_SELF,sd->n,ft->n_cs,pch->buffer_xs,&pch->Xs);CHKERRQ(ierr);
   
   /* this communicator is going to be used by an external library */
   ierr = MPI_Comm_dup(PetscObjectComm((PetscObject)ft),&pch->comm);CHKERRQ(ierr); 
@@ -119,12 +111,6 @@ PetscErrorCode PCDeAllocateFETIWorkVecs_Private(PC pc)
   ierr = VecDestroy(&pch->vec1);CHKERRQ(ierr);
   for (i=0;i<pch->n_reqs;i++){ ierr = ISDestroy(&pch->isindex[i]);CHKERRQ(ierr);}
   ierr = PetscFree(pch->isindex);CHKERRQ(ierr);
-  ierr = PetscFree(pch->buffer_rhs);CHKERRQ(ierr);
-  ierr = PetscFree(pch->buffer_xs);CHKERRQ(ierr);
-  ierr = PetscFree(pch->work_vecs_r[0]);CHKERRQ(ierr);
-  ierr = PetscFree(pch->work_vecs_r);CHKERRQ(ierr);
-  ierr = MatDestroy(&pch->RHS);CHKERRQ(ierr);
-  ierr = MatDestroy(&pch->Xs);CHKERRQ(ierr);
   ierr = MPI_Comm_free(&pch->comm);CHKERRQ(ierr);
   pch->n_reqs = 0;
   PetscFunctionReturn(0);

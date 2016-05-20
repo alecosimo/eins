@@ -17,9 +17,7 @@ typedef struct {
   PC            pc; /* this is the preconditioner specified for using in the FETI solver. It can be the same as pc_dirichlet */
   EPS           eps;
   Mat           Bg; /* this is a shell matrix for defining the B of the generalized eigenvalue problem, mainly B^T*S*B */
-  PetscScalar   *pointer_v;
-  Mat           Vexpanded; /* Mat with pointer_v as storage */
-  Vec           vec1,vec_lb1,vec_lb2; /* working vectors */
+  Vec           vec_lb1,vec_lb2; /* working vectors */
 } GENEO_C; /* underscore "_C" becuase it is for defining a coarse space */
 
 struct _GENEOMat_ctx {
@@ -48,7 +46,6 @@ typedef struct {
   PetscInt     n_Gholder;       /* number of floating neighbours */
   PetscInt     **neigh_holder;  /* Entry neigh_holder[i][0] corresponds to rank of the processor of the neighbour with matrix localG stored in Gholder[i]. 
 				   Entry neigh_holder[i][1] corresponds to the index in which neigh_holder[i][0] is listed in the array ft->neigh_lb. */
-  Vec          local_e;
   Mat          coarse_problem;
   Mat          F_coarse;        /* matrix object specifically suited for symbolic factorization: it must not be destroyed with MatDestroy() */
   KSP          ksp_coarse;
