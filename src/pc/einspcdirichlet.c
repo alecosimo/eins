@@ -28,7 +28,7 @@ static PetscErrorCode PCSetUp_DIRICHLET(PC pc)
   pcd->ft  = mat_ctx->ft;
   if (!pcd->ft) SETERRQ(PETSC_COMM_SELF,PETSC_ERR_ARG_WRONG,"Matrix F is missing the FETI context");
   PetscValidHeaderSpecific(pcd->ft,FETI_CLASSID,0);
-  
+	
   sd = (pcd->ft)->subdomain;
   /* set KSP for solving the Dirchlet problem */
   if (!pcd->ksp_D) {
@@ -60,7 +60,6 @@ static PetscErrorCode PCSetUp_DIRICHLET(PC pc)
     ierr = KSPSetOperators(pcd->ksp_D,sd->A_II,sd->A_II);CHKERRQ(ierr);
     ierr = KSPSetUp(pcd->ksp_D);CHKERRQ(ierr);
   }
-  
   ierr = PCSetReusePreconditioner(pc,PETSC_FALSE);CHKERRQ(ierr);  
   PetscFunctionReturn(0);
 }

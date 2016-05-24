@@ -99,7 +99,7 @@ static PetscErrorCode FETISetUp_FETI2(FETI ft)
   FETI_2         *ft2 = (FETI_2*)ft->data;
 
   PetscFunctionBegin;
-  if (!ft->setupcalled) {
+  if (ft->state==FETI_STATE_INITIAL) {
     ierr = FETIScalingSetUp(ft);CHKERRQ(ierr);
     ierr = FETI2BuildLambdaAndB_Private(ft);CHKERRQ(ierr);
     ierr = FETI2SetUpNeumannSolver_Private(ft);CHKERRQ(ierr);
@@ -133,7 +133,9 @@ static PetscErrorCode FETISetUp_FETI2(FETI ft)
     if (ft->factor_local_problem) {
       if (ft->resetup_pc_interface) {
 	PC pc;
+	ierr = KSPSetReusePreconditioner(ft->ksp_interface,PETSC_FALSE);CHKERRQ(ierr);  
 	ierr = KSPGetPC(ft->ksp_interface,&pc);CHKERRQ(ierr);
+	ierr = PetscObjectStateIncrease((PetscObject) ft->F);CHKERRQ(ierr);
 	ierr = PCSetUp(pc);CHKERRQ(ierr);
       }
       ierr = FETI2SetUpNeumannSolver_Private(ft);CHKERRQ(ierr);

@@ -82,7 +82,7 @@ static PetscErrorCode FETISetUp_FETI1(FETI ft)
   PetscErrorCode ierr;   
 
   PetscFunctionBegin;
-  if (!ft->setupcalled) {
+  if (ft->state==FETI_STATE_INITIAL) {
     ierr = FETIScalingSetUp(ft);CHKERRQ(ierr);
     ierr = FETI1BuildLambdaAndB_Private(ft);CHKERRQ(ierr);
     ierr = FETI1SetUpNeumannSolver_Private(ft);CHKERRQ(ierr);

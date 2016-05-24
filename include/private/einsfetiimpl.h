@@ -15,6 +15,11 @@ PETSC_EXTERN PetscErrorCode FETICreateFMat(FETI,void (*)(void),void (*)(void),vo
 PETSC_EXTERN PetscErrorCode FETIBuildInterfaceKSP(FETI);
 
 
+typedef enum { FETI_STATE_INITIAL,
+               FETI_STATE_SETUP,
+               FETI_STATE_SOLVED } FETIStateType;
+
+
 typedef struct _FETIOps *FETIOps;
 struct _FETIOps {
   PetscErrorCode (*setup)(FETI);
@@ -63,7 +68,7 @@ struct _p_FETI {
   /* Neumann problem */
   KSP              ksp_neumann;
   /* Internal use of the class*/
-  PetscInt         setupcalled;
+  FETIStateType    state;
   PetscInt         setfromoptionscalled;
   void             *data;
   PetscBool        factor_local_problem,resetup_pc_interface;

@@ -114,7 +114,7 @@ PetscErrorCode  FETISetType(FETI feti,FETIType type)
   /* Reinitialize function pointers in FETIOps structure */
   ierr = PetscMemzero(feti->ops,sizeof(struct _FETIOps));CHKERRQ(ierr);
   /* Call the FETICreate_XXX routine for this particular FETI formulation */
-  feti->setupcalled = 0;
+  feti->state = FETI_STATE_INITIAL;
 
   ierr = PetscObjectChangeTypeName((PetscObject)feti,type);CHKERRQ(ierr);
   ierr = (*func)(feti);CHKERRQ(ierr);
@@ -339,7 +339,7 @@ PetscErrorCode FETIDestroy(FETI *_feti)
   if (!feti) PetscFunctionReturn(0);
   PetscValidHeaderSpecific(feti,FETI_CLASSID,1);
   if (--((PetscObject)feti)->refct > 0) PetscFunctionReturn(0);
-  feti->setupcalled = 0;
+  feti->state = FETI_STATE_INITIAL;
   /* destroying FETI objects */
   ierr = MatDestroy(&feti->F);CHKERRQ(ierr);
   ierr = KSPDestroy(&feti->ksp_neumann);CHKERRQ(ierr);
@@ -445,17 +445,17 @@ PetscErrorCode  FETISetUp(FETI feti)
   if (!feti->subdomain) SETERRQ(PetscObjectComm((PetscObject)feti),PETSC_ERR_ARG_WRONGSTATE,"Error Subdomain not defined");
   ierr = SubdomainCheckState(feti->subdomain);CHKERRQ(ierr);
   
-  if (!feti->setupcalled) { ierr = PetscInfo(feti,"Setting up FETI for first time\n");CHKERRQ(ierr);} 
+  if (feti->state == FETI_STATE_INITIAL) { ierr = PetscInfo(feti,"Setting up FETI for first time\n");CHKERRQ(ierr);} 
   if (!((PetscObject)feti)->type_name) { ierr = FETISetType(feti,def);CHKERRQ(ierr);}
 
   ierr = PetscLogEventBegin(FETI_SetUp,feti,0,0,0);CHKERRQ(ierr);
-  ierr = SubdomainSetUp(feti->subdomain,feti->setupcalled);CHKERRQ(ierr);
+  ierr = SubdomainSetUp(feti->subdomain,(PetscBool)(feti->state==FETI_STATE_SETUP));CHKERRQ(ierr);
 
   if (feti->ops->setup) {
     ierr = (*feti->ops->setup)(feti);CHKERRQ(ierr);
   }
   ierr = PetscLogEventEnd(FETI_SetUp,feti,0,0,0);CHKERRQ(ierr);
-  if (!feti->setupcalled) feti->setupcalled = 1;
+  if (feti->state == FETI_STATE_INITIAL) feti->state = FETI_STATE_SETUP;
   PetscFunctionReturn(0);
 }
 
@@ -513,7 +513,8 @@ PetscErrorCode FETISolve(FETI ft,Vec u)
   PetscFunctionBegin;
   PetscValidHeaderSpecific(ft,FETI_CLASSID,1);
   PetscValidHeaderSpecific(u,VEC_CLASSID,2);
-  if (!ft->setupcalled) SETERRQ(PetscObjectComm((PetscObject)ft),PETSC_ERR_ARG_WRONGSTATE,"Error: FETISetUp() must be first called.");
+  if (ft->state==FETI_STATE_SOLVED) PetscFunctionReturn(0);
+  if (ft->state==FETI_STATE_INITIAL) SETERRQ(PetscObjectComm((PetscObject)ft),PETSC_ERR_ARG_WRONGSTATE,"Error: FETISetUp() must be first called.");
   if (ft->ops->computesolution) {
     ierr = PetscObjectTypeCompare((PetscObject)u,VECMPIUNASM,&flg);CHKERRQ(ierr);
     if (!flg) {
@@ -527,6 +528,7 @@ PetscErrorCode FETISolve(FETI ft,Vec u)
   } else {
     SETERRQ(PetscObjectComm((PetscObject)ft),PETSC_ERR_ARG_WRONGSTATE,"Error: Compute Solution of specific FETI method not found.");
   }
+  ft->state = FETI_STATE_SOLVED;
   PetscFunctionReturn(0);
 }
 
@@ -556,6 +558,7 @@ PetscErrorCode FETISetLocalMat(FETI ft,Mat local_mat)
   PetscValidHeaderSpecific(ft,FETI_CLASSID,1);
   PetscValidHeaderSpecific(local_mat,MAT_CLASSID,2);
   ierr = SubdomainSetLocalMat(ft->subdomain,local_mat);CHKERRQ(ierr);
+  if (ft->state == FETI_STATE_SOLVED) {ft->state = FETI_STATE_SETUP;};
   PetscFunctionReturn(0);
 }
 
@@ -585,9 +588,10 @@ PetscErrorCode FETISetMat(FETI ft,Mat mat)
   PetscValidHeaderSpecific(ft,FETI_CLASSID,1);
   PetscValidHeaderSpecific(mat,MAT_CLASSID,2);
   ierr = PetscObjectTypeCompare((PetscObject)mat,MATSHELLUNASM,&flg);CHKERRQ(ierr);
-  if(!flg) SETERRQ(PetscObjectComm((PetscObject)mat),PETSC_ERR_SUP,"Cannot set non-MATSHELLUNASM matrix");
+  if (!flg) SETERRQ(PetscObjectComm((PetscObject)mat),PETSC_ERR_SUP,"Cannot set non-MATSHELLUNASM matrix");
   ierr = MatShellUnAsmGetContext(mat,(void**)&mat_ctx);CHKERRQ(ierr);
   ierr = SubdomainSetLocalMat(ft->subdomain,mat_ctx->localA);CHKERRQ(ierr);
+  if (ft->state == FETI_STATE_SOLVED) {ft->state = FETI_STATE_SETUP;};
   PetscFunctionReturn(0);
 }
 
@@ -617,10 +621,11 @@ PetscErrorCode FETISetRHS(FETI ft,Vec rhs)
   PetscValidHeaderSpecific(ft,FETI_CLASSID,1);
   PetscValidHeaderSpecific(rhs,VEC_CLASSID,2);
   ierr = PetscObjectTypeCompare((PetscObject)rhs,VECMPIUNASM,&flg);CHKERRQ(ierr);
-  if(!flg) SETERRQ(PetscObjectComm((PetscObject)rhs),PETSC_ERR_SUP,"Cannot set non-VECMPIUNASM vector");
+  if (!flg) SETERRQ(PetscObjectComm((PetscObject)rhs),PETSC_ERR_SUP,"Cannot set non-VECMPIUNASM vector");
   ierr = VecUnAsmGetLocalVectorRead(rhs,&rhs_local);CHKERRQ(ierr);
   ierr = SubdomainSetLocalRHS(ft->subdomain,rhs_local);CHKERRQ(ierr);
   ierr = VecUnAsmRestoreLocalVectorRead(rhs,rhs_local);CHKERRQ(ierr);
+  if (ft->state == FETI_STATE_SOLVED) {ft->state = FETI_STATE_SETUP;};
   PetscFunctionReturn(0);
 }
 
@@ -648,6 +653,7 @@ PetscErrorCode FETISetLocalRHS(FETI ft,Vec rhs)
   PetscValidHeaderSpecific(ft,FETI_CLASSID,1);
   PetscValidHeaderSpecific(rhs,VEC_CLASSID,2);
   ierr = SubdomainSetLocalRHS(ft->subdomain,rhs);CHKERRQ(ierr);
+  if (ft->state == FETI_STATE_SOLVED) {ft->state = FETI_STATE_SETUP;};
   PetscFunctionReturn(0);
 }
 
@@ -884,7 +890,7 @@ PetscErrorCode  FETICreate(MPI_Comm comm,FETI *newfeti)
   ierr = PetscFunctionListAdd(&FETIScalingList,SCRHO,FETIScalingSetUp_rho);CHKERRQ(ierr);
   ierr = PetscFunctionListAdd(&FETIScalingList,SCMULTIPLICITY,FETIScalingSetUp_multiplicity);CHKERRQ(ierr);
 
-  feti->setupcalled          = 0;
+  feti->state                = FETI_STATE_INITIAL;
   feti->setfromoptionscalled = 0;
   feti->multiplicity         = 0;
   feti->data                 = 0;
