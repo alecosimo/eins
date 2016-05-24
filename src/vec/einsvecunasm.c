@@ -83,7 +83,7 @@ static PetscErrorCode VecCreate_UNASM_Private(Vec v,const PetscScalar array[],Ve
   Vec_UNASM      *b;
   MPI_Comm       comm;
   PetscMPIInt    rank;
-  char           str[10];
+  char           str[50];
   
   PetscFunctionBegin;
   ierr    = PetscNewLog(v,&b);CHKERRQ(ierr);
@@ -1051,7 +1051,7 @@ static PetscErrorCode VecView_UNASM(Vec xin,PetscViewer viewer)
   Vec               vec;
   PetscScalar       *values;
   const PetscScalar *xarray;
-  char              str[10];
+  char              str[50];
 #if defined(PETSC_HAVE_HDF5)
   PetscBool      ishdf5;
 #endif
@@ -1125,7 +1125,7 @@ static PetscErrorCode VecView_UNASM_HDF5(Vec xin, PetscViewer viewer)
   PetscErrorCode    ierr;
   PetscBool         dim2;
   PetscBool         spoutput, found;
-  char              vecname_local[10];
+  char              vecname_local[50];
   PetscMPIInt       size,rank;
   MPI_Comm          comm;
   

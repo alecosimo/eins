@@ -41,7 +41,7 @@ PETSC_EXTERN PetscErrorCode HDF5ArrayView(PetscInt N,const void* array,hid_t dat
   PetscInt          timestep,i,*ref;
   PetscErrorCode    ierr;
   PetscBool         dealloc=PETSC_FALSE;
-  char              vecname_local[10];
+  char              vecname_local[50];
   PetscMPIInt       size,rank;
   MPI_Comm          comm;
   
