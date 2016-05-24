@@ -107,7 +107,6 @@ static PetscErrorCode KSPSolve_FETI(KSP ksp)
   /*>>> FETI stuff */
   ierr = FETISetMat(ft->feti,Amat);CHKERRQ(ierr);
   ierr = FETISetRHS(ft->feti,ksp->vec_rhs);CHKERRQ(ierr);
-  ierr = FETISetUp(ft->feti);CHKERRQ(ierr);
   ierr = FETISolve(ft->feti,ksp->vec_sol);CHKERRQ(ierr);
   /*<<< FETI stuff */
   ierr = FETIGetKSPInterface(ft->feti,&ksp_feti);CHKERRQ(ierr);

@@ -70,7 +70,6 @@ static PetscErrorCode SNESSolve_FETIONLY(SNES snes)
   ierr = SNESComputeJacobian(snes,X,snes->jacobian,snes->jacobian_pre);CHKERRQ(ierr);
   ierr = FETISetMat(sf->feti,snes->jacobian);CHKERRQ(ierr);
   ierr = FETISetRHS(sf->feti,F);CHKERRQ(ierr);
-  ierr = FETISetUp(sf->feti);CHKERRQ(ierr);
   ierr = FETISolve(sf->feti,Y);CHKERRQ(ierr);
   snes->reason = SNES_CONVERGED_ITS;
   SNESCheckKSPSolve(snes);

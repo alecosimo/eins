@@ -441,7 +441,7 @@ PetscErrorCode  FETISetUp(FETI feti)
 
   PetscFunctionBegin;
   PetscValidHeaderSpecific(feti,FETI_CLASSID,1);
-
+  if (feti->state) PetscFunctionReturn(0);
   if (!feti->subdomain) SETERRQ(PetscObjectComm((PetscObject)feti),PETSC_ERR_ARG_WRONGSTATE,"Error Subdomain not defined");
   ierr = SubdomainCheckState(feti->subdomain);CHKERRQ(ierr);
   
@@ -514,7 +514,7 @@ PetscErrorCode FETISolve(FETI ft,Vec u)
   PetscValidHeaderSpecific(ft,FETI_CLASSID,1);
   PetscValidHeaderSpecific(u,VEC_CLASSID,2);
   if (ft->state==FETI_STATE_SOLVED) PetscFunctionReturn(0);
-  if (ft->state==FETI_STATE_INITIAL) SETERRQ(PetscObjectComm((PetscObject)ft),PETSC_ERR_ARG_WRONGSTATE,"Error: FETISetUp() must be first called.");
+  ierr = FETISetUp(ft);CHKERRQ(ierr);
   if (ft->ops->computesolution) {
     ierr = PetscObjectTypeCompare((PetscObject)u,VECMPIUNASM,&flg);CHKERRQ(ierr);
     if (!flg) {
