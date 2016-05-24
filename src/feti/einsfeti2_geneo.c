@@ -57,7 +57,7 @@ PetscErrorCode FETI2ComputeMatrixG_GENEO(FETI ft)
   PetscFunctionBegin;
   if (!gn) SETERRQ(PetscObjectComm((PetscObject)ft),PETSC_ERR_ARG_WRONGSTATE,"Error: GENEO must be first created");
   /* update status of preconditioners */
-  if (PetscNot(gn->flg)) { ierr = PCPreApply(gn->pc_dirichlet);CHKERRQ(ierr);}
+  if (PetscNot(gn->flg)) { ierr = PCSetUp(gn->pc_dirichlet);CHKERRQ(ierr);}
 
   /* solve eingenvalue problem */
   ierr = EPSSetOperators(gn->eps,gn->Bg,NULL);CHKERRQ(ierr); 

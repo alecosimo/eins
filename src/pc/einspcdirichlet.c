@@ -13,7 +13,6 @@ static PetscErrorCode PCSetUp_DIRICHLET(PC pc)
   Subdomain        sd;
   PetscBool        issbaij;
   PC               pctemp;
-  FETI             ft  = NULL;
   Mat              F;
   FETIMat_ctx      mat_ctx;
   PetscBool        flg;
@@ -26,16 +25,14 @@ static PetscErrorCode PCSetUp_DIRICHLET(PC pc)
   if(!flg) SETERRQ(PetscObjectComm((PetscObject)F),PETSC_ERR_SUP,"Cannot use preconditioner with non-shell matrix");
   ierr = MatShellUnAsmGetContext(F,(void**)&mat_ctx);CHKERRQ(ierr);
   /* there is no need to increment the reference to the FETI context because we are already referencing matrix F */
-  ft   = mat_ctx->ft;
-  if (!ft) SETERRQ(PETSC_COMM_SELF,PETSC_ERR_ARG_WRONG,"Matrix F is missing the FETI context");
-  PetscValidHeaderSpecific(ft,FETI_CLASSID,0);
+  pcd->ft  = mat_ctx->ft;
+  if (!pcd->ft) SETERRQ(PETSC_COMM_SELF,PETSC_ERR_ARG_WRONG,"Matrix F is missing the FETI context");
+  PetscValidHeaderSpecific(pcd->ft,FETI_CLASSID,0);
   
-  pcd->ft = ft;
-  sd      = ft->subdomain;
-  ierr    = SubdomainComputeSubmatrices(sd,MAT_INITIAL_MATRIX,PETSC_FALSE);CHKERRQ(ierr);
-
+  sd = (pcd->ft)->subdomain;
   /* set KSP for solving the Dirchlet problem */
   if (!pcd->ksp_D) {
+    ierr = SubdomainComputeSubmatrices(sd,MAT_INITIAL_MATRIX,PETSC_FALSE);CHKERRQ(ierr);
     ierr = KSPCreate(PETSC_COMM_SELF,&pcd->ksp_D);CHKERRQ(ierr);
     ierr = PetscObjectIncrementTabLevel((PetscObject)pcd->ksp_D,(PetscObject)pc,1);CHKERRQ(ierr);
     ierr = PetscLogObjectParent((PetscObject)pc,(PetscObject)pcd->ksp_D);CHKERRQ(ierr);
@@ -58,24 +55,13 @@ static PetscErrorCode PCSetUp_DIRICHLET(PC pc)
     /* create local Schur complement matrix */
     ierr = MatCreateSchurComplement(sd->A_II,sd->A_II,sd->A_IB,sd->A_BI,sd->A_BB,&pcd->Sj);CHKERRQ(ierr);
     ierr = MatSchurComplementSetKSP(pcd->Sj,pcd->ksp_D);CHKERRQ(ierr);
+  } else {
+    ierr = SubdomainComputeSubmatrices(sd,MAT_REUSE_MATRIX,PETSC_FALSE);CHKERRQ(ierr);
+    ierr = KSPSetOperators(pcd->ksp_D,sd->A_II,sd->A_II);CHKERRQ(ierr);
+    ierr = KSPSetUp(pcd->ksp_D);CHKERRQ(ierr);
   }
-  PetscFunctionReturn(0);
-}
-
-
-#undef  __FUNCT__
-#define __FUNCT__ "PCPreApply_DIRICHLET"
-static PetscErrorCode PCPreApply_DIRICHLET(PC pc)
-{
-  PCFT_DIRICHLET  *pcd = (PCFT_DIRICHLET*)pc->data;
-  PetscErrorCode   ierr;
-  Subdomain        sd;
   
-  PetscFunctionBegin;
-  sd   = pcd->ft->subdomain;
-  ierr = SubdomainComputeSubmatrices(sd,MAT_REUSE_MATRIX,PETSC_FALSE);CHKERRQ(ierr);
-  ierr = KSPSetOperators(pcd->ksp_D,sd->A_II,sd->A_II);CHKERRQ(ierr);
-  ierr = KSPSetUp(pcd->ksp_D);CHKERRQ(ierr);
+  ierr = PCSetReusePreconditioner(pc,PETSC_FALSE);CHKERRQ(ierr);  
   PetscFunctionReturn(0);
 }
 
@@ -102,7 +88,6 @@ static PetscErrorCode PCDestroy_DIRICHLET(PC pc)
   PetscFunctionBegin;
   ierr = PetscObjectComposeFunction((PetscObject)pc,"PCApplyLocal_C",NULL);CHKERRQ(ierr);
   ierr = PetscObjectComposeFunction((PetscObject)pc,"PCApplyLocalWithPolling_C",NULL);CHKERRQ(ierr);
-  ierr = PetscObjectComposeFunction((PetscObject)pc,"PCPreApply_C",NULL);CHKERRQ(ierr);
 
   ierr = PCReset_DIRICHLET(pc);CHKERRQ(ierr);
   ierr = PetscFree(pc->data);CHKERRQ(ierr);
@@ -364,7 +349,6 @@ PetscErrorCode PCCreate_DIRICHLET(PC pc)
 
   ierr = PetscObjectComposeFunction((PetscObject)pc,"PCApplyLocalWithPolling_C",PCApplyLocalWithPolling_DIRICHLET);CHKERRQ(ierr);
   ierr = PetscObjectComposeFunction((PetscObject)pc,"PCApplyLocal_C",PCApplyLocal_DIRICHLET);CHKERRQ(ierr);
-  ierr = PetscObjectComposeFunction((PetscObject)pc,"PCPreApply_C",PCPreApply_DIRICHLET);CHKERRQ(ierr);
   
   PetscFunctionReturn(0);
 }

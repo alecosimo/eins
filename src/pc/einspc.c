@@ -3,30 +3,6 @@
 
 
 #undef __FUNCT__
-#define __FUNCT__ "PCPreApply"
-/*@
-   PCPreApply - This function can be called for changing the status of
-   some of the objects of the precondtioner without performing to a
-   PCReset(). Function intendend for developers.
-
-   Input Parameters:
-.  PC - the pc context
-
-   Level: developer
-
-@*/
-PETSC_EXTERN PetscErrorCode PCPreApply(PC pc)
-{
-  PetscErrorCode ierr;
-  
-  PetscFunctionBegin;
-  PetscValidHeaderSpecific(pc,PC_CLASSID,1);
-  ierr = PetscUseMethod(pc,"PCPreApply_C",(PC),(pc));CHKERRQ(ierr);
-  PetscFunctionReturn(0);
-}
-
-
-#undef __FUNCT__
 #define __FUNCT__ "PCApplyLocalWithPolling"
 /*@
    PCApplyLocalWithPolling - Applies the preconditioner locally
