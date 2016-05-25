@@ -62,7 +62,7 @@ PetscErrorCode FETI2ComputeMatrixG_GENEO(FETI ft)
   /* solve eingenvalue problem */
   ierr = EPSSetOperators(gn->eps,gn->Bg,NULL);CHKERRQ(ierr); 
   ierr = EPSSolve(gn->eps);CHKERRQ(ierr);
-  
+
   ierr = EPSGetDimensions(gn->eps,&nev,NULL,NULL);CHKERRQ(ierr);
   ierr = EPSGetConverged(gn->eps,&nconv);CHKERRQ(ierr);
   if (nconv<nev) SETERRQ2(PetscObjectComm((PetscObject)ft),PETSC_ERR_ARG_WRONGSTATE,"Error: some of the GENEO modes did not converged: nev: %d, nconv: %d",nev,nconv);

@@ -89,8 +89,8 @@ PetscErrorCode PCAllocateFETIWorkVecs_Private(PC pc, FETI ft)
   }
   
   /* this communicator is going to be used by an external library */
-  /* ierr = MPI_Comm_dup(PetscObjectComm((PetscObject)ft),&pch->comm);CHKERRQ(ierr); */
-  ierr = PetscCommDuplicate(PetscObjectComm((PetscObject)ft),&pch->comm,NULL);CHKERRQ(ierr);
+  ierr = PetscCommDuplicate(PetscObjectComm((PetscObject)ft),&pch->comm,&pch->tag);CHKERRQ(ierr);
+  ierr = PetscCommGetNewTag(pch->comm,&pch->tagp);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 
@@ -112,7 +112,6 @@ PetscErrorCode PCDeAllocateFETIWorkVecs_Private(PC pc)
   ierr = VecDestroy(&pch->vec1);CHKERRQ(ierr);
   for (i=0;i<pch->n_reqs;i++){ ierr = ISDestroy(&pch->isindex[i]);CHKERRQ(ierr);}
   ierr = PetscFree(pch->isindex);CHKERRQ(ierr);
-  /* ierr = MPI_Comm_free(&pch->comm);CHKERRQ(ierr); */
   ierr = PetscCommDestroy(&pch->comm);CHKERRQ(ierr);
   pch->n_reqs = 0;
   PetscFunctionReturn(0);
@@ -132,8 +131,8 @@ PetscErrorCode PCAllocateCommunication_Private(PC pc,PetscInt *n2c)
   PetscFunctionBegin;
   for (i=1; i<ft->n_neigh_lb; i++){
     ierr = PetscMPIIntCast(ft->neigh_lb[i],&i_mpi);CHKERRQ(ierr);   
-    ierr = MPI_Isend(n2c,1,MPIU_INT,i_mpi,10,pch->comm,&pch->s_reqs[i-1]);CHKERRQ(ierr);
-    ierr = MPI_Irecv(&pch->pnc[i-1],1,MPIU_INT,i_mpi,10,pch->comm,&pch->r_reqs[i-1]);CHKERRQ(ierr);    
+    ierr = MPI_Isend(n2c,1,MPIU_INT,i_mpi,pch->tagp,pch->comm,&pch->s_reqs[i-1]);CHKERRQ(ierr);
+    ierr = MPI_Irecv(&pch->pnc[i-1],1,MPIU_INT,i_mpi,pch->tagp,pch->comm,&pch->r_reqs[i-1]);CHKERRQ(ierr);    
   }
   ierr = MPI_Waitall(pch->n_reqs,pch->r_reqs,MPI_STATUSES_IGNORE);CHKERRQ(ierr);
   ierr = MPI_Waitall(pch->n_reqs,pch->s_reqs,MPI_STATUSES_IGNORE);CHKERRQ(ierr);

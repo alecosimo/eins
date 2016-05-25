@@ -137,7 +137,6 @@ static PetscErrorCode PCApplyLocal_DIRICHLET(PC pc,Vec x,Vec y)
   PetscFunctionBegin;
   /* allocate resources if not available */
   if(!pcd->work_vecs) { ierr = PCAllocateFETIWorkVecs_Private(pc,ft);CHKERRQ(ierr);}
-
   /* Application of B_Ddelta^T */
   ierr = MatMultTranspose(ft->B_Ddelta,x,sd->vec1_B);CHKERRQ(ierr);
   /* Application of local Schur complement */
@@ -150,14 +149,14 @@ static PetscErrorCode PCApplyLocal_DIRICHLET(PC pc,Vec x,Vec y)
     ierr = VecGetSubVector(x,pcd->isindex[i-1],&vec);CHKERRQ(ierr);
     ierr = VecGetArrayRead(vec,&array_s);CHKERRQ(ierr);   
     ierr = PetscMPIIntCast(ft->neigh_lb[i],&i_mpi);CHKERRQ(ierr);   
-    ierr = MPI_Isend(array_s,ft->n_shared_lb[i],MPIU_SCALAR,i_mpi,0,pcd->comm,&pcd->s_reqs[i-1]);CHKERRQ(ierr);
+    ierr = MPI_Isend(array_s,ft->n_shared_lb[i],MPIU_SCALAR,i_mpi,pcd->tag,pcd->comm,&pcd->s_reqs[i-1]);CHKERRQ(ierr);
     ierr = VecRestoreArrayRead(vec,&array_s);CHKERRQ(ierr);   
     ierr = VecRestoreSubVector(x,pcd->isindex[i-1],&vec);CHKERRQ(ierr);
   }
   /* receive vectors from my neighbors */
   for (i=1; i<ft->n_neigh_lb; i++){
     ierr = PetscMPIIntCast(ft->neigh_lb[i],&i_mpi);CHKERRQ(ierr);
-    ierr = MPI_Irecv(pcd->work_vecs[i-1],ft->n_shared_lb[i],MPIU_SCALAR,i_mpi,0,pcd->comm,&pcd->r_reqs[i-1]);CHKERRQ(ierr);    
+    ierr = MPI_Irecv(pcd->work_vecs[i-1],ft->n_shared_lb[i],MPIU_SCALAR,i_mpi,pcd->tag,pcd->comm,&pcd->r_reqs[i-1]);CHKERRQ(ierr);    
   }
   ierr = MPI_Waitall(pcd->n_reqs,pcd->r_reqs,MPI_STATUSES_IGNORE);CHKERRQ(ierr);
   ierr = MPI_Waitall(pcd->n_reqs,pcd->s_reqs,MPI_STATUSES_IGNORE);CHKERRQ(ierr);
@@ -178,14 +177,14 @@ static PetscErrorCode PCApplyLocal_DIRICHLET(PC pc,Vec x,Vec y)
     ierr = VecGetSubVector(vec_res,pcd->isindex[i-1],&vec_aux);CHKERRQ(ierr);
     ierr = VecGetArrayRead(vec_aux,&array_s);CHKERRQ(ierr);   
     ierr = PetscMPIIntCast(ft->neigh_lb[i],&i_mpi);CHKERRQ(ierr);   
-    ierr = MPI_Isend(array_s,ft->n_shared_lb[i],MPIU_SCALAR,i_mpi,0,pcd->comm,&pcd->s_reqs[i-1]);CHKERRQ(ierr);
+    ierr = MPI_Isend(array_s,ft->n_shared_lb[i],MPIU_SCALAR,i_mpi,pcd->tag,pcd->comm,&pcd->s_reqs[i-1]);CHKERRQ(ierr);
     ierr = VecRestoreArrayRead(vec_aux,&array_s);CHKERRQ(ierr);   
     ierr = VecRestoreSubVector(vec_res,pcd->isindex[i-1],&vec_aux);CHKERRQ(ierr);   
   } 
   /* receive results */
   for (i=1; i<ft->n_neigh_lb; i++){
     ierr = PetscMPIIntCast(ft->neigh_lb[i],&i_mpi);CHKERRQ(ierr);
-    ierr = MPI_Irecv(pcd->work_vecs[i-1],ft->n_shared_lb[i],MPIU_SCALAR,i_mpi,0,pcd->comm,&pcd->r_reqs[i-1]);CHKERRQ(ierr);    
+    ierr = MPI_Irecv(pcd->work_vecs[i-1],ft->n_shared_lb[i],MPIU_SCALAR,i_mpi,pcd->tag,pcd->comm,&pcd->r_reqs[i-1]);CHKERRQ(ierr);    
   }
   ierr = MPI_Waitall(pcd->n_reqs,pcd->r_reqs,MPI_STATUSES_IGNORE);CHKERRQ(ierr);
   ierr = MPI_Waitall(pcd->n_reqs,pcd->s_reqs,MPI_STATUSES_IGNORE);CHKERRQ(ierr);
@@ -219,7 +218,7 @@ static PetscErrorCode PCApplyLocalWithPolling_DIRICHLET(PC pc,Vec x,Vec y,PetscI
   PetscFunctionBegin;
   /* allocate resources if not available */
   if(!pcd->work_vecs) { ierr = PCAllocateFETIWorkVecs_Private(pc,ft);CHKERRQ(ierr);}
-
+  
   n2c  = ((!x)==0);
   n2c0 = n2c;
   ierr = PCAllocateCommunication_Private(pc,&n2c);CHKERRQ(ierr);
@@ -240,7 +239,7 @@ static PetscErrorCode PCApplyLocalWithPolling_DIRICHLET(PC pc,Vec x,Vec y,PetscI
 	ierr = VecGetSubVector(x,pcd->isindex[is],&vec);CHKERRQ(ierr);
 	ierr = VecGetArrayRead(vec,&array_s);CHKERRQ(ierr);   
 	ierr = PetscMPIIntCast(ft->neigh_lb[is+1],&i_mpi);CHKERRQ(ierr);   
-	ierr = MPI_Isend(array_s,ft->n_shared_lb[is+1],MPIU_SCALAR,i_mpi,0,pcd->comm,&pcd->s_reqs[is]);CHKERRQ(ierr);
+	ierr = MPI_Isend(array_s,ft->n_shared_lb[is+1],MPIU_SCALAR,i_mpi,pcd->tag,pcd->comm,&pcd->s_reqs[is]);CHKERRQ(ierr);
 	ierr = VecRestoreArrayRead(vec,&array_s);CHKERRQ(ierr);   
 	ierr = VecRestoreSubVector(x,pcd->isindex[is],&vec);CHKERRQ(ierr);
       }
@@ -250,7 +249,7 @@ static PetscErrorCode PCApplyLocalWithPolling_DIRICHLET(PC pc,Vec x,Vec y,PetscI
     for (i=0; i<ft->n_neigh_lb-1; i++){
       if (pcd->pnc[i]) {
 	ierr = PetscMPIIntCast(ft->neigh_lb[i+1],&i_mpi);CHKERRQ(ierr);
-	ierr = MPI_Irecv(pcd->work_vecs[i],ft->n_shared_lb[i+1],MPIU_SCALAR,i_mpi,0,pcd->comm,&pcd->r_reqs[ir++]);CHKERRQ(ierr);
+	ierr = MPI_Irecv(pcd->work_vecs[i],ft->n_shared_lb[i+1],MPIU_SCALAR,i_mpi,pcd->tag,pcd->comm,&pcd->r_reqs[ir++]);CHKERRQ(ierr);
       }
     }
     ierr = MPI_Waitall(ir,pcd->r_reqs,MPI_STATUSES_IGNORE);CHKERRQ(ierr);
@@ -275,7 +274,7 @@ static PetscErrorCode PCApplyLocalWithPolling_DIRICHLET(PC pc,Vec x,Vec y,PetscI
 	ierr = VecGetSubVector(vec_res,pcd->isindex[i],&vec_aux);CHKERRQ(ierr);
 	ierr = VecGetArrayRead(vec_aux,&array_s);CHKERRQ(ierr);   
 	ierr = PetscMPIIntCast(ft->neigh_lb[i+1],&i_mpi);CHKERRQ(ierr);   
-	ierr = MPI_Isend(array_s,ft->n_shared_lb[i+1],MPIU_SCALAR,i_mpi,0,pcd->comm,&pcd->s_reqs[is++]);CHKERRQ(ierr);
+	ierr = MPI_Isend(array_s,ft->n_shared_lb[i+1],MPIU_SCALAR,i_mpi,pcd->tag,pcd->comm,&pcd->s_reqs[is++]);CHKERRQ(ierr);
 	ierr = VecRestoreArrayRead(vec_aux,&array_s);CHKERRQ(ierr);   
 	ierr = VecRestoreSubVector(vec_res,pcd->isindex[i],&vec_aux);CHKERRQ(ierr);
       }
@@ -285,7 +284,7 @@ static PetscErrorCode PCApplyLocalWithPolling_DIRICHLET(PC pc,Vec x,Vec y,PetscI
     if (n2c0) {
       for (ir=0; ir<ft->n_neigh_lb-1; ir++){
 	ierr = PetscMPIIntCast(ft->neigh_lb[ir+1],&i_mpi);CHKERRQ(ierr);
-	ierr = MPI_Irecv(pcd->work_vecs[ir],ft->n_shared_lb[ir+1],MPIU_SCALAR,i_mpi,0,pcd->comm,&pcd->r_reqs[ir]);CHKERRQ(ierr);    
+	ierr = MPI_Irecv(pcd->work_vecs[ir],ft->n_shared_lb[ir+1],MPIU_SCALAR,i_mpi,pcd->tag,pcd->comm,&pcd->r_reqs[ir]);CHKERRQ(ierr);    
       }
     }
     if (ir) { ierr = MPI_Waitall(ir,pcd->r_reqs,MPI_STATUSES_IGNORE);CHKERRQ(ierr);}

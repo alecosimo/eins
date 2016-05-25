@@ -14,6 +14,7 @@
   IS              *isindex;          \
   PetscBool       *pnc;              \
   Vec             vec1;              \
+  PetscMPIInt     tag,tagp;	     \
   MPI_Comm        comm;
 
 typedef struct {
