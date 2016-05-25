@@ -13,7 +13,7 @@ PETSC_EXTERN PetscBool FETIRegisterAllCalled;
 PETSC_EXTERN PetscErrorCode FETIRegisterAll(void);
 PETSC_EXTERN PetscErrorCode FETICreateFMat(FETI,void (*)(void),void (*)(void),void (*)(void));
 PETSC_EXTERN PetscErrorCode FETIBuildInterfaceKSP(FETI);
-
+PETSC_EXTERN PetscErrorCode FETIBuildLambdaAndB(FETI);
 
 typedef enum { FETI_STATE_INITIAL,
                FETI_STATE_SETUP_INI,
