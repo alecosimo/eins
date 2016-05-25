@@ -126,22 +126,8 @@ static PetscErrorCode KSPDestroy_FETI(KSP ksp)
   KSP_FETI       *ft = (KSP_FETI*)ksp->data;
 
   PetscFunctionBegin;
-  ierr = PetscObjectComposeFunction((PetscObject)ksp,"KSPSetComputeJacobian_C",NULL);CHKERRQ(ierr);
   ierr = FETIDestroy(&ft->feti);CHKERRQ(ierr);
   ierr = KSPDestroyDefault(ksp);CHKERRQ(ierr);
-  PetscFunctionReturn(0);
-}
-
-
-#undef __FUNCT__
-#define __FUNCT__ "KSPSetComputeJacobian_FETI"
-static PetscErrorCode KSPSetComputeJacobian_FETI(KSP ksp)
-{
-  PetscErrorCode ierr;
-  KSP_FETI       *ft = (KSP_FETI*)ksp->data;
-
-  PetscFunctionBegin;
-  ierr = FETISetFactorizeLocalProblem(ft->feti,PETSC_FALSE);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 
@@ -171,7 +157,6 @@ PETSC_EXTERN PetscErrorCode KSPCreate_FETI(KSP ksp)
   ksp->ops->solve          = KSPSolve_FETI;
   ksp->ops->destroy        = KSPDestroy_FETI;
   
-  ierr = PetscObjectComposeFunction((PetscObject)ksp,"KSPSetComputeJacobian_C",KSPSetComputeJacobian_FETI);CHKERRQ(ierr);
   if (!ksp->pc) {ierr = KSPGetPC(ksp,&ksp->pc);CHKERRQ(ierr);}
   ierr = PCSetType(ksp->pc,PCNONE);CHKERRQ(ierr);  
 

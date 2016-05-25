@@ -89,7 +89,8 @@ PetscErrorCode PCAllocateFETIWorkVecs_Private(PC pc, FETI ft)
   }
   
   /* this communicator is going to be used by an external library */
-  ierr = MPI_Comm_dup(PetscObjectComm((PetscObject)ft),&pch->comm);CHKERRQ(ierr); 
+  /* ierr = MPI_Comm_dup(PetscObjectComm((PetscObject)ft),&pch->comm);CHKERRQ(ierr); */
+  ierr = PetscCommDuplicate(PetscObjectComm((PetscObject)ft),&pch->comm,NULL);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 
@@ -111,7 +112,8 @@ PetscErrorCode PCDeAllocateFETIWorkVecs_Private(PC pc)
   ierr = VecDestroy(&pch->vec1);CHKERRQ(ierr);
   for (i=0;i<pch->n_reqs;i++){ ierr = ISDestroy(&pch->isindex[i]);CHKERRQ(ierr);}
   ierr = PetscFree(pch->isindex);CHKERRQ(ierr);
-  ierr = MPI_Comm_free(&pch->comm);CHKERRQ(ierr);
+  /* ierr = MPI_Comm_free(&pch->comm);CHKERRQ(ierr); */
+  ierr = PetscCommDestroy(&pch->comm);CHKERRQ(ierr);
   pch->n_reqs = 0;
   PetscFunctionReturn(0);
 }

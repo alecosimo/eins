@@ -28,29 +28,6 @@ PETSC_EXTERN PetscErrorCode KSPGetResidual(KSP ksp,Vec *res)
 
 
 #undef __FUNCT__
-#define __FUNCT__ "KSPSetComputeJacobian"
-/*@
-   KSPSetComputeJacobian - Sets the variable controlling the computation of the jacobian.
-
-   Input Parameters:
-.  ksp - the KSP context
-.  flg - flag to set
-
-   Level: intermediate
-
-@*/
-PETSC_EXTERN PetscErrorCode KSPSetComputeJacobian(KSP ksp,PetscBool flg)
-{
-  PetscErrorCode ierr;
-  
-  PetscFunctionBegin;
-  PetscValidHeaderSpecific(ksp,KSP_CLASSID,1);
-  ierr = PetscTryMethod(ksp,"KSPSetComputeJacobian_C",(KSP,PetscBool),(ksp,flg));CHKERRQ(ierr);
-  PetscFunctionReturn(0);
-}
-
-
-#undef __FUNCT__
 #define __FUNCT__ "KSPSetProjection"
 /*@
    KSPSetProjection - Sets the projection function to use in the given ksp.

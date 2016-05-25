@@ -4,6 +4,5 @@
 #include <einssnes.h>
 
 PETSC_EXTERN PetscErrorCode SNESCreate_FETIONLY(SNES);
-PETSC_EXTERN PetscErrorCode SNESSetComputeJacobian_default(SNES,PetscBool);
 
 #endif/* EINSSNESIMPL_H*/

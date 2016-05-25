@@ -19,10 +19,7 @@ PETSC_EXTERN PetscErrorCode TSComputeI2JacobianConstantInvariant(PETSC_UNUSED TS
 								 PETSC_UNUSED PetscReal f, PETSC_UNUSED PetscReal g, PETSC_UNUSED Mat h,
 								 PETSC_UNUSED Mat i, PETSC_UNUSED void* j)
 {
-  PetscErrorCode ierr;
-
   PetscFunctionBegin; 
-  ierr = SNESSetComputeJacobian(ts->snes,PETSC_FALSE);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 

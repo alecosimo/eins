@@ -16,7 +16,8 @@ PETSC_EXTERN PetscErrorCode FETIBuildInterfaceKSP(FETI);
 
 
 typedef enum { FETI_STATE_INITIAL,
-               FETI_STATE_SETUP,
+               FETI_STATE_SETUP_INI,
+	       FETI_STATE_SETUP_END,
                FETI_STATE_SOLVED } FETIStateType;
 
 
@@ -71,7 +72,8 @@ struct _p_FETI {
   FETIStateType    state;
   PetscInt         setfromoptionscalled;
   void             *data;
-  PetscBool        factor_local_problem,resetup_pc_interface;
+  PetscBool        resetup_pc_interface;
+  PetscObjectState mat_state;
   PetscInt         n_cs;           /* local number of vector for the Coarse Space */
 };
 

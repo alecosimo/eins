@@ -113,19 +113,6 @@ static PetscErrorCode SNESSetUp_FETIONLY(SNES snes)
 
 
 #undef __FUNCT__
-#define __FUNCT__ "SNESSetComputeJacobian_FETIONLY"
-static PetscErrorCode SNESSetComputeJacobian_FETIONLY(SNES snes,PetscBool flg)
-{
-  PetscErrorCode ierr;
-  SNES_FETIONLY *sf = (SNES_FETIONLY*)snes->data;
-  
-  PetscFunctionBegin;
-  ierr = FETISetFactorizeLocalProblem(sf->feti,flg);CHKERRQ(ierr);
-  PetscFunctionReturn(0);
-}
-
-
-#undef __FUNCT__
 #define __FUNCT__ "SNESDestroy_FETIONLY"
 static PetscErrorCode SNESDestroy_FETIONLY(SNES snes)
 {
@@ -134,7 +121,6 @@ static PetscErrorCode SNESDestroy_FETIONLY(SNES snes)
   
   PetscFunctionBegin;
   if(sf->feti) {ierr = FETIDestroy(&sf->feti);CHKERRQ(ierr);}
-  ierr = PetscObjectComposeFunction((PetscObject)snes,"SNESSetComputeJacobian_C",NULL);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 
@@ -169,8 +155,6 @@ PETSC_EXTERN PetscErrorCode SNESCreate_FETIONLY(SNES snes)
   snes->usesksp = PETSC_FALSE;
   snes->usespc  = PETSC_FALSE;
 
-  ierr = PetscObjectComposeFunction((PetscObject)snes,"SNESSetComputeJacobian_C",SNESSetComputeJacobian_FETIONLY);CHKERRQ(ierr);
-  
   ierr                 = PetscNewLog(snes,&sf);CHKERRQ(ierr);
   snes->data           = (void*)sf;
   ierr                 = FETICreate(PetscObjectComm((PetscObject)snes),&sf->feti);CHKERRQ(ierr);

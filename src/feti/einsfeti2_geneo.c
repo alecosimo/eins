@@ -137,8 +137,8 @@ PetscErrorCode FETICreate_FETI2_GENEO(FETI ft)
     ierr = PCSetOperators(gn->pc_dirichlet,ft->F,ft->F);CHKERRQ(ierr);
     ierr = PetscObjectIncrementTabLevel((PetscObject)gn->pc_dirichlet,(PetscObject)ft,0);CHKERRQ(ierr);
     ierr = PetscLogObjectParent((PetscObject)ft,(PetscObject)gn->pc_dirichlet);CHKERRQ(ierr);
+    ierr = PCSetUp(gn->pc_dirichlet);CHKERRQ(ierr);
   }
-  
   /* create MATSHELLs */
   /* creating the mat context for the MatShell for the eigenvalue problem */
   ierr = PetscNew(&matctx);CHKERRQ(ierr);

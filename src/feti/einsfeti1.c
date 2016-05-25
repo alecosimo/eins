@@ -79,7 +79,9 @@ static PetscErrorCode FETIDestroy_FETI1(FETI ft)
 @*/
 static PetscErrorCode FETISetUp_FETI1(FETI ft)
 {
-  PetscErrorCode ierr;   
+  PetscErrorCode    ierr;   
+  Subdomain         sd = ft->subdomain;
+  PetscObjectState  mat_state;
 
   PetscFunctionBegin;
   if (ft->state==FETI_STATE_INITIAL) {
@@ -97,85 +99,22 @@ static PetscErrorCode FETISetUp_FETI1(FETI ft)
     ierr = FETI1SetUpCoarseProblem_Private(ft);CHKERRQ(ierr);
     ierr = FETI1FactorizeCoarseProblem_Private(ft);CHKERRQ(ierr);
   } else {
-    if (ft->factor_local_problem) {
+    ierr = PetscObjectStateGet((PetscObject)sd->localA,&mat_state);CHKERRQ(ierr);
+    if (mat_state>ft->mat_state) {
+      ierr = PetscObjectStateSet((PetscObject)ft->F,mat_state);CHKERRQ(ierr);  
       if (ft->resetup_pc_interface) {
 	PC pc;
 	ierr = KSPGetPC(ft->ksp_interface,&pc);CHKERRQ(ierr);
 	ierr = PCSetUp(pc);CHKERRQ(ierr);
       }
       ierr = FETI1SetUpNeumannSolver_Private(ft);CHKERRQ(ierr);
+      ft->mat_state = mat_state;
     }
     ierr = FETI1ComputeRhsE_Private(ft);CHKERRQ(ierr);
     ierr = FETI1SetInterfaceProblemRHS_Private(ft);CHKERRQ(ierr);
   }
 
-  ierr = FETI1ComputeInitialCondition_Private(ft);CHKERRQ(ierr);
-  
-#if defined(FETI_DEBUG)
-  {
-    FETI_1            *ft1 = (FETI_1*)ft->data;
-    Vec               g_global,y_g,y_g2,col,asm_e,localv;
-    PetscMPIInt       rank;
-    PetscScalar       *rbuff;
-    const PetscScalar *sbuff;
-    MPI_Comm          comm;
-    ierr = PetscObjectGetComm((PetscObject)ft,&comm);CHKERRQ(ierr);
-    ierr = MPI_Comm_rank(comm,&rank);CHKERRQ(ierr);
-
-    /* TEST A */
-    PetscPrintf(PETSC_COMM_WORLD,"\n==================================================\n");
-    PetscPrintf(PETSC_COMM_WORLD,"\n                    TEST A \n");
-    PetscPrintf(PETSC_COMM_WORLD,"==================================================\n");
-
-    ierr = VecCreateSeq(PETSC_COMM_SELF,ft->n_lambda_local,&col);CHKERRQ(ierr);
-    ierr = VecDuplicate(ft->lambda_global,&g_global);CHKERRQ(ierr);
-    ierr = VecDuplicate(ft->lambda_global,&y_g);CHKERRQ(ierr);
-    ierr = VecDuplicate(ft->lambda_global,&y_g2);CHKERRQ(ierr);
-    ierr = VecSet(g_global,0.0);CHKERRQ(ierr);
-    ierr = VecSet(col,0.0);CHKERRQ(ierr);
-    if(rank==1){
-      ierr = MatGetColumnVector(ft1->localG,col,0);CHKERRQ(ierr);
-      MatView(ft1->localG,PETSC_VIEWER_STDOUT_SELF);
-    }
-    ierr = MPI_Barrier(comm);CHKERRQ(ierr);   
-    ierr = VecScatterBegin(ft->l2g_lambda,col,g_global,ADD_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
-    ierr = VecScatterEnd(ft->l2g_lambda,col,g_global,ADD_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
-
-    ierr = VecCreateSeq(PETSC_COMM_SELF,ft1->total_rbm,&asm_e);CHKERRQ(ierr);
-    ierr = VecScatterBegin(ft->l2g_lambda,g_global,ft->lambda_local,INSERT_VALUES,SCATTER_REVERSE);CHKERRQ(ierr);
-    ierr = VecScatterEnd(ft->l2g_lambda,g_global,ft->lambda_local,INSERT_VALUES,SCATTER_REVERSE);CHKERRQ(ierr);
-    if (ft->n_cs) {
-      ierr = VecCreateSeq(PETSC_COMM_SELF,ft->n_cs,&localv);CHKERRQ(ierr);
-      ierr = MatMultTranspose(ft1->localG,ft->lambda_local,localv);CHKERRQ(ierr);   
-      ierr = VecGetArrayRead(localv,&sbuff);CHKERRQ(ierr);
-    }
-    ierr = VecGetArray(asm_e,&rbuff);CHKERRQ(ierr); 
-    ierr = MPI_Allgatherv(sbuff,ft->n_cs,MPIU_SCALAR,rbuff,ft1->count_rbm,ft1->displ,MPIU_SCALAR,comm);CHKERRQ(ierr);
-    ierr = VecRestoreArray(asm_e,&rbuff);CHKERRQ(ierr);
-    if (ft->n_cs) {
-      ierr = VecRestoreArrayRead(localv,&sbuff);CHKERRQ(ierr);
-      ierr = VecDestroy(&localv);CHKERRQ(ierr);
-    }
-
-    ierr = FETI1ApplyCoarseProblem_Private(ft,asm_e,y_g2);CHKERRQ(ierr);
-
-    PetscPrintf(PETSC_COMM_WORLD,"\n-------------------->>>>>       GLOBAL_VECTOR \n");
-    VecView(g_global,PETSC_VIEWER_STDOUT_WORLD);
-    PetscPrintf(PETSC_COMM_WORLD,"\n-------------------->>>>>       Result of G*(G^T*G)^-1*G^T*(GLOBAL_VECTOR) \n");
-    VecView(y_g2,PETSC_VIEWER_STDOUT_WORLD);
-    
-    /* TEST B */
-    PetscPrintf(PETSC_COMM_WORLD,"\n=================================================================================\n");
-    PetscPrintf(PETSC_COMM_WORLD,"\n                    TEST B: Result of ( I - G*(G^T*G)^-1*G^T ) * GLOBAL_VECTOR \n");
-    PetscPrintf(PETSC_COMM_WORLD,"===================================================================================\n");
-    ierr = FETI1Project_RBM(ft,g_global,y_g);CHKERRQ(ierr);
-    VecView(y_g,PETSC_VIEWER_STDOUT_WORLD);
-    ierr = VecDestroy(&g_global);CHKERRQ(ierr);
-    ierr = VecDestroy(&y_g);CHKERRQ(ierr);
-    ierr = VecDestroy(&y_g2);CHKERRQ(ierr);
-    ierr = VecDestroy(&col);CHKERRQ(ierr);
-  }
-#endif
+  ierr = FETI1ComputeInitialCondition_Private(ft);CHKERRQ(ierr);  
   PetscFunctionReturn(0);
 }
 

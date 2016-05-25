@@ -95,9 +95,11 @@ static PetscErrorCode FETIDestroy_FETI2(FETI ft)
 @*/
 static PetscErrorCode FETISetUp_FETI2(FETI ft)
 {
-  PetscErrorCode ierr;
-  FETI_2         *ft2 = (FETI_2*)ft->data;
-
+  PetscErrorCode    ierr;
+  FETI_2            *ft2 = (FETI_2*)ft->data;
+  Subdomain         sd = ft->subdomain;
+  PetscObjectState  mat_state;
+  
   PetscFunctionBegin;
   if (ft->state==FETI_STATE_INITIAL) {
     ierr = FETIScalingSetUp(ft);CHKERRQ(ierr);
@@ -130,12 +132,12 @@ static PetscErrorCode FETISetUp_FETI2(FETI ft)
       ierr = FETI2FactorizeCoarseProblem_Private(ft);CHKERRQ(ierr);
     }
   } else {
-    if (ft->factor_local_problem) {
+    ierr = PetscObjectStateGet((PetscObject)sd->localA,&mat_state);CHKERRQ(ierr);
+    if (mat_state>ft->mat_state) {
+      ierr = PetscObjectStateSet((PetscObject)ft->F,mat_state);CHKERRQ(ierr);  
       if (ft->resetup_pc_interface) {
 	PC pc;
-	ierr = KSPSetReusePreconditioner(ft->ksp_interface,PETSC_FALSE);CHKERRQ(ierr);  
 	ierr = KSPGetPC(ft->ksp_interface,&pc);CHKERRQ(ierr);
-	ierr = PetscObjectStateIncrease((PetscObject) ft->F);CHKERRQ(ierr);
 	ierr = PCSetUp(pc);CHKERRQ(ierr);
       }
       ierr = FETI2SetUpNeumannSolver_Private(ft);CHKERRQ(ierr);
@@ -146,7 +148,8 @@ static PetscErrorCode FETISetUp_FETI2(FETI ft)
       if (ft2->coarseGType != NO_COARSE_GRID) {
 	ierr = FETI2ComputeCoarseProblem_RBM(ft);CHKERRQ(ierr);
 	ierr = FETI2FactorizeCoarseProblem_Private(ft);CHKERRQ(ierr);
-      }      
+      }
+      ft->mat_state = mat_state;
     }
     ierr = FETI2SetInterfaceProblemRHS_Private(ft);CHKERRQ(ierr);
   }

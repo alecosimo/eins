@@ -441,7 +441,7 @@ PetscErrorCode  FETISetUp(FETI feti)
 
   PetscFunctionBegin;
   PetscValidHeaderSpecific(feti,FETI_CLASSID,1);
-  if (feti->state) PetscFunctionReturn(0);
+  if (feti->state>=FETI_STATE_SETUP_END) PetscFunctionReturn(0);
   if (!feti->subdomain) SETERRQ(PetscObjectComm((PetscObject)feti),PETSC_ERR_ARG_WRONGSTATE,"Error Subdomain not defined");
   ierr = SubdomainCheckState(feti->subdomain);CHKERRQ(ierr);
   
@@ -449,13 +449,13 @@ PetscErrorCode  FETISetUp(FETI feti)
   if (!((PetscObject)feti)->type_name) { ierr = FETISetType(feti,def);CHKERRQ(ierr);}
 
   ierr = PetscLogEventBegin(FETI_SetUp,feti,0,0,0);CHKERRQ(ierr);
-  ierr = SubdomainSetUp(feti->subdomain,(PetscBool)(feti->state==FETI_STATE_SETUP));CHKERRQ(ierr);
+  ierr = SubdomainSetUp(feti->subdomain,(PetscBool)(feti->state>=FETI_STATE_SETUP_INI));CHKERRQ(ierr);
 
   if (feti->ops->setup) {
     ierr = (*feti->ops->setup)(feti);CHKERRQ(ierr);
   }
   ierr = PetscLogEventEnd(FETI_SetUp,feti,0,0,0);CHKERRQ(ierr);
-  if (feti->state == FETI_STATE_INITIAL) feti->state = FETI_STATE_SETUP;
+  if (feti->state == FETI_STATE_INITIAL) feti->state = FETI_STATE_SETUP_END;
   PetscFunctionReturn(0);
 }
 
@@ -558,7 +558,7 @@ PetscErrorCode FETISetLocalMat(FETI ft,Mat local_mat)
   PetscValidHeaderSpecific(ft,FETI_CLASSID,1);
   PetscValidHeaderSpecific(local_mat,MAT_CLASSID,2);
   ierr = SubdomainSetLocalMat(ft->subdomain,local_mat);CHKERRQ(ierr);
-  if (ft->state == FETI_STATE_SOLVED) {ft->state = FETI_STATE_SETUP;};
+  if (ft->state == FETI_STATE_SOLVED) {ft->state = FETI_STATE_SETUP_INI;};
   PetscFunctionReturn(0);
 }
 
@@ -591,7 +591,7 @@ PetscErrorCode FETISetMat(FETI ft,Mat mat)
   if (!flg) SETERRQ(PetscObjectComm((PetscObject)mat),PETSC_ERR_SUP,"Cannot set non-MATSHELLUNASM matrix");
   ierr = MatShellUnAsmGetContext(mat,(void**)&mat_ctx);CHKERRQ(ierr);
   ierr = SubdomainSetLocalMat(ft->subdomain,mat_ctx->localA);CHKERRQ(ierr);
-  if (ft->state == FETI_STATE_SOLVED) {ft->state = FETI_STATE_SETUP;};
+  if (ft->state == FETI_STATE_SOLVED) {ft->state = FETI_STATE_SETUP_INI;};
   PetscFunctionReturn(0);
 }
 
@@ -625,7 +625,7 @@ PetscErrorCode FETISetRHS(FETI ft,Vec rhs)
   ierr = VecUnAsmGetLocalVectorRead(rhs,&rhs_local);CHKERRQ(ierr);
   ierr = SubdomainSetLocalRHS(ft->subdomain,rhs_local);CHKERRQ(ierr);
   ierr = VecUnAsmRestoreLocalVectorRead(rhs,rhs_local);CHKERRQ(ierr);
-  if (ft->state == FETI_STATE_SOLVED) {ft->state = FETI_STATE_SETUP;};
+  if (ft->state == FETI_STATE_SOLVED) {ft->state = FETI_STATE_SETUP_INI;};
   PetscFunctionReturn(0);
 }
 
@@ -653,7 +653,7 @@ PetscErrorCode FETISetLocalRHS(FETI ft,Vec rhs)
   PetscValidHeaderSpecific(ft,FETI_CLASSID,1);
   PetscValidHeaderSpecific(rhs,VEC_CLASSID,2);
   ierr = SubdomainSetLocalRHS(ft->subdomain,rhs);CHKERRQ(ierr);
-  if (ft->state == FETI_STATE_SOLVED) {ft->state = FETI_STATE_SETUP;};
+  if (ft->state == FETI_STATE_SOLVED) {ft->state = FETI_STATE_SETUP_INI;};
   PetscFunctionReturn(0);
 }
 
@@ -709,29 +709,6 @@ PETSC_EXTERN PetscErrorCode FETISetReSetupPCInterface(FETI ft,PetscBool resetup_
   PetscFunctionBegin;
   PetscValidHeaderSpecific(ft,FETI_CLASSID,1);
   ft->resetup_pc_interface = resetup_pc_interface;
-  PetscFunctionReturn(0);
-}
-
-
-#undef __FUNCT__
-#define __FUNCT__ "FETISetFactorizeLocalProblem"
-/*@C
-   FETISetFactorizeLocalProblem - Sets the value of the flag controlling the factorization of the local problem
-
-   Input Parameters:
-+  ft                    - the FETI context 
--  factor_local_problem  - boolean value to set
-
-   Level: beginner
-
-.keywords: FETI
-
-@*/
-PETSC_EXTERN PetscErrorCode FETISetFactorizeLocalProblem(FETI ft,PetscBool factor_local_problem)
-{
-  PetscFunctionBegin;
-  PetscValidHeaderSpecific(ft,FETI_CLASSID,1);
-  ft->factor_local_problem = factor_local_problem;
   PetscFunctionReturn(0);
 }
 
@@ -911,7 +888,7 @@ PetscErrorCode  FETICreate(MPI_Comm comm,FETI *newfeti)
   feti->neigh_lb             = 0;
   feti->n_shared_lb          = 0;
   feti->shared_lb            = 0;
-  feti->factor_local_problem = PETSC_TRUE;
+  feti->mat_state            = -1;
   feti->resetup_pc_interface = PETSC_TRUE;
   /* scaling variables initialization*/
   feti->Wscaling             = 0;
