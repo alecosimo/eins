@@ -38,6 +38,7 @@ static PetscErrorCode EinsRegisterAll(void)
   EinsRegisterAllCalled = PETSC_TRUE;
   /*Register FETI*/
   ierr = FETIRegisterAll();CHKERRQ(ierr);
+  ierr = FETICSRegisterAll();CHKERRQ(ierr);
   /*Register Vec*/
   ierr = VecRegisterAll();CHKERRQ(ierr);
   ierr = VecRegister(VECMPIUNASM,VecCreate_UNASM);CHKERRQ(ierr);

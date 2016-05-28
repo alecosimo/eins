@@ -4,6 +4,7 @@
 #include <petscsys.h>
 #include <petscksp.h>
 
+
 /*S
      FETI - Abstract PETSc object that manages all FETI methods
 
@@ -47,22 +48,53 @@ typedef const char* FETIScalingType;
 #define SCNONE           "scnone"
 #define SCUNK           "scunk" /* Unknown scaling*/
 
-/* QMatrix type*/ 
-typedef enum {
-  NONE=0,              /* none */
-  DIRCHLET,            /* Dirichlet preconditioner */
-  LUMPED,              /* Lumped preconditioner */
-  MATCH_PCFETI         /* Equal to the preconditioner for the interface problem */
-} QMatrixType;
+
+/*S
+   FETICS - Petsc object for handling FETI Coarse Spaces
+
+   Level: advanced
+
+.seealso:  FETICSCreate(), FETICSSetType()
+S*/
+typedef struct _p_FETICS* FETICS;
+
+/*J
+    FETICSType - String with the name of a Coarse Space
+
+   Level: intermediate
+
+.seealso: FETICSSetType(), FETICS
+J*/
+typedef const char* FETICSType;
+#define CS_NONE                    "csnone"
+#define CS_RIGID_BODY_MODES        "csrbm"
+#define CS_GENEO_MODES             "csgeneo"
 
 
 typedef enum {
-  NO_COARSE_GRID,
-  RIGID_BODY_MODES,
-  GENEO_MODES
+  NO_COARSE_GRID,     /* CS_NONE */
+  RIGID_BODY_MODES,   /* CS_RIGID_BODY_MODES */
+  GENEO_MODES         /* CS_GENEO_MODES */
 } CoarseGridType;
 PETSC_EXTERN const char *const CoarseGridTypes[];
 
+
+PETSC_EXTERN PetscFunctionList FETICSList;
+PETSC_EXTERN PetscClassId      FETICS_CLASSID;
+PETSC_EXTERN PetscBool         FETICSRegisterAllCalled;
+
+/* FETICS stuff */
+PETSC_EXTERN PetscErrorCode FETICSCreate(MPI_Comm,FETICS*);
+PETSC_EXTERN PetscErrorCode FETICSDestroy(FETICS*);
+PETSC_EXTERN PetscErrorCode FETICSSetType(FETICS,FETI,const FETICSType);
+PETSC_EXTERN PetscErrorCode FETICSSetFromOptions(FETICS);
+PETSC_EXTERN PetscErrorCode FETICSRegister(const char[],PetscErrorCode (*)(FETICS));
+PETSC_EXTERN PetscErrorCode FETICSRegisterAll(void);
+PETSC_EXTERN PetscErrorCode FETICSSetUp(FETICS);
+PETSC_EXTERN PetscErrorCode FETICSComputeCoarseBasisI(FETICS,Mat*);
+PETSC_EXTERN PetscErrorCode FETICSSetFETI(FETICS,FETI);
+
+/* FETI stuff */
 PETSC_EXTERN PetscErrorCode FETICreate(MPI_Comm,FETI*);
 PETSC_EXTERN PetscErrorCode FETIRegister(const char[],PetscErrorCode(*)(FETI));
 PETSC_EXTERN PetscErrorCode FETISetType(FETI,FETIType);

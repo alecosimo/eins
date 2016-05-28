@@ -384,9 +384,11 @@ PetscErrorCode  FETIFinalizePackage(void)
 
   PetscFunctionBegin;
   ierr = PetscFunctionListDestroy(&FETIList);CHKERRQ(ierr);
+  ierr = PetscFunctionListDestroy(&FETICSList);CHKERRQ(ierr);
   ierr = PetscFunctionListDestroy(&FETIScalingList);CHKERRQ(ierr);
-  FETIPackageInitialized = PETSC_FALSE;
-  FETIRegisterAllCalled  = PETSC_FALSE;
+  FETIPackageInitialized   = PETSC_FALSE;
+  FETIRegisterAllCalled    = PETSC_FALSE;
+  FETICSRegisterAllCalled  = PETSC_FALSE;
   PetscFunctionReturn(0);
 }
 
@@ -409,8 +411,10 @@ PetscErrorCode  FETIInitializePackage(void)
   FETIPackageInitialized = PETSC_TRUE;
   /* Register Classes */
   ierr = PetscClassIdRegister("FETI",&FETI_CLASSID);CHKERRQ(ierr);
+  ierr = PetscClassIdRegister("FETICS",&FETICS_CLASSID);CHKERRQ(ierr);
   /* Register Constructors */
   ierr = FETIRegisterAll();CHKERRQ(ierr);
+  ierr = FETICSRegisterAll();CHKERRQ(ierr);
   /* Register Events */
   ierr = PetscLogEventRegister("FETISetUp",FETI_CLASSID,&FETI_SetUp);CHKERRQ(ierr);
   /* Set FETIFinalizePackage */
