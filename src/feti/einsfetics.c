@@ -18,19 +18,26 @@ PetscErrorCode FETICSCreate_RBM(PETSC_UNUSED FETICS ftcs)
 }
 
 
+PETSC_EXTERN PetscErrorCode FETICSCreate_GENEO(FETICS);
+#if !defined(HAVE_SLEPC)
 #undef __FUNCT__
-#define __FUNCT__ "FETICSCreate_FETI2_GENEO"
-PETSC_EXTERN PetscErrorCode FETICSCreate_FETI2_GENEO(FETICS);
-PetscErrorCode FETICSCreate_FETI2_GENEO(PETSC_UNUSED FETICS ftcs)
+#define __FUNCT__ "FETICSCreate_GENEO"
+PetscErrorCode FETICSCreate_GENEO(FETICS ftcs)
 {
   PetscFunctionBegin;
+  ftcs->data = 0;
+  ftcs->ops->setup               = 0;
+  ftcs->ops->destroy             = 0;
+  ftcs->ops->setfromoptions      = 0;
+  ftcs->ops->computecoarsebasis  = 0;
   PetscFunctionReturn(0);
 }
+#endif
 
 #undef __FUNCT__
 #define __FUNCT__ "FETICSCreate_NOCS"
 PETSC_EXTERN PetscErrorCode FETICSCreate_NOCS(FETICS);
-PetscErrorCode FETICSCreate_NOCS(PETSC_UNUSED FETICS ftcs)
+PetscErrorCode FETICSCreate_NOCS(FETICS ftcs)
 {
   PetscFunctionBegin;
   ftcs->data = 0;
@@ -91,7 +98,7 @@ PetscErrorCode  FETICSRegisterAll(void)
   FETICSRegisterAllCalled = PETSC_TRUE;
 
   ierr = FETICSRegister(CS_RIGID_BODY_MODES,FETICSCreate_RBM);CHKERRQ(ierr);
-  ierr = FETICSRegister(CS_GENEO_MODES,FETICSCreate_FETI2_GENEO);CHKERRQ(ierr);
+  ierr = FETICSRegister(CS_GENEO_MODES,FETICSCreate_GENEO);CHKERRQ(ierr);
   ierr = FETICSRegister(CS_NONE,FETICSCreate_NOCS);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
