@@ -98,6 +98,7 @@ PETSC_EXTERN PetscErrorCode FETICSSetFETI(FETICS,FETI);
 PETSC_EXTERN PetscErrorCode FETICreate(MPI_Comm,FETI*);
 PETSC_EXTERN PetscErrorCode FETIRegister(const char[],PetscErrorCode(*)(FETI));
 PETSC_EXTERN PetscErrorCode FETISetType(FETI,FETIType);
+PETSC_EXTERN PetscErrorCode FETISetCoarseSpaceType(FETI,FETICSType);
 PETSC_EXTERN PetscErrorCode FETIGetType(FETI,FETIType*);
 PETSC_EXTERN PetscErrorCode FETISetFromOptions(FETI);
 PETSC_EXTERN PetscErrorCode FETISetInterfaceSolver(FETI,KSPType,PCType);

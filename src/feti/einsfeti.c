@@ -124,6 +124,30 @@ PetscErrorCode  FETISetType(FETI feti,FETIType type)
 
 
 #undef __FUNCT__
+#define __FUNCT__ "FETISetCoarseSpaceType"
+/*@C
+   FETISetCoarseSpaceType - Sets the FETI Coarse Space type.
+
+   Input Parameter:
+.  ft        - the FETI context.
+.  ftcs_type - the FETI coarse space type
+
+  Level: basic
+
+.seealso: FETICSType
+
+@*/
+PetscErrorCode FETISetCoarseSpaceType(FETI ft,FETICSType ftcs_type)
+{
+  PetscFunctionBegin;
+  PetscValidHeaderSpecific(ft,FETI_CLASSID,1);
+  PetscValidCharPointer(ftcs,2);
+  ft->ftcs_type = ftcs_type;
+  PetscFunctionReturn(0);
+}
+
+
+#undef __FUNCT__
 #define __FUNCT__ "FETISetInterfaceSolver"
 /*@C
    FETISetInterfaceSolver - Sets the KSP and PC to be used for solving the FETI interface problem.
@@ -351,6 +375,7 @@ PetscErrorCode FETIDestroy(FETI *_feti)
   ierr = VecDestroy(&feti->multiplicity);CHKERRQ(ierr);
   ierr = VecDestroy(&feti->lambda_local);CHKERRQ(ierr);
   ierr = VecDestroy(&feti->lambda_global);CHKERRQ(ierr);
+  ierr = FETICSDestroy(&feti->ftcs);CHKERRQ(ierr);
   ierr = FETIScalingDestroy(feti);CHKERRQ(ierr);
   ierr = VecExchangeDestroy(&feti->exchange_lambda);CHKERRQ(ierr);
   if (feti->n_neigh_lb > -1) {
@@ -454,8 +479,15 @@ PetscErrorCode  FETISetUp(FETI feti)
   if (!((PetscObject)feti)->type_name) { ierr = FETISetType(feti,def);CHKERRQ(ierr);}
 
   ierr = PetscLogEventBegin(FETI_SetUp,feti,0,0,0);CHKERRQ(ierr);
+
+  /* setup subdomain stuff */
   ierr = SubdomainSetUp(feti->subdomain,(PetscBool)(feti->state>=FETI_STATE_SETUP_INI));CHKERRQ(ierr);
 
+  /* create FETICS */
+  ierr = FETICSCreate(PetscObjectComm((PetscObject)feti),&feti->ftcs);CHKERRQ(ierr);
+  ierr = FETICSSetType(feti->ftcs,feti,feti->ftcs_type);CHKERRQ(ierr);
+  ierr = FETICSSetFromOptions(feti->ftcs);CHKERRQ(ierr);
+  
   if (feti->ops->setup) {
     ierr = (*feti->ops->setup)(feti);CHKERRQ(ierr);
   }
@@ -1111,6 +1143,8 @@ PetscErrorCode  FETICreate(MPI_Comm comm,FETI *newfeti)
   feti->shared_lb            = 0;
   feti->mat_state            = -1;
   feti->resetup_pc_interface = PETSC_TRUE;
+  feti->ftcs                 = 0;
+  feti->ftcs_type            = CS_NONE;
   /* scaling variables initialization*/
   feti->Wscaling             = 0;
   feti->scaling_factor       = 1.;

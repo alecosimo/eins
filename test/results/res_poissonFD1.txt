@@ -78,6 +78,7 @@ Star Forest Bipartite Graph     3              3
    IS L to G Mapping     4              4
    Application Order     1              1
                 FETI     1              1
+              FETICS     1              1
        Krylov Solver     5              5
       Preconditioner     5              5
               Viewer     2              0

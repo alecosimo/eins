@@ -33,6 +33,12 @@ PETSC_EXTERN PetscErrorCode FETICSCreate_NOCS(FETICS);
 PetscErrorCode FETICSCreate_NOCS(PETSC_UNUSED FETICS ftcs)
 {
   PetscFunctionBegin;
+  ftcs->data = 0;
+  ftcs->ops->setup               = 0;
+  ftcs->ops->destroy             = 0;
+  ftcs->ops->setfromoptions      = 0;
+  ftcs->ops->computecoarsebasis  = 0;
+
   PetscFunctionReturn(0);  
 }
 
@@ -86,7 +92,7 @@ PetscErrorCode  FETICSRegisterAll(void)
 
   ierr = FETICSRegister(CS_RIGID_BODY_MODES,FETICSCreate_RBM);CHKERRQ(ierr);
   ierr = FETICSRegister(CS_GENEO_MODES,FETICSCreate_FETI2_GENEO);CHKERRQ(ierr);
-  ierr = FETICSRegister(CS_GENEO_MODES,FETICSCreate_NOCS);CHKERRQ(ierr);
+  ierr = FETICSRegister(CS_NONE,FETICSCreate_NOCS);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 

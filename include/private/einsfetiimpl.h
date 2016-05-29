@@ -93,6 +93,8 @@ struct _p_FETI {
   PetscBool        resetup_pc_interface;
   PetscObjectState mat_state;
   PetscInt         n_cs;           /* local number of vector for the Coarse Space */
+  FETICS           ftcs;
+  FETICSType       ftcs_type;
 };
 
 PETSC_EXTERN PetscLogEvent FETI_SetUp;
