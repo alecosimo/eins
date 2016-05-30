@@ -342,7 +342,6 @@ PetscErrorCode  FETISetFromOptions(FETI feti)
 
   PetscFunctionBegin;
   PetscValidHeaderSpecific(feti,FETI_CLASSID,1);
-
   ierr = FETIRegisterAll();CHKERRQ(ierr);
   ierr = PetscObjectOptionsBegin((PetscObject)feti);CHKERRQ(ierr);
   ierr = PetscOptionsFList("-feti_type","FETI","FETISetType",FETIList,def,type,256,&flg);CHKERRQ(ierr);
