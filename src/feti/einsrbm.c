@@ -86,6 +86,8 @@ static PetscErrorCode FETICSSetUp_RBM(FETICS ftcs)
   Mat              x;
   PC               pc;
   PetscBool        issbaij;
+  Mat              F_rbm; /* matrix object specifically suited for symbolic factorization: it must not be destroyed with MatDestroy() */
+  KSP              ksp_rbm;
   
   PetscFunctionBegin;
   ierr   = PetscObjectGetComm((PetscObject)ft,&comm);CHKERRQ(ierr);
@@ -113,49 +115,45 @@ static PetscErrorCode FETICSSetUp_RBM(FETICS ftcs)
       ierr = MatDuplicate(sd->localA,MAT_SHARE_NONZERO_PATTERN,&gn->stiffness_mat);CHKERRQ(ierr);
     }
     ierr = (*gn->stiffnessFun)(ftcs,gn->stiffness_mat,gn->stiffness_ctx);CHKERRQ(ierr);
-    if (!gn->ksp_rbm) {
-      ierr = KSPCreate(PETSC_COMM_SELF,&gn->ksp_rbm);CHKERRQ(ierr);
-      ierr = PetscObjectIncrementTabLevel((PetscObject)gn->ksp_rbm,(PetscObject)ft,1);CHKERRQ(ierr);
-      ierr = PetscLogObjectParent((PetscObject)ft,(PetscObject)gn->ksp_rbm);CHKERRQ(ierr);
-      ierr = KSPSetType(gn->ksp_rbm,KSPPREONLY);CHKERRQ(ierr);
-      ierr = KSPGetPC(gn->ksp_rbm,&pc);CHKERRQ(ierr);
-      ierr = PetscObjectTypeCompare((PetscObject)(gn->stiffness_mat),MATSEQSBAIJ,&issbaij);CHKERRQ(ierr);
-      if (issbaij) {
-	ierr = PCSetType(pc,PCCHOLESKY);CHKERRQ(ierr);
-      } else {
-	ierr = PCSetType(pc,PCLU);CHKERRQ(ierr);
-      }
-      ierr = PCFactorSetMatSolverPackage(pc,MATSOLVERMUMPS);CHKERRQ(ierr);
-      ierr = KSPSetOperators(gn->ksp_rbm,gn->stiffness_mat,gn->stiffness_mat);CHKERRQ(ierr);
-      /* prefix for setting options */
-      ierr = KSPSetOptionsPrefix(gn->ksp_rbm,"fetics_rbm_");CHKERRQ(ierr);
-      ierr = MatSetOptionsPrefix(gn->stiffness_mat,"fetics_rbm_");CHKERRQ(ierr);
-      ierr = PCFactorSetUpMatSolverPackage(pc);CHKERRQ(ierr);
-      ierr = PCFactorGetMatrix(pc,&gn->F_rbm);CHKERRQ(ierr);
-      /* sequential ordering */
-      ierr = MatMumpsSetIcntl(gn->F_rbm,7,2);CHKERRQ(ierr);
-      /* Null row pivot detection */
-      ierr = MatMumpsSetIcntl(gn->F_rbm,24,1);CHKERRQ(ierr);
-      /* threshhold for row pivot detection */
-      ierr = MatMumpsSetCntl(gn->F_rbm,3,1.e-6);CHKERRQ(ierr);
-
-      /* Maybe the following two options should be given as external options and not here*/
-      ierr = KSPSetFromOptions(gn->ksp_rbm);CHKERRQ(ierr);
-      ierr = PCFactorSetReuseFill(pc,PETSC_TRUE);CHKERRQ(ierr);
+    ierr = KSPCreate(PETSC_COMM_SELF,&ksp_rbm);CHKERRQ(ierr);
+    ierr = PetscObjectIncrementTabLevel((PetscObject)ksp_rbm,(PetscObject)ft,1);CHKERRQ(ierr);
+    ierr = PetscLogObjectParent((PetscObject)ft,(PetscObject)ksp_rbm);CHKERRQ(ierr);
+    ierr = KSPSetType(ksp_rbm,KSPPREONLY);CHKERRQ(ierr);
+    ierr = KSPGetPC(ksp_rbm,&pc);CHKERRQ(ierr);
+    ierr = PetscObjectTypeCompare((PetscObject)(gn->stiffness_mat),MATSEQSBAIJ,&issbaij);CHKERRQ(ierr);
+    if (issbaij) {
+      ierr = PCSetType(pc,PCCHOLESKY);CHKERRQ(ierr);
     } else {
-      ierr = KSPSetOperators(gn->ksp_rbm,gn->stiffness_mat,gn->stiffness_mat);CHKERRQ(ierr);
+      ierr = PCSetType(pc,PCLU);CHKERRQ(ierr);
     }
+    ierr = PCFactorSetMatSolverPackage(pc,MATSOLVERMUMPS);CHKERRQ(ierr);
+    ierr = KSPSetOperators(ksp_rbm,gn->stiffness_mat,gn->stiffness_mat);CHKERRQ(ierr);
+    /* prefix for setting options */
+    ierr = KSPSetOptionsPrefix(ksp_rbm,"fetics_rbm_");CHKERRQ(ierr);
+    ierr = MatSetOptionsPrefix(gn->stiffness_mat,"fetics_rbm_");CHKERRQ(ierr);
+    ierr = PCFactorSetUpMatSolverPackage(pc);CHKERRQ(ierr);
+    ierr = PCFactorGetMatrix(pc,&F_rbm);CHKERRQ(ierr);
+    /* sequential ordering */
+    ierr = MatMumpsSetIcntl(F_rbm,7,2);CHKERRQ(ierr);
+    /* Null row pivot detection */
+    ierr = MatMumpsSetIcntl(F_rbm,24,1);CHKERRQ(ierr);
+    /* threshhold for row pivot detection */
+    ierr = MatMumpsSetCntl(F_rbm,3,1.e-6);CHKERRQ(ierr);
+
+    /* Maybe the following two options should be given as external options and not here*/
+    ierr = KSPSetFromOptions(ksp_rbm);CHKERRQ(ierr);
+    ierr = PCFactorSetReuseFill(pc,PETSC_TRUE);CHKERRQ(ierr);
     /* Set Up KSP for Neumann problem: here the factorization takes place!!! */
-    ierr  = KSPSetUp(gn->ksp_rbm);CHKERRQ(ierr);
-    ierr  = MatMumpsGetInfog(gn->F_rbm,28,&ft->n_cs);CHKERRQ(ierr);
+    ierr  = KSPSetUp(ksp_rbm);CHKERRQ(ierr);
+    ierr  = MatMumpsGetInfog(F_rbm,28,&ft->n_cs);CHKERRQ(ierr);
     if(ft->n_cs){
       /* Compute rigid body modes */
       ierr = MatCreateSeqDense(PETSC_COMM_SELF,sd->n,ft->n_cs,NULL,&gn->rbm);CHKERRQ(ierr);
       ierr = MatDuplicate(gn->rbm,MAT_DO_NOT_COPY_VALUES,&x);CHKERRQ(ierr);
       ierr = MatAssemblyBegin(gn->rbm,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
       ierr = MatAssemblyEnd(gn->rbm,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
-      ierr = MatMumpsSetIcntl(gn->F_rbm,25,-1);CHKERRQ(ierr);
-      ierr = MatMatSolve(gn->F_rbm,x,gn->rbm);CHKERRQ(ierr);
+      ierr = MatMumpsSetIcntl(F_rbm,25,-1);CHKERRQ(ierr);
+      ierr = MatMatSolve(F_rbm,x,gn->rbm);CHKERRQ(ierr);
       ierr = MatDestroy(&x);CHKERRQ(ierr);
 
       /* compute matrix localG */
@@ -165,7 +163,7 @@ static PetscErrorCode FETICSSetUp_RBM(FETICS ftcs)
       ierr = MatMatMult(ft->B_delta,x,MAT_REUSE_MATRIX,PETSC_DEFAULT,&gn->localG);CHKERRQ(ierr);    
       ierr = MatDestroy(&x);CHKERRQ(ierr);
     }
-    ierr = KSPDestroy(&gn->ksp_rbm);CHKERRQ(ierr);
+    ierr = KSPDestroy(&ksp_rbm);CHKERRQ(ierr);
     ierr = MatDestroy(&gn->stiffness_mat);CHKERRQ(ierr);
     ierr = MatDestroy(&gn->rbm);CHKERRQ(ierr);
   }
