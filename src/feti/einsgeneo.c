@@ -37,7 +37,7 @@ static PetscErrorCode EPSStoppingGeneo_Private(EPS eps,PetscInt its,PetscInt max
 
 #undef __FUNCT__
 #define __FUNCT__ "FETICSComputeCoarseBasisI_GENEO"
-PetscErrorCode FETICSComputeCoarseBasisI_GENEO(FETICS ftcs,Mat *localG)
+static PetscErrorCode FETICSComputeCoarseBasisI_GENEO(FETICS ftcs,Mat *localG)
 {
   PetscErrorCode    ierr;
   FETI              ft  = ftcs->feti;
@@ -96,11 +96,15 @@ static PetscErrorCode MatDestroyAg_GENEO(Mat A)
 #define __FUNCT__ "FETICSSetUp_GENEO"
 static PetscErrorCode FETICSSetUp_GENEO(FETICS ftcs)
 {
-  PetscErrorCode ierr;
-  FETI           ft = ftcs->feti;
-  PC             pc;
-  PCType         pctype;
-  GENEO_CS       *gn = (GENEO_CS*)ftcs->data;
+  PetscErrorCode   ierr;
+  FETI             ft = ftcs->feti;
+  PC               pc;
+  PCType           pctype;
+  GENEO_CS         *gn = (GENEO_CS*)ftcs->data;
+  MPI_Comm         comm;
+  PCFT_DIRICHLET   *pcd;
+  PetscInt         n,nev;
+  GENEOMat_ctx     matctx;
   
   PetscFunctionBegin;
   ierr   = PetscObjectGetComm((PetscObject)ft,&comm);CHKERRQ(ierr);
@@ -193,7 +197,7 @@ static PetscErrorCode MatMultAg_GENEO(Mat A,Vec x,Vec y)
 
 #undef __FUNCT__
 #define __FUNCT__ "FETICSDestroy_GENEO"
-PetscErrorCode FETICSDestroy_GENEO(FETICS ftcs)
+static PetscErrorCode FETICSDestroy_GENEO(FETICS ftcs)
 {
   PetscErrorCode ierr;
   GENEO_CS       *gn = (GENEO_CS*)ftcs->data;
@@ -213,6 +217,7 @@ PetscErrorCode FETICSDestroy_GENEO(FETICS ftcs)
 
 #undef __FUNCT__
 #define __FUNCT__ "FETICSCreate_GENEO"
+PETSC_EXTERN PetscErrorCode FETICSCreate_GENEO(FETICS);
 PetscErrorCode FETICSCreate_GENEO(FETICS ftcs)
 {
   PetscErrorCode  ierr;

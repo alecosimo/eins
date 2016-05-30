@@ -56,13 +56,8 @@ static PetscErrorCode FETIDestroy_FETI2(FETI ft)
     ierr = FETIDestroy_FETI2_GATHER_NEIGH(ft);CHKERRQ(ierr);
     ierr = FETIDestroy_FETI2_RBM(ft);CHKERRQ(ierr);
   }
-  if (ft2->coarseGType == GENEO_MODES) {
-#if !defined(HAVE_SLEPC)
-    SETERRQ(PetscObjectComm((PetscObject)ft),1,"EINS only supports the computation of GENEO modes by using SLEPc and SLEPc library is not found");
-#else /* ft2->coarseGType == GENEO_MODES */
-    ierr = FETIDestroy_FETI2_GENEO(ft);CHKERRQ(ierr);
-#endif /* ft2->coarseGType == GENEO_MODES */
-  }
+
+  ierr = FETICSDestroy(&ft->ftcs);CHKERRQ(ierr);
   
   ierr = MatDestroy(&ft2->localG);CHKERRQ(ierr);
   ierr = MatDestroy(&ft2->stiffness_mat);CHKERRQ(ierr);
@@ -98,8 +93,10 @@ static PetscErrorCode FETISetUp_FETI2(FETI ft)
   FETI_2            *ft2 = (FETI_2*)ft->data;
   Subdomain         sd = ft->subdomain;
   PetscObjectState  mat_state;
+  PetscBool         flg;
   
   PetscFunctionBegin;
+  ierr = PetscObjectTypeCompare((PetscObject)ft->ftcs,CS_NONE,&flg);CHKERRQ(ierr);
   if (ft->state==FETI_STATE_INITIAL) {
     ierr = FETIScalingSetUp(ft);CHKERRQ(ierr);
     ierr = FETIBuildLambdaAndB(ft);CHKERRQ(ierr);
@@ -107,22 +104,14 @@ static PetscErrorCode FETISetUp_FETI2(FETI ft)
     ierr = FETI2BuildInterfaceProblem_Private(ft);CHKERRQ(ierr);
     ierr = FETIBuildInterfaceKSP(ft);CHKERRQ(ierr); /* the PC for the interface problem is setup here */
 
-    if (ft2->computeRBM && ft2->coarseGType == RIGID_BODY_MODES) {
-      ierr = FETI2ComputeMatrixG_Private(ft);CHKERRQ(ierr);
-      ft2->computeRBM = PETSC_FALSE;
-    } else if(ft2->coarseGType == GENEO_MODES) {
-#if !defined(HAVE_SLEPC)
-      SETERRQ(PetscObjectComm((PetscObject)ft),1,"EINS only supports the computation of GENEO modes by using SLEPc and SLEPc library is not found");
-#else /* ft2->coarseGType == GENEO_MODES */
-      ierr = FETICreate_FETI2_GENEO(ft);CHKERRQ(ierr);
-      ierr = FETISetUp_FETI2_GENEO(ft);CHKERRQ(ierr);
-      ierr = FETI2ComputeMatrixG_GENEO(ft);CHKERRQ(ierr);
-#endif /* ft2->coarseGType == GENEO_MODES */
+    if (PetscNot(flg)) {
+      ierr = FETICSSetUp(ft->ftcs);CHKERRQ(ierr);
+      ierr = FETICSComputeCoarseBasisI(ft->ftcs,&ft2->localG);CHKERRQ(ierr);
     }
-	  
+    
     ierr = FETI2SetInterfaceProblemRHS_Private(ft);CHKERRQ(ierr);
     /* set projection in ksp */
-    if (ft2->coarseGType != NO_COARSE_GRID) {
+    if (PetscNot(flg)) {
       ierr = KSPSetProjection(ft->ksp_interface,FETI2Project_RBM,(void*)ft);CHKERRQ(ierr);
       ierr = KSPSetReProjection(ft->ksp_interface,FETI2ReProject_RBM,(void*)ft);CHKERRQ(ierr);
       ierr = FETI2SetUpCoarseProblem_RBM(ft);CHKERRQ(ierr);
@@ -140,11 +129,11 @@ static PetscErrorCode FETISetUp_FETI2(FETI ft)
 	ierr = PCSetUp(pc);CHKERRQ(ierr);
       }
       ierr = FETI2SetUpNeumannSolver_Private(ft);CHKERRQ(ierr);
-      if (ft->resetup_pc_interface && ft2->coarseGType == GENEO_MODES) {
-	ierr = FETI2ComputeMatrixG_GENEO(ft);CHKERRQ(ierr);
+      if (ft->resetup_pc_interface && PetscNot(flg)) {
+	ierr = FETICSComputeCoarseBasisI(ft->ftcs,&ft2->localG);CHKERRQ(ierr);
 	ierr = FETI2GatherNeighborsG_Private(ft);CHKERRQ(ierr);
       }
-      if (ft2->coarseGType != NO_COARSE_GRID) {
+      if (PetscNot(flg)) {
 	ierr = FETI2ComputeCoarseProblem_RBM(ft);CHKERRQ(ierr);
 	ierr = FETI2FactorizeCoarseProblem_Private(ft);CHKERRQ(ierr);
       }
@@ -153,7 +142,7 @@ static PetscErrorCode FETISetUp_FETI2(FETI ft)
     ierr = FETI2SetInterfaceProblemRHS_Private(ft);CHKERRQ(ierr);
   }
   
-  if (ft2->coarseGType != NO_COARSE_GRID) {
+  if (PetscNot(flg)) {
     ierr = FETI2ComputeInitialCondition_RBM(ft);CHKERRQ(ierr);
   } else {
     ierr = FETI2ComputeInitialCondition_NOCOARSE(ft);CHKERRQ(ierr);
