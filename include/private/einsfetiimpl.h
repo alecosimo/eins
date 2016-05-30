@@ -9,15 +9,26 @@
 #include <private/einssubdomain.h>
 #include <petsc/private/petscimpl.h>
 
-PETSC_EXTERN PetscBool FETIRegisterAllCalled;
-PETSC_EXTERN PetscErrorCode FETIRegisterAll(void);
-PETSC_EXTERN PetscErrorCode FETICreateFMat(FETI,void (*)(void),void (*)(void),void (*)(void));
-PETSC_EXTERN PetscErrorCode FETIBuildInterfaceKSP(FETI);
-PETSC_EXTERN PetscErrorCode FETIBuildLambdaAndB(FETI);
+
+/* FETIPJ stuff */
+typedef struct _FETIPJOps *FETIPJOps;
+struct _FETIPJOps {
+  PetscErrorCode (*destroy)(FETIPJ);
+  PetscErrorCode (*setfromoptions)(PetscOptionItems*,FETIPJ);
+  PetscErrorCode (*setup)(FETIPJ);
+  PetscErrorCode (*computecoarsebasis)(FETIPJ,Mat*,Mat*);
+};
+
+struct _p_FETIPJ {
+  PETSCHEADER(struct _FETIPJOps);
+  PetscInt setupcalled;             /* true if setup has been called */
+  FETI     feti;
+  void *data;
+};
 
 
+/* FETICS stuff */
 typedef struct _FETICSOps *FETICSOps;
-
 struct _FETICSOps {
   PetscErrorCode (*destroy)(FETICS);
   PetscErrorCode (*setfromoptions)(PetscOptionItems*,FETICS);
@@ -32,6 +43,13 @@ struct _p_FETICS {
   void *data;
 };
 
+
+/* FETI stuff */
+PETSC_EXTERN PetscBool FETIRegisterAllCalled;
+PETSC_EXTERN PetscErrorCode FETIRegisterAll(void);
+PETSC_EXTERN PetscErrorCode FETICreateFMat(FETI,void (*)(void),void (*)(void),void (*)(void));
+PETSC_EXTERN PetscErrorCode FETIBuildInterfaceKSP(FETI);
+PETSC_EXTERN PetscErrorCode FETIBuildLambdaAndB(FETI);
 
 typedef enum { FETI_STATE_INITIAL,
                FETI_STATE_SETUP_INI,

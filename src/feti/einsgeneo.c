@@ -150,6 +150,7 @@ static PetscErrorCode FETICSSetUp_GENEO(FETICS ftcs)
   /* crete localG matrix */
   ierr = EPSGetDimensions(gn->eps,&nev,NULL,NULL);CHKERRQ(ierr);
   ft->n_cs = nev;
+  PetscPrintf(PETSC_COMM_WORLD,"\n---------------------------------------- FETI2SetInterfaceProblemRHS_Private %p\n",gn->localG);
   ierr = MatDestroy(&gn->localG);CHKERRQ(ierr);
   ierr = MatCreateSeqDense(PETSC_COMM_SELF,ft->n_lambda_local,ft->n_cs,NULL,&gn->localG);CHKERRQ(ierr);
   ierr = MatSetOption(gn->localG,MAT_ROW_ORIENTED,PETSC_FALSE);CHKERRQ(ierr);

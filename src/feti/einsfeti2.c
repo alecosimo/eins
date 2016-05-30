@@ -100,12 +100,10 @@ static PetscErrorCode FETISetUp_FETI2(FETI ft)
     ierr = FETI2SetUpNeumannSolver_Private(ft);CHKERRQ(ierr);
     ierr = FETI2BuildInterfaceProblem_Private(ft);CHKERRQ(ierr);
     ierr = FETIBuildInterfaceKSP(ft);CHKERRQ(ierr); /* the PC for the interface problem is setup here */
-
     if (PetscNot(flg)) {
       ierr = FETICSSetUp(ft->ftcs);CHKERRQ(ierr);
       ierr = FETICSComputeCoarseBasis(ft->ftcs,&ft2->localG,NULL);CHKERRQ(ierr);
     }
-    
     ierr = FETI2SetInterfaceProblemRHS_Private(ft);CHKERRQ(ierr);
     /* set projection in ksp */
     if (PetscNot(flg)) {

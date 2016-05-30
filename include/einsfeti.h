@@ -74,6 +74,43 @@ PETSC_EXTERN PetscFunctionList FETICSList;
 PETSC_EXTERN PetscClassId      FETICS_CLASSID;
 PETSC_EXTERN PetscBool         FETICSRegisterAllCalled;
 
+
+/*S
+   FETIPJ - Petsc object for handling FETI projections
+
+   Level: advanced
+
+.seealso:  FETIPJCreate(), FETIPJSetType()
+S*/
+typedef struct _p_FETIPJ* FETIPJ;
+
+/*J
+    FETIPJType - String with the name of a FETI projection
+
+   Level: intermediate
+
+.seealso: FETIPJSetType(), FETIPJ
+J*/
+typedef const char* FETIPJType;
+#define PJ_NONE               "pjnone"
+#define PJ_FIRST_LEVEL        "pj1level"
+#define PJ_FIRST_LEVEL_Q      "pj1levelq"
+#define PJ_SECOND_LEVEL       "pj2level"
+
+PETSC_EXTERN PetscFunctionList FETIPJList;
+PETSC_EXTERN PetscClassId      FETIPJ_CLASSID;
+PETSC_EXTERN PetscBool         FETIPJRegisterAllCalled;
+
+/* FETIPJ stuff */
+PETSC_EXTERN PetscErrorCode FETIPJCreate(MPI_Comm,FETIPJ*);
+PETSC_EXTERN PetscErrorCode FETIPJDestroy(FETIPJ*);
+PETSC_EXTERN PetscErrorCode FETIPJSetType(FETIPJ,FETI,const FETIPJType);
+PETSC_EXTERN PetscErrorCode FETIPJSetFromOptions(FETIPJ);
+PETSC_EXTERN PetscErrorCode FETIPJRegister(const char[],PetscErrorCode (*)(FETIPJ));
+PETSC_EXTERN PetscErrorCode FETIPJRegisterAll(void);
+PETSC_EXTERN PetscErrorCode FETIPJSetUp(FETIPJ);
+PETSC_EXTERN PetscErrorCode FETIPJSetFETI(FETIPJ,FETI);
+
 /* FETICS stuff */
 PETSC_EXTERN PetscErrorCode FETICSCreate(MPI_Comm,FETICS*);
 PETSC_EXTERN PetscErrorCode FETICSDestroy(FETICS*);
@@ -84,6 +121,7 @@ PETSC_EXTERN PetscErrorCode FETICSRegisterAll(void);
 PETSC_EXTERN PetscErrorCode FETICSSetUp(FETICS);
 PETSC_EXTERN PetscErrorCode FETICSComputeCoarseBasis(FETICS,Mat*,Mat*);
 PETSC_EXTERN PetscErrorCode FETICSSetFETI(FETICS,FETI);
+
 /* FETICSRBM */ 
 typedef PetscErrorCode      (*FETICSRBMIStiffness)(FETICS,Mat,void*);
 PETSC_EXTERN PetscErrorCode FETICSRBMSetStiffnessMatrixFunction(FETI,Mat,FETICSRBMIStiffness,void*);

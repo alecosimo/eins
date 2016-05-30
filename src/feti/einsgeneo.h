@@ -8,14 +8,14 @@
 #include <slepceps.h>
 
 typedef struct {
-  PC            pc_dirichlet;
   PC            pc; /* this is the preconditioner specified for using in the FETI solver. It can be the same as pc_dirichlet */
+  PC            pc_dirichlet;
   EPS           eps;
   Mat           localG; /* matrix for storing local coarse basis */
   Mat           Ag; /* this is the matrix for the eigenvalue problem. It is a shell matrix */
   Vec           vec_lb1,vec_lb2; /* working vectors */
   PetscBool     flg; /* if TRUE, it indicates that pc_dirichlet==pc*/
-} GENEO_CS; /* underscore "_C" becuase it is for defining a coarse space */
+} GENEO_CS; /* underscore "_CS" becuase it is for defining a coarse space */
 
 struct _GENEOMat_ctx {
   FETI     ft;
