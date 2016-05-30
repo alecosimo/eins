@@ -7,11 +7,6 @@
 #if defined(HAVE_SLEPC)
 #include <slepceps.h>
 
-PETSC_INTERN PetscErrorCode FETI2ComputeMatrixG_GENEO(FETI);
-PETSC_INTERN PetscErrorCode FETISetUp_FETI2_GENEO(FETI);
-PETSC_INTERN PetscErrorCode FETICreate_FETI2_GENEO(FETI);
-PETSC_INTERN PetscErrorCode FETIDestroy_FETI2_GENEO(FETI);
-
 typedef struct {
   PC            pc_dirichlet;
   PC            pc; /* this is the preconditioner specified for using in the FETI solver. It can be the same as pc_dirichlet */

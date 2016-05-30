@@ -484,7 +484,7 @@ PetscErrorCode  FETISetUp(FETI feti)
   ierr = SubdomainSetUp(feti->subdomain,(PetscBool)(feti->state>=FETI_STATE_SETUP_INI));CHKERRQ(ierr);
 
   /* create FETICS */
-  if (feti->state == FETI_STATE_INITIAL) {
+  if (!feti->ftcs) {
     ierr = FETICSCreate(PetscObjectComm((PetscObject)feti),&feti->ftcs);CHKERRQ(ierr);
     ierr = FETICSSetType(feti->ftcs,feti,feti->ftcs_type);CHKERRQ(ierr);
     ierr = FETICSSetFromOptions(feti->ftcs);CHKERRQ(ierr);

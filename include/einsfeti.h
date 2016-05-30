@@ -70,15 +70,6 @@ typedef const char* FETICSType;
 #define CS_RIGID_BODY_MODES        "csrbm"
 #define CS_GENEO_MODES             "csgeneo"
 
-
-typedef enum {
-  NO_COARSE_GRID,     /* CS_NONE */
-  RIGID_BODY_MODES,   /* CS_RIGID_BODY_MODES */
-  GENEO_MODES         /* CS_GENEO_MODES */
-} CoarseGridType;
-PETSC_EXTERN const char *const CoarseGridTypes[];
-
-
 PETSC_EXTERN PetscFunctionList FETICSList;
 PETSC_EXTERN PetscClassId      FETICS_CLASSID;
 PETSC_EXTERN PetscBool         FETICSRegisterAllCalled;
@@ -93,6 +84,9 @@ PETSC_EXTERN PetscErrorCode FETICSRegisterAll(void);
 PETSC_EXTERN PetscErrorCode FETICSSetUp(FETICS);
 PETSC_EXTERN PetscErrorCode FETICSComputeCoarseBasisI(FETICS,Mat*);
 PETSC_EXTERN PetscErrorCode FETICSSetFETI(FETICS,FETI);
+/* FETICSRBM */ 
+typedef PetscErrorCode      (*FETICSRBMIStiffness)(FETICS,Mat,void*);
+PETSC_EXTERN PetscErrorCode FETICSRBMSetStiffnessMatrixFunction(FETI,Mat,FETICSRBMIStiffness,void*);
 
 /* FETI stuff */
 PETSC_EXTERN PetscErrorCode FETICreate(MPI_Comm,FETI*);
@@ -120,11 +114,7 @@ PETSC_EXTERN PetscErrorCode FETIComputeForceNormLocal(FETI,Vec,NormType,PetscRea
 /* FETI1 stuff */
 PETSC_EXTERN PetscErrorCode FETI1SetDefaultOptions(int*,char***,const char[]);
 /* FETI2 stuff */
-typedef PetscErrorCode      (*FETI2IStiffness)(FETI,Mat,void*);
 PETSC_EXTERN PetscErrorCode FETI2SetDefaultOptions(int*,char***,const char[]);
-PETSC_EXTERN PetscErrorCode FETI2SetStiffness(FETI,Mat,FETI2IStiffness,void*);
-PETSC_EXTERN PetscErrorCode FETI2SetComputeRBM(FETI,PetscBool);
-PETSC_EXTERN PetscErrorCode FETI2SetCoarseGridType(FETI,CoarseGridType);
 /* scaling */
 PETSC_EXTERN PetscErrorCode FETIScalingSetUp(FETI);
 PETSC_EXTERN PetscErrorCode FETIScalingSetScalingFactor(FETI,PetscScalar);

@@ -7,17 +7,7 @@ PetscLogEvent     FETICS_SetUp;
 PetscBool         FETICSRegisterAllCalled   = PETSC_FALSE;
 PetscFunctionList FETICSList                = 0;
 
-
-#undef __FUNCT__
-#define __FUNCT__ "FETICSCreate_RBM"
 PETSC_EXTERN PetscErrorCode FETICSCreate_RBM(FETICS);
-PetscErrorCode FETICSCreate_RBM(PETSC_UNUSED FETICS ftcs)
-{
-  PetscFunctionBegin;
-  PetscFunctionReturn(0);
-}
-
-
 PETSC_EXTERN PetscErrorCode FETICSCreate_GENEO(FETICS);
 #if !defined(HAVE_SLEPC)
 #undef __FUNCT__
