@@ -1205,6 +1205,7 @@ PetscErrorCode  FETICreate(MPI_Comm comm,FETI *newfeti)
 
   ierr = KSPCreate(comm,&feti->ksp_interface);CHKERRQ(ierr);
   ierr = FETICSCreate(PetscObjectComm((PetscObject)feti),feti,&feti->ftcs);CHKERRQ(ierr);
+  ierr = PetscObjectSetOptionsPrefix((PetscObject)feti->ftcs,"feti_");CHKERRQ(ierr);
   
   *newfeti = feti;
   PetscFunctionReturn(0);
