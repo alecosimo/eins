@@ -32,7 +32,7 @@ PetscErrorCode FETI2ReProject_RBM(void*,Vec,Vec);
 #undef __FUNCT__
 #define __FUNCT__ "FETIDestroy_FETI2"
 /*@
-   FETIDestroy_FETI2 - Destroys the FETI-1 context
+   FETIDestroy_FETI2 - Destroys the FETI2 context
 
    Input Parameters:
 .  ft - the FETI context
@@ -103,7 +103,7 @@ static PetscErrorCode FETISetUp_FETI2(FETI ft)
 
     if (PetscNot(flg)) {
       ierr = FETICSSetUp(ft->ftcs);CHKERRQ(ierr);
-      ierr = FETICSComputeCoarseBasisI(ft->ftcs,&ft2->localG);CHKERRQ(ierr);
+      ierr = FETICSComputeCoarseBasis(ft->ftcs,&ft2->localG,NULL);CHKERRQ(ierr);
     }
     
     ierr = FETI2SetInterfaceProblemRHS_Private(ft);CHKERRQ(ierr);
@@ -127,7 +127,7 @@ static PetscErrorCode FETISetUp_FETI2(FETI ft)
       }
       ierr = FETI2SetUpNeumannSolver_Private(ft);CHKERRQ(ierr);
       if (ft->resetup_pc_interface && PetscNot(flg)) {
-	ierr = FETICSComputeCoarseBasisI(ft->ftcs,&ft2->localG);CHKERRQ(ierr);
+	ierr = FETICSComputeCoarseBasis(ft->ftcs,&ft2->localG,NULL);CHKERRQ(ierr);
 	ierr = FETI2GatherNeighborsG_Private(ft);CHKERRQ(ierr);
       }
       if (PetscNot(flg)) {

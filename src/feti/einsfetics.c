@@ -267,15 +267,16 @@ PetscErrorCode  FETICSSetUp(FETICS ftcs)
 
 
 #undef  __FUNCT__
-#define __FUNCT__ "FETICSComputeCoarseBasisI"
+#define __FUNCT__ "FETICSComputeCoarseBasis"
 /*@
-   FETICSComputeCoarseBasisI - Computes the coarse basis matrix at the interface dofs of the subdomain.  
+   FETICSComputeCoarseBasis - Computes the coarse basis matrix at the interface dofs of the subdomain.  
 
    Input: 
 .  ftcs - the FETICS context
 
    Output:
-.  G    - coarse basis matrix
+.  G    - coarse basis matrix at the interface computed as B*R
+.  R    - coarse basis matrix for boundary and internal dofs (it can be NULL if you don't need it)
 
    Level: basic
 
@@ -283,16 +284,17 @@ PetscErrorCode  FETICSSetUp(FETICS ftcs)
 
 .seealso: FETICSSetUp
 @*/
-PetscErrorCode FETICSComputeCoarseBasisI(FETICS ftcs,Mat *G)
+PetscErrorCode FETICSComputeCoarseBasis(FETICS ftcs,Mat *G,Mat *R)
 {
   PetscErrorCode ierr;
   
   PetscFunctionBegin;
   PetscValidHeaderSpecific(ftcs,FETICS_CLASSID,1);
   PetscValidHeaderSpecific(G,MAT_CLASSID,2);
+  if (R) {PetscValidHeaderSpecific(R,MAT_CLASSID,3);}
   ierr = FETICSSetUp(ftcs);CHKERRQ(ierr);
   if (ftcs->ops->computecoarsebasis) {
-      ierr = (*ftcs->ops->computecoarsebasis)(ftcs,G);CHKERRQ(ierr);
+    ierr = (*ftcs->ops->computecoarsebasis)(ftcs,G,R);CHKERRQ(ierr);
   } else {
     SETERRQ(PetscObjectComm((PetscObject)ftcs),PETSC_ERR_ARG_WRONGSTATE,"Error: FETICSComputeCoarseBasisI of specific FETICS method not found.");
   }

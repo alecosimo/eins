@@ -22,7 +22,7 @@ struct _FETICSOps {
   PetscErrorCode (*destroy)(FETICS);
   PetscErrorCode (*setfromoptions)(PetscOptionItems*,FETICS);
   PetscErrorCode (*setup)(FETICS);
-  PetscErrorCode (*computecoarsebasis)(FETICS,Mat*);
+  PetscErrorCode (*computecoarsebasis)(FETICS,Mat*,Mat*);
 };
 
 struct _p_FETICS {

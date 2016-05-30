@@ -7,7 +7,6 @@
 
 /* private functions*/
 static PetscErrorCode FETI1SetUpNeumannSolver_Private(FETI);
-static PetscErrorCode FETI1ComputeMatrixG_Private(FETI);
 static PetscErrorCode FETI1ComputeRhsE_Private(FETI);
 static PetscErrorCode FETI1BuildInterfaceProblem_Private(FETI);
 static PetscErrorCode FETIDestroy_FETI1(FETI);
@@ -81,17 +80,21 @@ static PetscErrorCode FETISetUp_FETI1(FETI ft)
   PetscErrorCode    ierr;   
   Subdomain         sd = ft->subdomain;
   PetscObjectState  mat_state;
-
+  FETI_1            *ft1 = (FETI_1*)ft->data;
+  
   PetscFunctionBegin;
   if (ft->state==FETI_STATE_INITIAL) {
     ierr = FETIScalingSetUp(ft);CHKERRQ(ierr);
     ierr = FETIBuildLambdaAndB(ft);CHKERRQ(ierr);
     ierr = FETI1SetUpNeumannSolver_Private(ft);CHKERRQ(ierr);
-    ierr = FETI1ComputeMatrixG_Private(ft);CHKERRQ(ierr);
-    ierr = FETI1ComputeRhsE_Private(ft);CHKERRQ(ierr);
     ierr = FETI1BuildInterfaceProblem_Private(ft);CHKERRQ(ierr);
-    ierr = FETI1SetInterfaceProblemRHS_Private(ft);CHKERRQ(ierr);
     ierr = FETIBuildInterfaceKSP(ft);CHKERRQ(ierr);
+
+    ierr = FETICSSetUp(ft->ftcs);CHKERRQ(ierr);
+    ierr = FETICSComputeCoarseBasis(ft->ftcs,&ft1->localG,&ft1->rbm);CHKERRQ(ierr);
+
+    ierr = FETI1ComputeRhsE_Private(ft);CHKERRQ(ierr);
+    ierr = FETI1SetInterfaceProblemRHS_Private(ft);CHKERRQ(ierr);
     /* set projection in ksp */
     ierr = KSPSetProjection(ft->ksp_interface,FETI1Project_RBM,(void*)ft);CHKERRQ(ierr);
     ierr = KSPSetReProjection(ft->ksp_interface,FETI1Project_RBM,(void*)ft);CHKERRQ(ierr);
@@ -196,7 +199,7 @@ PetscErrorCode FETICreate_FETI1(FETI ft)
   feti1->count_rbm             = 0;
   feti1->displ_f               = 0;
   feti1->count_f_rbm           = 0;
-  
+  ft->ftcs_type                = CS_RIGID_BODY_MODES;
   /* function pointers */
   ft->ops->setup               = FETISetUp_FETI1;
   ft->ops->destroy             = FETIDestroy_FETI1;
@@ -406,46 +409,6 @@ static PetscErrorCode FETI1ComputeRhsE_Private(FETI ft)
 
 
 #undef __FUNCT__
-#define __FUNCT__ "FETI1ComputeMatrixG_Private"
-/*@
-   FETI1ComputeMatrixG_Private - Computes the local matrix
-   G=B*R, where R are the Rigid Body Modes.
-
-   Input Parameters:
-.  ft - the FETI context
-
-@*/
-static PetscErrorCode FETI1ComputeMatrixG_Private(FETI ft)
-{
-  PetscErrorCode ierr;
-  Subdomain      sd = ft->subdomain;
-  Mat            x; 
-  FETI_1         *ft1 = (FETI_1*)ft->data;
-  
-  PetscFunctionBegin;
-  ierr   = MatDestroy(&ft1->localG);CHKERRQ(ierr);
-  /* get number of rigid body modes */
-  ierr   = MatMumpsGetInfog(ft->F_neumann,28,&ft->n_cs);CHKERRQ(ierr);
-  if(ft->n_cs){
-    /* Compute rigid body modes */
-    ierr = MatCreateSeqDense(PETSC_COMM_SELF,sd->n,ft->n_cs,NULL,&ft1->rbm);CHKERRQ(ierr);
-    ierr = MatDuplicate(ft1->rbm,MAT_DO_NOT_COPY_VALUES,&x);CHKERRQ(ierr);
-    ierr = MatAssemblyBegin(ft1->rbm,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
-    ierr = MatAssemblyEnd(ft1->rbm,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
-    ierr = MatMumpsSetIcntl(ft->F_neumann,25,-1);CHKERRQ(ierr);
-    ierr = MatMatSolve(ft->F_neumann,x,ft1->rbm);CHKERRQ(ierr);
-    ierr = MatDestroy(&x);CHKERRQ(ierr);
-
-    /* compute matrix localG */
-    ierr = MatGetSubMatrix(ft1->rbm,sd->is_B_local,NULL,MAT_INITIAL_MATRIX,&x);CHKERRQ(ierr);
-    ierr = MatCreateSeqDense(PETSC_COMM_SELF,ft->n_lambda_local,ft->n_cs,NULL,&ft1->localG);CHKERRQ(ierr);
-    ierr = MatMatMult(ft->B_delta,x,MAT_REUSE_MATRIX,PETSC_DEFAULT,&ft1->localG);CHKERRQ(ierr);    
-  }
-  PetscFunctionReturn(0);
-}
-
-
-#undef __FUNCT__
 #define __FUNCT__ "FETI1SetUpNeumannSolver_Private"
 /*@
    FETI1SetUpNeumannSolver - It mainly configures the neumann direct solver and performes the factorization.
@@ -519,9 +482,6 @@ static PetscErrorCode FETI1SetUpNeumannSolver_Private(FETI ft)
 
    Input Parameter:
 .  feti - the FETI context
-
-   Notes: 
-   FETI1ComputeMatrixG_Private() should be called before calling FETI1SetUpCoarseProblem_Private().
 
    Notes regarding non-blocking communications in this rutine: 
    You must avoid reusing the send message buffer before the communication has been completed.

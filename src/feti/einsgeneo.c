@@ -36,8 +36,8 @@ static PetscErrorCode EPSStoppingGeneo_Private(EPS eps,PetscInt its,PetscInt max
 
 
 #undef __FUNCT__
-#define __FUNCT__ "FETICSComputeCoarseBasisI_GENEO"
-static PetscErrorCode FETICSComputeCoarseBasisI_GENEO(FETICS ftcs,Mat *localG)
+#define __FUNCT__ "FETICSComputeCoarseBasis_GENEO"
+static PetscErrorCode FETICSComputeCoarseBasis_GENEO(FETICS ftcs,Mat *localG,PETSC_UNUSED Mat* R)
 {
   PetscErrorCode    ierr;
   FETI              ft  = ftcs->feti;
@@ -233,7 +233,7 @@ PetscErrorCode FETICSCreate_GENEO(FETICS ftcs)
   ftcs->ops->setup               = FETICSSetUp_GENEO;
   ftcs->ops->destroy             = FETICSDestroy_GENEO;
   ftcs->ops->setfromoptions      = 0;
-  ftcs->ops->computecoarsebasis  = FETICSComputeCoarseBasisI_GENEO; 
+  ftcs->ops->computecoarsebasis  = FETICSComputeCoarseBasis_GENEO; 
   PetscFunctionReturn(0);
 }
 

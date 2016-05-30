@@ -82,7 +82,7 @@ PETSC_EXTERN PetscErrorCode FETICSSetFromOptions(FETICS);
 PETSC_EXTERN PetscErrorCode FETICSRegister(const char[],PetscErrorCode (*)(FETICS));
 PETSC_EXTERN PetscErrorCode FETICSRegisterAll(void);
 PETSC_EXTERN PetscErrorCode FETICSSetUp(FETICS);
-PETSC_EXTERN PetscErrorCode FETICSComputeCoarseBasisI(FETICS,Mat*);
+PETSC_EXTERN PetscErrorCode FETICSComputeCoarseBasis(FETICS,Mat*,Mat*);
 PETSC_EXTERN PetscErrorCode FETICSSetFETI(FETICS,FETI);
 /* FETICSRBM */ 
 typedef PetscErrorCode      (*FETICSRBMIStiffness)(FETICS,Mat,void*);
