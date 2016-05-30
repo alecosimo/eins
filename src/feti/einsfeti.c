@@ -141,7 +141,7 @@ PetscErrorCode FETISetCoarseSpaceType(FETI ft,FETICSType ftcs_type)
 {
   PetscFunctionBegin;
   PetscValidHeaderSpecific(ft,FETI_CLASSID,1);
-  PetscValidCharPointer(ftcs,2);
+  PetscValidCharPointer(ftcs_type,2);
   ft->ftcs_type = ftcs_type;
   PetscFunctionReturn(0);
 }
@@ -199,6 +199,35 @@ PetscErrorCode FETIGetType(FETI feti,FETIType *type)
   PetscFunctionBegin;
   PetscValidHeaderSpecific(feti,FETI_CLASSID,1);
   *type = ((PetscObject)feti)->type_name;
+  PetscFunctionReturn(0);
+}
+
+
+#undef __FUNCT__
+#define __FUNCT__ "FETIGetCoarseSpaceType"
+/*@C
+   FETIGetCoarseSpaceType - Gets the FETICS type.
+
+   Not Collective
+
+   Input Parameter:
+.  feti - the FETI context
+
+   Output Parameter:
+.  type - name of FETICS type
+
+   Level: intermediate
+
+.keywords: FETI, FETICS
+
+.seealso: FETICSSetType(),FETISetCoarseSpaceType()
+
+@*/
+PetscErrorCode FETIGetCoarseSpaceType(FETI feti,FETICSType *type)
+{
+  PetscFunctionBegin;
+  PetscValidHeaderSpecific(feti,FETI_CLASSID,1);
+  *type = feti->ftcs_type;
   PetscFunctionReturn(0);
 }
 
@@ -333,6 +362,7 @@ PetscErrorCode  FETISetFromOptions(FETI feti)
   ierr = PetscObjectProcessOptionsHandlers(PetscOptionsObject,(PetscObject)feti);CHKERRQ(ierr);
   ierr = PetscOptionsEnd();CHKERRQ(ierr);
   feti->setfromoptionscalled++;
+  ierr = FETICSSetFromOptions(feti->ftcs);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 
@@ -375,7 +405,6 @@ PetscErrorCode FETIDestroy(FETI *_feti)
   ierr = VecDestroy(&feti->multiplicity);CHKERRQ(ierr);
   ierr = VecDestroy(&feti->lambda_local);CHKERRQ(ierr);
   ierr = VecDestroy(&feti->lambda_global);CHKERRQ(ierr);
-  ierr = FETICSDestroy(&feti->ftcs);CHKERRQ(ierr);
   ierr = FETIScalingDestroy(feti);CHKERRQ(ierr);
   ierr = VecExchangeDestroy(&feti->exchange_lambda);CHKERRQ(ierr);
   if (feti->n_neigh_lb > -1) {
@@ -386,7 +415,7 @@ PetscErrorCode FETIDestroy(FETI *_feti)
   ierr = SubdomainDestroy(&feti->subdomain);CHKERRQ(ierr);
 
   if (feti->ops->destroy) {ierr = (*feti->ops->destroy)(feti);CHKERRQ(ierr);}  
-
+  ierr = FETICSDestroy(&feti->ftcs);CHKERRQ(ierr);
   ierr = PetscHeaderDestroy(&feti);CHKERRQ(ierr); 
   PetscFunctionReturn(0);
 }
@@ -467,7 +496,7 @@ PetscErrorCode  FETIInitializePackage(void)
 PetscErrorCode  FETISetUp(FETI feti)
 {
   PetscErrorCode   ierr;
-  const char*      def = "FETI1";
+  const char*      def = "feti1";
 
   PetscFunctionBegin;
   PetscValidHeaderSpecific(feti,FETI_CLASSID,1);
@@ -482,13 +511,8 @@ PetscErrorCode  FETISetUp(FETI feti)
 
   /* setup subdomain stuff */
   ierr = SubdomainSetUp(feti->subdomain,(PetscBool)(feti->state>=FETI_STATE_SETUP_INI));CHKERRQ(ierr);
-
-  /* create FETICS */
-  if (!feti->ftcs) {
-    ierr = FETICSCreate(PetscObjectComm((PetscObject)feti),&feti->ftcs);CHKERRQ(ierr);
-    ierr = FETICSSetType(feti->ftcs,feti,feti->ftcs_type);CHKERRQ(ierr);
-    ierr = FETICSSetFromOptions(feti->ftcs);CHKERRQ(ierr);
-  }
+  /* create specific type of FETICS */
+  if (!((PetscObject)feti->ftcs)->type_name) { ierr = FETICSSetType(feti->ftcs,feti->ftcs_type);CHKERRQ(ierr);}
   
   if (feti->ops->setup) {
     ierr = (*feti->ops->setup)(feti);CHKERRQ(ierr);
@@ -523,6 +547,34 @@ PetscErrorCode FETIGetKSPInterface(FETI ft,KSP *ksp_interface)
   PetscValidHeaderSpecific(ft,FETI_CLASSID,1);
   if (!ft->ksp_interface) SETERRQ(PetscObjectComm((PetscObject)ft),PETSC_ERR_ARG_WRONGSTATE,"Error: ksp_interface has not been yet created.");
   *ksp_interface = ft->ksp_interface;
+  PetscFunctionReturn(0);
+}
+
+
+#undef  __FUNCT__
+#define __FUNCT__ "FETIGetCoarseSpace"
+/*@
+   FETIGetCoarseSpace - Gets the FETI Coarse Space
+
+   Input: 
+.  ft - the FETI context
+
+   Output:
+.  ftcs - the FETICS context
+
+   Level: basic
+
+.keywords: FETI
+
+.seealso: FETISetUp
+@*/
+PetscErrorCode FETIGetCoarseSpace(FETI ft,FETICS *ftcs)
+{
+  
+  PetscFunctionBegin;
+  PetscValidHeaderSpecific(ft,FETI_CLASSID,1);
+  if (!ft->ftcs) SETERRQ(PetscObjectComm((PetscObject)ft),PETSC_ERR_ARG_WRONGSTATE,"Error: ftcs has not been yet created.");
+  *ftcs = ft->ftcs;
   PetscFunctionReturn(0);
 }
 
@@ -1153,6 +1205,7 @@ PetscErrorCode  FETICreate(MPI_Comm comm,FETI *newfeti)
   feti->scaling_type         = SCUNK;
 
   ierr = KSPCreate(comm,&feti->ksp_interface);CHKERRQ(ierr);
+  ierr = FETICSCreate(PetscObjectComm((PetscObject)feti),feti,&feti->ftcs);CHKERRQ(ierr);
   
   *newfeti = feti;
   PetscFunctionReturn(0);

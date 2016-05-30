@@ -30,14 +30,16 @@ PETSC_EXTERN PetscErrorCode FETICSRBMSetStiffnessMatrixFunction(FETI ft,Mat S,FE
 {
   RBM_CS         *gn;
   PetscErrorCode ierr;
+  PetscBool      flg;
   
   PetscFunctionBegin;
   PetscValidHeaderSpecific(ft,FETI_CLASSID,1);
-  if (!ft->ftcs) {
-    ierr = FETICSCreate(PetscObjectComm((PetscObject)ft),&ft->ftcs);CHKERRQ(ierr);
-    ierr = FETICSSetType(ft->ftcs,ft,ft->ftcs_type);CHKERRQ(ierr);
+  if (!((PetscObject)ft->ftcs)->type_name) {
+    ierr = FETICSSetType(ft->ftcs,ft->ftcs_type);CHKERRQ(ierr);
     ierr = FETICSSetFromOptions(ft->ftcs);CHKERRQ(ierr);
   }
+  ierr = PetscObjectTypeCompare((PetscObject)ft->ftcs,CS_RIGID_BODY_MODES,&flg);CHKERRQ(ierr);
+  if(PetscNot(flg)) SETERRQ(PetscObjectComm((PetscObject)ft),PETSC_ERR_SUP,"Cannot set stiffness matrix function to non FETICS RBM");
   gn = (RBM_CS*)(ft->ftcs)->data;
   if (S) {
     PetscValidHeaderSpecific(S,MAT_CLASSID,2);

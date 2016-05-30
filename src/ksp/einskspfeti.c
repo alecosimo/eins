@@ -132,6 +132,19 @@ static PetscErrorCode KSPDestroy_FETI(KSP ksp)
 }
 
 
+#undef __FUNCT__
+#define __FUNCT__ "KSPSetFromOptions_FETI"
+static PetscErrorCode KSPSetFromOptions_FETI(PETSC_UNUSED PetscOptionItems *PetscOptionsObject,KSP ksp)
+{
+  PetscErrorCode ierr;
+  KSP_FETI       *ft = (KSP_FETI*)ksp->data;
+  
+  PetscFunctionBegin;
+  ierr = FETISetFromOptions(ft->feti);CHKERRQ(ierr);
+  PetscFunctionReturn(0);
+}
+
+
 /*MC
       KSPFETI - It is a wrapper for FETI methods. In this way, FETI
       methods can be used as a solver for SNES and TS solvers.
@@ -155,6 +168,7 @@ PETSC_EXTERN PetscErrorCode KSPCreate_FETI(KSP ksp)
   ksp->ops->setup          = KSPSetUp_FETI;
   /* ksp->ops->view           = KSPView_FETI;*/
   ksp->ops->solve          = KSPSolve_FETI;
+  ksp->ops->setfromoptions = KSPSetFromOptions_FETI;
   ksp->ops->destroy        = KSPDestroy_FETI;
   
   if (!ksp->pc) {ierr = KSPGetPC(ksp,&ksp->pc);CHKERRQ(ierr);}

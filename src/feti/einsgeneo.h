@@ -10,11 +10,11 @@
 typedef struct {
   PC            pc; /* this is the preconditioner specified for using in the FETI solver. It can be the same as pc_dirichlet */
   PC            pc_dirichlet;
-  EPS           eps;
+  PetscBool     flg; /* if TRUE, it indicates that pc_dirichlet==pc*/
   Mat           localG; /* matrix for storing local coarse basis */
   Mat           Ag; /* this is the matrix for the eigenvalue problem. It is a shell matrix */
+  EPS           eps;
   Vec           vec_lb1,vec_lb2; /* working vectors */
-  PetscBool     flg; /* if TRUE, it indicates that pc_dirichlet==pc*/
 } GENEO_CS; /* underscore "_CS" becuase it is for defining a coarse space */
 
 struct _GENEOMat_ctx {

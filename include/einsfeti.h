@@ -112,15 +112,16 @@ PETSC_EXTERN PetscErrorCode FETIPJSetUp(FETIPJ);
 PETSC_EXTERN PetscErrorCode FETIPJSetFETI(FETIPJ,FETI);
 
 /* FETICS stuff */
-PETSC_EXTERN PetscErrorCode FETICSCreate(MPI_Comm,FETICS*);
+PETSC_EXTERN PetscErrorCode FETICSCreate(MPI_Comm,FETI,FETICS*);
 PETSC_EXTERN PetscErrorCode FETICSDestroy(FETICS*);
-PETSC_EXTERN PetscErrorCode FETICSSetType(FETICS,FETI,const FETICSType);
+PETSC_EXTERN PetscErrorCode FETICSSetType(FETICS,const FETICSType);
 PETSC_EXTERN PetscErrorCode FETICSSetFromOptions(FETICS);
 PETSC_EXTERN PetscErrorCode FETICSRegister(const char[],PetscErrorCode (*)(FETICS));
 PETSC_EXTERN PetscErrorCode FETICSRegisterAll(void);
 PETSC_EXTERN PetscErrorCode FETICSSetUp(FETICS);
 PETSC_EXTERN PetscErrorCode FETICSComputeCoarseBasis(FETICS,Mat*,Mat*);
 PETSC_EXTERN PetscErrorCode FETICSSetFETI(FETICS,FETI);
+PETSC_EXTERN PetscErrorCode FETICSGetType(FETICS,FETICSType*);
 
 /* FETICSRBM */ 
 typedef PetscErrorCode      (*FETICSRBMIStiffness)(FETICS,Mat,void*);
@@ -131,6 +132,7 @@ PETSC_EXTERN PetscErrorCode FETICreate(MPI_Comm,FETI*);
 PETSC_EXTERN PetscErrorCode FETIRegister(const char[],PetscErrorCode(*)(FETI));
 PETSC_EXTERN PetscErrorCode FETISetType(FETI,FETIType);
 PETSC_EXTERN PetscErrorCode FETISetCoarseSpaceType(FETI,FETICSType);
+PETSC_EXTERN PetscErrorCode FETIGetCoarseSpaceType(FETI,FETICSType*);
 PETSC_EXTERN PetscErrorCode FETIGetType(FETI,FETIType*);
 PETSC_EXTERN PetscErrorCode FETISetFromOptions(FETI);
 PETSC_EXTERN PetscErrorCode FETISetInterfaceSolver(FETI,KSPType,PCType);
@@ -144,6 +146,7 @@ PETSC_EXTERN PetscErrorCode FETISetMat(FETI,Mat);
 PETSC_EXTERN PetscErrorCode FETIFinalizePackage(void);
 PETSC_EXTERN PetscErrorCode FETIInitializePackage(void);
 PETSC_EXTERN PetscErrorCode FETIGetKSPInterface(FETI,KSP*);
+PETSC_EXTERN PetscErrorCode FETIGetCoarseSpace(FETI,FETICS*);
 PETSC_EXTERN PetscErrorCode FETISolve(FETI,Vec);
 PETSC_EXTERN PetscErrorCode FETISetFactorizeLocalProblem(FETI,PetscBool);
 PETSC_EXTERN PetscErrorCode FETISetReSetupPCInterface(FETI,PetscBool);

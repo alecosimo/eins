@@ -1,3 +1,4 @@
+#include <../src/feti/einsgeneo.h>
 #include <private/einsfetiimpl.h>
 #include <private/einsmatimpl.h>
 #include <einssys.h>
@@ -103,7 +104,6 @@ PetscErrorCode  FETICSRegisterAll(void)
 
    Input Parameter:
 +  ftcs - the FETICS context
--  feti - the FETI context.
 -  type - a FETI coarse space
 
    Options Database Key:
@@ -114,15 +114,14 @@ PetscErrorCode  FETICSRegisterAll(void)
 .seealso: FETICSType, FETICSRegister(), FETICSCreate()
 
 @*/
-PetscErrorCode  FETICSSetType(FETICS ftcs, FETI feti,FETICSType type)
+PetscErrorCode  FETICSSetType(FETICS ftcs,FETICSType type)
 {
   PetscErrorCode ierr,(*func)(FETICS);
   PetscBool      match;
 
   PetscFunctionBegin;
   PetscValidHeaderSpecific(ftcs,FETICS_CLASSID,1);
-  PetscValidHeaderSpecific(feti,FETI_CLASSID,2);
-  PetscValidCharPointer(type,3);
+  PetscValidCharPointer(type,2);
 
   ierr = PetscObjectTypeCompare((PetscObject)ftcs,type,&match);CHKERRQ(ierr);
   if (match) PetscFunctionReturn(0);
@@ -139,7 +138,6 @@ PetscErrorCode  FETICSSetType(FETICS ftcs, FETI feti,FETICSType type)
   /* Reinitialize function pointers in FETICSOps structure */
   ierr = PetscMemzero(ftcs->ops,sizeof(struct _FETIOps));CHKERRQ(ierr);
   /* Call the FETICSCreate_XXX routine for this particular FETI formulation */
-  ftcs->feti = feti;
   ierr       = PetscObjectChangeTypeName((PetscObject)ftcs,type);CHKERRQ(ierr);
   ierr       = (*func)(ftcs);CHKERRQ(ierr);
   PetscFunctionReturn(0);
@@ -169,7 +167,6 @@ PetscErrorCode  FETICSSetFromOptions(FETICS ftcs)
 {
   PetscErrorCode ierr;
   char           type[256];
-  const char*    def="csnone";
   PetscBool      flg;
 
   PetscFunctionBegin;
@@ -178,13 +175,13 @@ PetscErrorCode  FETICSSetFromOptions(FETICS ftcs)
   ierr = FETICSRegisterAll();CHKERRQ(ierr);
   if (!ftcs->feti) SETERRQ(PetscObjectComm((PetscObject)ftcs),PETSC_ERR_ARG_WRONGSTATE,"Error FETI context not defined");
   ierr = PetscObjectOptionsBegin((PetscObject)ftcs);CHKERRQ(ierr);
-  ierr = PetscOptionsFList("-fetics_type","FETICS","FETICSSetType",FETICSList,def,type,256,&flg);CHKERRQ(ierr);
+  ierr = PetscOptionsFList("-fetics_type","FETICS","FETICSSetType",FETICSList,ftcs->feti->ftcs_type,type,256,&flg);CHKERRQ(ierr);
   if (flg) {
-    ierr = FETICSSetType(ftcs,ftcs->feti,type);CHKERRQ(ierr);
+    ierr = FETICSSetType(ftcs,type);CHKERRQ(ierr);
+    ftcs->feti->ftcs_type = ((PetscObject)ftcs)->type_name;
   } else if (!((PetscObject)ftcs)->type_name) {
-    ierr = FETICSSetType(ftcs,ftcs->feti,def);CHKERRQ(ierr);
+    ierr = FETICSSetType(ftcs,ftcs->feti->ftcs_type);CHKERRQ(ierr);
   }
-  
   if (ftcs->ops->setfromoptions) {
     ierr = (*ftcs->ops->setfromoptions)(PetscOptionsObject,ftcs);CHKERRQ(ierr);
   }
@@ -256,7 +253,10 @@ PetscErrorCode  FETICSSetUp(FETICS ftcs)
   if (ftcs->setupcalled) PetscFunctionReturn(0);
   if (!ftcs->feti) SETERRQ(PetscObjectComm((PetscObject)ftcs),PETSC_ERR_ARG_WRONGSTATE,"Error FETI context not defined");
   if (!ftcs->setupcalled) { ierr = PetscInfo(ftcs,"Setting up FETICS for first time\n");CHKERRQ(ierr);} 
-  if (!((PetscObject)ftcs)->type_name) { ierr = FETICSSetType(ftcs,ftcs->feti,def);CHKERRQ(ierr);}
+  if (!((PetscObject)ftcs)->type_name) {
+    ierr = FETICSSetType(ftcs,def);CHKERRQ(ierr);
+    ftcs->feti->ftcs_type = def;
+  }
 
   if (ftcs->ops->setup) {
     ierr = (*ftcs->ops->setup)(ftcs);CHKERRQ(ierr);
@@ -290,8 +290,8 @@ PetscErrorCode FETICSComputeCoarseBasis(FETICS ftcs,Mat *G,Mat *R)
   
   PetscFunctionBegin;
   PetscValidHeaderSpecific(ftcs,FETICS_CLASSID,1);
-  PetscValidHeaderSpecific(G,MAT_CLASSID,2);
-  if (R) {PetscValidHeaderSpecific(R,MAT_CLASSID,3);}
+  PetscValidPointer(G,2);
+  if (R) {PetscValidPointer(R,3);}
   ierr = FETICSSetUp(ftcs);CHKERRQ(ierr);
   if (ftcs->ops->computecoarsebasis) {
     ierr = (*ftcs->ops->computecoarsebasis)(ftcs,G,R);CHKERRQ(ierr);
@@ -328,6 +328,35 @@ PetscErrorCode FETICSSetFETI(FETICS ftcs,FETI feti)
 
 
 #undef __FUNCT__
+#define __FUNCT__ "FETICSGetType"
+/*@C
+   FETICSGetType - Gets the FETICS type and name (as a string) the FETICS context.
+
+   Not Collective
+
+   Input Parameter:
+.  ftcs - the FETI context
+
+   Output Parameter:
+.  type - name of FETI method
+
+   Level: intermediate
+
+.keywords: FETI
+
+.seealso: FETICSSetType()
+
+@*/
+PetscErrorCode FETICSGetType(FETICS ftcs,FETICSType *type)
+{
+  PetscFunctionBegin;
+  PetscValidHeaderSpecific(ftcs,FETI_CLASSID,1);
+  *type = ((PetscObject)ftcs)->type_name;
+  PetscFunctionReturn(0);
+}
+
+
+#undef __FUNCT__
 #define __FUNCT__ "FETICSCreate"
 /*@
    FETICSCreate - Creates a FETICS context.
@@ -339,6 +368,7 @@ PetscErrorCode FETICSSetFETI(FETICS ftcs,FETI feti)
 
    Output Parameter:
 .  ftcs - location to put the FETICS context
+.  feti - the FETI context.
 
    Options Database:
 .  -fetics_type <type> - Sets the FETICS type
@@ -349,18 +379,20 @@ PetscErrorCode FETICSSetFETI(FETICS ftcs,FETI feti)
 
 .seealso: FETICSSetUp(), FETICSDestroy()
 @*/
-PetscErrorCode  FETICSCreate(MPI_Comm comm,FETICS *newftcs)
+PetscErrorCode  FETICSCreate(MPI_Comm comm,FETI feti,FETICS *newftcs)
 {
   FETICS         ftcs;
   PetscErrorCode ierr;
 
   PetscFunctionBegin;
   PetscValidPointer(newftcs,1);
+  PetscValidHeaderSpecific(feti,FETI_CLASSID,2);
   *newftcs = 0;
   ierr = FETIInitializePackage();CHKERRQ(ierr);
- 
+
   ierr = PetscHeaderCreate(ftcs,FETICS_CLASSID,"FETICS","FETICS","FETICS",comm,FETICSDestroy,NULL);CHKERRQ(ierr);
   ftcs->setupcalled = 0;
+  ftcs->feti        = feti;
   
   *newftcs = ftcs;
   PetscFunctionReturn(0);

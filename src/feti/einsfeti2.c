@@ -56,7 +56,7 @@ static PetscErrorCode FETIDestroy_FETI2(FETI ft)
   }
 
   ierr = FETICSDestroy(&ft->ftcs);CHKERRQ(ierr);
-  
+
   ierr = MatDestroy(&ft2->localG);CHKERRQ(ierr);
   ierr = KSPDestroy(&ft2->ksp_coarse);CHKERRQ(ierr);
   if(ft2->neigh_holder) {
@@ -288,7 +288,7 @@ static PetscErrorCode FETI2MatGetVecs_Private(Mat mat,Vec *right,Vec *left)
   PetscFunctionBegin;
   PetscValidHeaderSpecific(mat,MAT_CLASSID,1);
   ierr = PetscObjectTypeCompare((PetscObject)mat,MATSHELLUNASM,&flg);CHKERRQ(ierr);
-  if(!flg) SETERRQ(PetscObjectComm((PetscObject)mat),PETSC_ERR_SUP,"Cannot create vectors from non-shell matrix");
+  if(PetscNot(flg)) SETERRQ(PetscObjectComm((PetscObject)mat),PETSC_ERR_SUP,"Cannot create vectors from non-shell matrix");
   ierr = MatShellUnAsmGetContext(mat,(void**)&mat_ctx);CHKERRQ(ierr);
   ft   = mat_ctx->ft;
   if (!ft) SETERRQ(PETSC_COMM_SELF,PETSC_ERR_ARG_WRONG,"Matrix F is missing the FETI context");
