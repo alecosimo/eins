@@ -26,29 +26,23 @@ static PetscErrorCode FETISetUp_FETIDYN(FETI ft)
   PetscErrorCode    ierr;
   Subdomain         sd = ft->subdomain;
   PetscObjectState  mat_state;
-  PetscBool         flg;
   
   PetscFunctionBegin;
-  ierr = PetscObjectTypeCompare((PetscObject)ft->ftcs,CS_NONE,&flg);CHKERRQ(ierr);
   if (ft->state==FETI_STATE_INITIAL) {
     ierr = FETIScalingSetUp(ft);CHKERRQ(ierr);
     ierr = FETIBuildLambdaAndB(ft);CHKERRQ(ierr);
     ierr = FETISetUpNeumannSolverAndPerformFactorization(ft,PETSC_FALSE);CHKERRQ(ierr);
     ierr = FETIBuildInterfaceProblem(ft);CHKERRQ(ierr);
     ierr = FETIBuildInterfaceKSP(ft);CHKERRQ(ierr); /* the PC for the interface problem is setup here */
-    if (PetscNot(flg)) {
-      ierr = FETICSSetUp(ft->ftcs);CHKERRQ(ierr);
-      ierr = FETICSComputeCoarseBasis(ft->ftcs,&ft->localG,NULL);CHKERRQ(ierr);
-    }
+    ierr = FETICSSetUp(ft->ftcs);CHKERRQ(ierr);
+    ierr = FETICSComputeCoarseBasis(ft->ftcs,&ft->localG,NULL);CHKERRQ(ierr);
     ierr = FETISetInterfaceProblemRHS(ft);CHKERRQ(ierr);
 
-    /* set projection in ksp */
-    //    if (PetscNot(flg)) {
-      ierr = FETIPJSetUp(ft->ftpj);CHKERRQ(ierr);     
-      ierr = FETIPJGatherNeighborsCoarseBasis(ft->ftpj);CHKERRQ(ierr);
-      ierr = FETIPJAssembleCoarseProblem(ft->ftpj);CHKERRQ(ierr);
-      ierr = FETIPJFactorizeCoarseProblem(ft->ftpj);CHKERRQ(ierr);
-      //    }
+    /* set projection */
+    ierr = FETIPJSetUp(ft->ftpj);CHKERRQ(ierr);     
+    ierr = FETIPJGatherNeighborsCoarseBasis(ft->ftpj);CHKERRQ(ierr);
+    ierr = FETIPJAssembleCoarseProblem(ft->ftpj);CHKERRQ(ierr);
+    ierr = FETIPJFactorizeCoarseProblem(ft->ftpj);CHKERRQ(ierr);
   } else {
     ierr = PetscObjectStateGet((PetscObject)sd->localA,&mat_state);CHKERRQ(ierr);
     if (mat_state>ft->mat_state) {
@@ -59,14 +53,12 @@ static PetscErrorCode FETISetUp_FETIDYN(FETI ft)
 	ierr = PCSetUp(pc);CHKERRQ(ierr);
       }
       ierr = FETISetUpNeumannSolverAndPerformFactorization(ft,PETSC_FALSE);CHKERRQ(ierr);
-      if (ft->resetup_pc_interface && PetscNot(flg)) {
+      if (ft->resetup_pc_interface) {
 	ierr = FETICSComputeCoarseBasis(ft->ftcs,&ft->localG,NULL);CHKERRQ(ierr);
 	ierr = FETIPJGatherNeighborsCoarseBasis(ft->ftpj);CHKERRQ(ierr);
       }
-      //if (PetscNot(flg)) {
       ierr = FETIPJAssembleCoarseProblem(ft->ftpj);CHKERRQ(ierr);
-	ierr = FETIPJFactorizeCoarseProblem(ft->ftpj);CHKERRQ(ierr);
-	//}
+      ierr = FETIPJFactorizeCoarseProblem(ft->ftpj);CHKERRQ(ierr);
       ft->mat_state = mat_state;
     }
     ierr = FETISetInterfaceProblemRHS(ft);CHKERRQ(ierr);
