@@ -43,7 +43,6 @@ M_INCLUDE_RECURSE("${PROJECT_SOURCE_DIR}/doc" "*CMakeLists.txt")
 # Find requiered libraries and packages
 find_library(MATH_LIB m)
 find_package(MPI REQUIRED)
-find_package(LAPACK REQUIRED)
 find_package(PETSc REQUIRED)
 find_package(SLEPc)
 set(HAVE_SLEPC ${SLEPC_FOUND})
