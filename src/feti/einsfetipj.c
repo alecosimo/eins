@@ -299,7 +299,7 @@ PetscErrorCode FETIPJAssembleCoarseProblem(FETIPJ ftpj)
 
    Input: 
 .  ftpj - the FETIPJ context
-.  x    - the vector to project for computing the initial condition
+.  x    - the vector to project for computing the initial condition (it can be NULL)
 
    Output: 
 .  ftpj - the FETIPJ context
@@ -317,7 +317,7 @@ PetscErrorCode FETIPJComputeInitialCondition(FETIPJ ftpj,Vec x,Vec y)
   
   PetscFunctionBegin;
   PetscValidHeaderSpecific(ftpj,FETIPJ_CLASSID,1);
-  PetscValidHeaderSpecific(x,VEC_CLASSID,2);
+  if(x){PetscValidHeaderSpecific(x,VEC_CLASSID,2);}
   PetscValidHeaderSpecific(y,VEC_CLASSID,3);
   if(ftpj->state<FETIPJ_STATE_FACTORIZED) PetscFunctionReturn(0);
   if (ftpj->ops->initialcondition) {
@@ -337,7 +337,7 @@ PetscErrorCode FETIPJComputeInitialCondition(FETIPJ ftpj,Vec x,Vec y)
 
    Input: 
 .  ftpj - the FETIPJ context
-.  x    - the vector needed to compute alpha, generally the residual d-F*lambda
+.  x    - the vector needed to compute alpha, generally the residual d-F*lambda (it can be NULL)
 
    Output: 
 .  y    - the result vector
@@ -354,7 +354,7 @@ PetscErrorCode FETIPJComputeAlphaNullSpace(FETIPJ ftpj,Vec x,Vec y)
   
   PetscFunctionBegin;
   PetscValidHeaderSpecific(ftpj,FETIPJ_CLASSID,1);
-  PetscValidHeaderSpecific(x,VEC_CLASSID,2);
+  if(x) { PetscValidHeaderSpecific(x,VEC_CLASSID,2);}
   PetscValidHeaderSpecific(y,VEC_CLASSID,3);
   if(ftpj->state<FETIPJ_STATE_FACTORIZED) PetscFunctionReturn(0);
   if (ftpj->ops->computealpha) {
