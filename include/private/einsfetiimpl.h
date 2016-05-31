@@ -11,19 +11,27 @@
 
 
 /* FETIPJ stuff */
+typedef enum { FETIPJ_STATE_INITIAL,
+               FETIPJ_STATE_NEIGH_GATHERED,
+	       FETIPJ_STATE_ASSEMBLED,
+               FETIPJ_STATE_FACTORIZED } FETIPJStateType;
+
 typedef struct _FETIPJOps *FETIPJOps;
 struct _FETIPJOps {
   PetscErrorCode (*destroy)(FETIPJ);
   PetscErrorCode (*setfromoptions)(PetscOptionItems*,FETIPJ);
   PetscErrorCode (*setup)(FETIPJ);
-  PetscErrorCode (*computecoarsebasis)(FETIPJ,Mat*,Mat*);
+  PetscErrorCode (*gatherneighbors)(FETIPJ);
+  PetscErrorCode (*assemble)(FETIPJ);
+  PetscErrorCode (*factorize)(FETIPJ);
 };
 
 struct _p_FETIPJ {
   PETSCHEADER(struct _FETIPJOps);
-  PetscInt setupcalled;             /* true if setup has been called */
-  FETI     feti;
-  void *data;
+  PetscInt        setupcalled;
+  FETI            feti;
+  FETIPJStateType state;
+  void            *data;
 };
 
 
@@ -113,6 +121,8 @@ struct _p_FETI {
   PetscInt         n_cs;           /* local number of vector for the Coarse Space */
   FETICS           ftcs;
   FETICSType       ftcs_type;
+  FETIPJ           ftpj;
+  FETIPJType       ftpj_type;
 };
 
 PETSC_EXTERN PetscLogEvent FETI_SetUp;

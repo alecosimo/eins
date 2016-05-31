@@ -107,14 +107,14 @@ PetscErrorCode  FETICSRegisterAll(void)
 -  type - a FETI coarse space
 
    Options Database Key:
-.  -feti_type <type> - Sets FETI type
+.  -fetics_type <type> - Sets FETICS type
 
   Level: intermediate
 
 .seealso: FETICSType, FETICSRegister(), FETICSCreate()
 
 @*/
-PetscErrorCode  FETICSSetType(FETICS ftcs,FETICSType type)
+PetscErrorCode  FETICSSetType(FETICS ftcs,const FETICSType type)
 {
   PetscErrorCode ierr,(*func)(FETICS);
   PetscBool      match;
@@ -296,7 +296,7 @@ PetscErrorCode FETICSComputeCoarseBasis(FETICS ftcs,Mat *G,Mat *R)
   if (ftcs->ops->computecoarsebasis) {
     ierr = (*ftcs->ops->computecoarsebasis)(ftcs,G,R);CHKERRQ(ierr);
   } else {
-    SETERRQ(PetscObjectComm((PetscObject)ftcs),PETSC_ERR_ARG_WRONGSTATE,"Error: FETICSComputeCoarseBasisI of specific FETICS method not found.");
+    SETERRQ(PetscObjectComm((PetscObject)ftcs),PETSC_ERR_ARG_WRONGSTATE,"Error: FETICSComputeCoarseBasis of specific FETICS method not found.");
   }
   PetscFunctionReturn(0);
 }

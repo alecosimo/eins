@@ -46,7 +46,7 @@ typedef const char* FETIScalingType;
 #define SCRHO            "scrho"
 #define SCMULTIPLICITY   "scmultiplicity"
 #define SCNONE           "scnone"
-#define SCUNK           "scunk" /* Unknown scaling*/
+#define SCUNK            "scunk" /* Unknown scaling*/
 
 
 /*S
@@ -102,14 +102,18 @@ PETSC_EXTERN PetscClassId      FETIPJ_CLASSID;
 PETSC_EXTERN PetscBool         FETIPJRegisterAllCalled;
 
 /* FETIPJ stuff */
-PETSC_EXTERN PetscErrorCode FETIPJCreate(MPI_Comm,FETIPJ*);
+PETSC_EXTERN PetscErrorCode FETIPJCreate(MPI_Comm,FETI,FETIPJ*);
 PETSC_EXTERN PetscErrorCode FETIPJDestroy(FETIPJ*);
-PETSC_EXTERN PetscErrorCode FETIPJSetType(FETIPJ,FETI,const FETIPJType);
+PETSC_EXTERN PetscErrorCode FETIPJSetType(FETIPJ,const FETIPJType);
 PETSC_EXTERN PetscErrorCode FETIPJSetFromOptions(FETIPJ);
+PETSC_EXTERN PetscErrorCode FETIPJGatherNeighborsCoarseBasis(FETIPJ);
+PETSC_EXTERN PetscErrorCode FETIPJAssembleCoarseProblem(FETIPJ);
+PETSC_EXTERN PetscErrorCode FETIPJFactorizeCoarseProblem(FETIPJ);
 PETSC_EXTERN PetscErrorCode FETIPJRegister(const char[],PetscErrorCode (*)(FETIPJ));
 PETSC_EXTERN PetscErrorCode FETIPJRegisterAll(void);
 PETSC_EXTERN PetscErrorCode FETIPJSetUp(FETIPJ);
 PETSC_EXTERN PetscErrorCode FETIPJSetFETI(FETIPJ,FETI);
+PETSC_EXTERN PetscErrorCode FETIPJGetType(FETIPJ,FETIPJType*);
 
 /* FETICS stuff */
 PETSC_EXTERN PetscErrorCode FETICSCreate(MPI_Comm,FETI,FETICS*);
@@ -133,6 +137,8 @@ PETSC_EXTERN PetscErrorCode FETIRegister(const char[],PetscErrorCode(*)(FETI));
 PETSC_EXTERN PetscErrorCode FETISetType(FETI,FETIType);
 PETSC_EXTERN PetscErrorCode FETISetCoarseSpaceType(FETI,FETICSType);
 PETSC_EXTERN PetscErrorCode FETIGetCoarseSpaceType(FETI,FETICSType*);
+PETSC_EXTERN PetscErrorCode FETISetProjectionType(FETI,FETIPJType);
+PETSC_EXTERN PetscErrorCode FETIGetProjectionType(FETI,FETIPJType*);
 PETSC_EXTERN PetscErrorCode FETIGetType(FETI,FETIType*);
 PETSC_EXTERN PetscErrorCode FETISetFromOptions(FETI);
 PETSC_EXTERN PetscErrorCode FETISetInterfaceSolver(FETI,KSPType,PCType);
@@ -147,6 +153,7 @@ PETSC_EXTERN PetscErrorCode FETIFinalizePackage(void);
 PETSC_EXTERN PetscErrorCode FETIInitializePackage(void);
 PETSC_EXTERN PetscErrorCode FETIGetKSPInterface(FETI,KSP*);
 PETSC_EXTERN PetscErrorCode FETIGetCoarseSpace(FETI,FETICS*);
+PETSC_EXTERN PetscErrorCode FETIGetProjection(FETI,FETIPJ*);
 PETSC_EXTERN PetscErrorCode FETISolve(FETI,Vec);
 PETSC_EXTERN PetscErrorCode FETISetFactorizeLocalProblem(FETI,PetscBool);
 PETSC_EXTERN PetscErrorCode FETISetReSetupPCInterface(FETI,PetscBool);

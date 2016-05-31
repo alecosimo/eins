@@ -9,5 +9,6 @@ Reports information only for process 0.
 
                 FETI     1              1
               FETICS     1              1
+              FETIPJ     1              1
        Krylov Solver     1              1
               Viewer     1              0

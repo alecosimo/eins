@@ -148,6 +148,30 @@ PetscErrorCode FETISetCoarseSpaceType(FETI ft,FETICSType ftcs_type)
 
 
 #undef __FUNCT__
+#define __FUNCT__ "FETISetProjectionType"
+/*@C
+   FETISetProjectionType - Sets the FETI projection type.
+
+   Input Parameter:
+.  ft        - the FETI context.
+.  ftpj_type - the FETI projection type
+
+  Level: basic
+
+.seealso: FETIPJType
+
+@*/
+PetscErrorCode FETISetProjectionType(FETI ft,FETIPJType ftpj_type)
+{
+  PetscFunctionBegin;
+  PetscValidHeaderSpecific(ft,FETI_CLASSID,1);
+  PetscValidCharPointer(ftpj_type,2);
+  ft->ftpj_type = ftpj_type;
+  PetscFunctionReturn(0);
+}
+
+
+#undef __FUNCT__
 #define __FUNCT__ "FETISetInterfaceSolver"
 /*@C
    FETISetInterfaceSolver - Sets the KSP and PC to be used for solving the FETI interface problem.
@@ -228,6 +252,35 @@ PetscErrorCode FETIGetCoarseSpaceType(FETI feti,FETICSType *type)
   PetscFunctionBegin;
   PetscValidHeaderSpecific(feti,FETI_CLASSID,1);
   *type = feti->ftcs_type;
+  PetscFunctionReturn(0);
+}
+
+
+#undef __FUNCT__
+#define __FUNCT__ "FETIGetProjectionType"
+/*@C
+   FETIGetProjectionType - Gets the FETIPJ type.
+
+   Not Collective
+
+   Input Parameter:
+.  feti - the FETI context
+
+   Output Parameter:
+.  type - name of FETIPJ type
+
+   Level: intermediate
+
+.keywords: FETI, FETIPJ
+
+.seealso: FETIPJSetType(),FETISetProjectionType()
+
+@*/
+PetscErrorCode FETIGetProjectionType(FETI feti,FETIPJType *type)
+{
+  PetscFunctionBegin;
+  PetscValidHeaderSpecific(feti,FETI_CLASSID,1);
+  *type = feti->ftpj_type;
   PetscFunctionReturn(0);
 }
 
@@ -362,6 +415,7 @@ PetscErrorCode  FETISetFromOptions(FETI feti)
   ierr = PetscOptionsEnd();CHKERRQ(ierr);
   feti->setfromoptionscalled++;
   ierr = FETICSSetFromOptions(feti->ftcs);CHKERRQ(ierr);
+  ierr = FETIPJSetFromOptions(feti->ftpj);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 
@@ -413,7 +467,8 @@ PetscErrorCode FETIDestroy(FETI *_feti)
   ierr = ISLocalToGlobalMappingDestroy(&feti->mapping_lambda);CHKERRQ(ierr);
   ierr = SubdomainDestroy(&feti->subdomain);CHKERRQ(ierr);
 
-  if (feti->ops->destroy) {ierr = (*feti->ops->destroy)(feti);CHKERRQ(ierr);}  
+  if (feti->ops->destroy) {ierr = (*feti->ops->destroy)(feti);CHKERRQ(ierr);}
+  ierr = FETIPJDestroy(&feti->ftpj);CHKERRQ(ierr);
   ierr = FETICSDestroy(&feti->ftcs);CHKERRQ(ierr);
   ierr = PetscHeaderDestroy(&feti);CHKERRQ(ierr); 
   PetscFunctionReturn(0);
@@ -438,10 +493,12 @@ PetscErrorCode  FETIFinalizePackage(void)
   PetscFunctionBegin;
   ierr = PetscFunctionListDestroy(&FETIList);CHKERRQ(ierr);
   ierr = PetscFunctionListDestroy(&FETICSList);CHKERRQ(ierr);
+  ierr = PetscFunctionListDestroy(&FETIPJList);CHKERRQ(ierr);
   ierr = PetscFunctionListDestroy(&FETIScalingList);CHKERRQ(ierr);
   FETIPackageInitialized   = PETSC_FALSE;
   FETIRegisterAllCalled    = PETSC_FALSE;
   FETICSRegisterAllCalled  = PETSC_FALSE;
+  FETIPJRegisterAllCalled  = PETSC_FALSE;
   PetscFunctionReturn(0);
 }
 
@@ -465,9 +522,11 @@ PetscErrorCode  FETIInitializePackage(void)
   /* Register Classes */
   ierr = PetscClassIdRegister("FETI",&FETI_CLASSID);CHKERRQ(ierr);
   ierr = PetscClassIdRegister("FETICS",&FETICS_CLASSID);CHKERRQ(ierr);
+  ierr = PetscClassIdRegister("FETIPJ",&FETIPJ_CLASSID);CHKERRQ(ierr);
   /* Register Constructors */
   ierr = FETIRegisterAll();CHKERRQ(ierr);
   ierr = FETICSRegisterAll();CHKERRQ(ierr);
+  ierr = FETIPJRegisterAll();CHKERRQ(ierr);
   /* Register Events */
   ierr = PetscLogEventRegister("FETISetUp",FETI_CLASSID,&FETI_SetUp);CHKERRQ(ierr);
   /* Set FETIFinalizePackage */
@@ -512,6 +571,8 @@ PetscErrorCode  FETISetUp(FETI feti)
   ierr = SubdomainSetUp(feti->subdomain,(PetscBool)(feti->state>=FETI_STATE_SETUP_INI));CHKERRQ(ierr);
   /* create specific type of FETICS */
   if (!((PetscObject)feti->ftcs)->type_name) { ierr = FETICSSetType(feti->ftcs,feti->ftcs_type);CHKERRQ(ierr);}
+  /* create specific type of FETIPJ */
+  if (!((PetscObject)feti->ftpj)->type_name) { ierr = FETIPJSetType(feti->ftpj,feti->ftpj_type);CHKERRQ(ierr);}
   
   if (feti->ops->setup) {
     ierr = (*feti->ops->setup)(feti);CHKERRQ(ierr);
@@ -574,6 +635,34 @@ PetscErrorCode FETIGetCoarseSpace(FETI ft,FETICS *ftcs)
   PetscValidHeaderSpecific(ft,FETI_CLASSID,1);
   if (!ft->ftcs) SETERRQ(PetscObjectComm((PetscObject)ft),PETSC_ERR_ARG_WRONGSTATE,"Error: ftcs has not been yet created.");
   *ftcs = ft->ftcs;
+  PetscFunctionReturn(0);
+}
+
+
+#undef  __FUNCT__
+#define __FUNCT__ "FETIGetProjection"
+/*@
+   FETIGetProjection - Gets the FETI Projection
+
+   Input: 
+.  ft - the FETI context
+
+   Output:
+.  ftpj - the FETIPJ context
+
+   Level: basic
+
+.keywords: FETI
+
+.seealso: FETISetUp
+@*/
+PetscErrorCode FETIGetProjection(FETI ft,FETIPJ *ftpj)
+{
+  
+  PetscFunctionBegin;
+  PetscValidHeaderSpecific(ft,FETI_CLASSID,1);
+  if (!ft->ftpj) SETERRQ(PetscObjectComm((PetscObject)ft),PETSC_ERR_ARG_WRONGSTATE,"Error: ftpj has not been yet created.");
+  *ftpj = ft->ftpj;
   PetscFunctionReturn(0);
 }
 
@@ -1198,6 +1287,8 @@ PetscErrorCode  FETICreate(MPI_Comm comm,FETI *newfeti)
   feti->resetup_pc_interface = PETSC_TRUE;
   feti->ftcs                 = 0;
   feti->ftcs_type            = CS_NONE;
+  feti->ftpj                 = 0;
+  feti->ftpj_type            = PJ_NONE;
   /* scaling variables initialization*/
   feti->Wscaling             = 0;
   feti->scaling_factor       = 1.;
@@ -1206,6 +1297,8 @@ PetscErrorCode  FETICreate(MPI_Comm comm,FETI *newfeti)
   ierr = KSPCreate(comm,&feti->ksp_interface);CHKERRQ(ierr);
   ierr = FETICSCreate(PetscObjectComm((PetscObject)feti),feti,&feti->ftcs);CHKERRQ(ierr);
   ierr = PetscObjectSetOptionsPrefix((PetscObject)feti->ftcs,"feti_");CHKERRQ(ierr);
+  ierr = FETIPJCreate(PetscObjectComm((PetscObject)feti),feti,&feti->ftpj);CHKERRQ(ierr);
+  ierr = PetscObjectSetOptionsPrefix((PetscObject)feti->ftpj,"feti_");CHKERRQ(ierr);
   
   *newfeti = feti;
   PetscFunctionReturn(0);

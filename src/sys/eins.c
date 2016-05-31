@@ -39,6 +39,7 @@ static PetscErrorCode EinsRegisterAll(void)
   /*Register FETI*/
   ierr = FETIRegisterAll();CHKERRQ(ierr);
   ierr = FETICSRegisterAll();CHKERRQ(ierr);
+  ierr = FETIPJRegisterAll();CHKERRQ(ierr);
   /*Register Vec*/
   ierr = VecRegisterAll();CHKERRQ(ierr);
   ierr = VecRegister(VECMPIUNASM,VecCreate_UNASM);CHKERRQ(ierr);
