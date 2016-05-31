@@ -45,15 +45,15 @@ static PetscErrorCode FETIPJFactorizeCoarseProblem_PJ1LEVEL(FETIPJ ftpj)
   PC                pc;
   
   PetscFunctionBegin;
-  if(!pj->coarse_problem) SETERRQ(PetscObjectComm((PetscObject)ft),PETSC_ERR_ARG_WRONGSTATE,"Error: FETI1SetUpCoarseProblem_Private() must be first called");
+  if(!pj->coarse_problem) SETERRQ(PetscObjectComm((PetscObject)ft),PETSC_ERR_ARG_WRONGSTATE,"Error: FETIPJSetUp() must be first called");
 
   /* factorize the coarse problem */
   ierr = KSPCreate(PETSC_COMM_SELF,&pj->ksp_coarse);CHKERRQ(ierr);
   ierr = PetscObjectIncrementTabLevel((PetscObject)pj->ksp_coarse,(PetscObject)pj,1);CHKERRQ(ierr);
   ierr = PetscLogObjectParent((PetscObject)pj,(PetscObject)pj->ksp_coarse);CHKERRQ(ierr);
   ierr = KSPSetType(pj->ksp_coarse,KSPPREONLY);CHKERRQ(ierr);
-  ierr = KSPSetOptionsPrefix(pj->ksp_coarse,"feti_p1level_pc_coarse_");CHKERRQ(ierr);
-  ierr = MatSetOptionsPrefix(pj->coarse_problem,"feti_p1level_pc_coarse_");CHKERRQ(ierr);
+  ierr = KSPSetOptionsPrefix(pj->ksp_coarse,"feti_pj1level_pc_coarse_");CHKERRQ(ierr);
+  ierr = MatSetOptionsPrefix(pj->coarse_problem,"feti_pj1level_pc_coarse_");CHKERRQ(ierr);
   ierr = KSPGetPC(pj->ksp_coarse,&pc);CHKERRQ(ierr);
   ierr = PCSetType(pc,PCCHOLESKY);CHKERRQ(ierr);
   ierr = KSPSetFromOptions(pj->ksp_coarse);CHKERRQ(ierr);
@@ -335,6 +335,8 @@ static PetscErrorCode FETIPJSetUp_PJ1LEVEL(FETIPJ ftpj)
   ierr = MatAssemblyBegin(pj->coarse_problem,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
   ierr = MatAssemblyEnd(pj->coarse_problem,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
 
+  ftpj->state = FETIPJ_STATE_ASSEMBLED;
+  
   ierr = PetscFree(idxm);CHKERRQ(ierr);
   ierr = PetscFree(idxn);CHKERRQ(ierr);
   ierr = PetscFree(nnz);CHKERRQ(ierr);
@@ -411,7 +413,7 @@ static PetscErrorCode FETIPJApplyCoarseProblem_PJ1LEVEL(FETIPJ ftpj,Vec v,Vec r)
   
   PetscFunctionBegin;
   ierr = PetscObjectGetComm((PetscObject)ft,&comm);CHKERRQ(ierr);
-  if(!pj->F_coarse) SETERRQ(comm,PETSC_ERR_ARG_WRONGSTATE,"Error: FETI1FactorizeCoarseProblem_Private() must be first called");
+  if(!pj->F_coarse) SETERRQ(comm,PETSC_ERR_ARG_WRONGSTATE,"Error: FETIPJFactorizeCoarseProblem() must be first called");
   ierr = MPI_Comm_rank(comm,&rank);CHKERRQ(ierr);
   
   /* apply (G^T*G)^{-1}: compute v_rbm = (G^T*G)^{-1}*v */
@@ -536,8 +538,8 @@ static PetscErrorCode FETIPJComputeAlphaNullSpace_PJ1LEVEL(FETIPJ ftpj,Vec x,Vec
   Vec               lambda_local;
   
   PetscFunctionBegin;
-  ierr = VecUnAsmGetLocalVectorRead(x,&lambda_local);CHKERRQ(ierr);
   if (!ft->n_cs)  PetscFunctionReturn(0);
+  ierr = VecUnAsmGetLocalVectorRead(x,&lambda_local);CHKERRQ(ierr);
   ierr = MPI_Comm_rank(pj->floatingComm,&rank);CHKERRQ(ierr);
   ierr = VecCreateSeq(PETSC_COMM_SELF,pj->total_rbm,&alpha_g);CHKERRQ(ierr);
   ierr = VecCreateSeq(PETSC_COMM_SELF,pj->total_rbm,&asm_g);CHKERRQ(ierr);  

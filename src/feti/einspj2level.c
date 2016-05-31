@@ -296,7 +296,7 @@ static PetscErrorCode FETIPJFactorizeCoarseProblem_PJ2LEVEL(FETIPJ ftpj)
   PC                pc;
   
   PetscFunctionBegin;
-  if(!pj->coarse_problem) SETERRQ(PetscObjectComm((PetscObject)ft),PETSC_ERR_ARG_WRONGSTATE,"Error: FETI2SetUpCoarseProblem_Private() must be first called");
+  if(!pj->coarse_problem) SETERRQ(PetscObjectComm((PetscObject)ft),PETSC_ERR_ARG_WRONGSTATE,"Error: FETIPJSetUp() must be first called");
   
   /* factorize the coarse problem */
   if(!pj->ksp_coarse) {

@@ -144,6 +144,7 @@ PetscErrorCode FETICreate_FETI1(FETI ft)
   ft->ops->computesolution     = FETISolve_FETI1;
   ft->ops->view                = 0;
 
+  ft->ftpj_type = PJ_FIRST_LEVEL;
   PetscFunctionReturn(0);
 }
 EXTERN_C_END
@@ -410,7 +411,7 @@ static PetscErrorCode FETISolve_FETI1(FETI ft, Vec u){
   /* Get residual of the interface problem */
   ierr = KSPGetResidual(ft->ksp_interface,&ft1->res_interface);CHKERRQ(ierr);
   /* compute alpha_local */
-  ierr = FETIPJComputeAlphaNullSpace(ft->ftpj,ft1->res_interface,ft1->alpha_local);CHKERRQ(ierr);
+  if(ft->n_cs) { ierr = FETIPJComputeAlphaNullSpace(ft->ftpj,ft1->res_interface,ft1->alpha_local);CHKERRQ(ierr);}
   /* computing B_delta^T*lambda */
   ierr = VecUnAsmGetLocalVectorRead(ft->lambda_global,&lambda_local);CHKERRQ(ierr);
   ierr = MatMultTranspose(ft->B_delta,lambda_local,sd->vec1_B);CHKERRQ(ierr);
@@ -456,11 +457,11 @@ PetscErrorCode FETI1SetDefaultOptions(int *argc,char ***args,const char file[])
   PetscErrorCode    ierr;
   char mumps_options[]        = "-feti_pc_dirichlet_pc_factor_mat_solver_package mumps \
                                  -feti_pc_dirichlet_mat_mumps_icntl_7 2                \
-                                 -feti1_pc_coarse_pc_factor_mat_solver_package mumps   \
-                                 -feti1_pc_coarse_mat_mumps_icntl_7 2";
+                                 -feti_pj1level_pc_coarse_pc_factor_mat_solver_package mumps   \
+                                 -feti_pj1level_pc_coarse_mat_mumps_icntl_7 2";
   char other_options[]        = "-feti_fullyredundant             \
                                  -feti_scaling_type scmultiplicity \
-                                 -feti1_destroy_coarse";
+                                 -feti_pj1level_destroy_coarse";
   
   PetscFunctionBegin;
 #if defined(PETSC_HAVE_MUMPS)

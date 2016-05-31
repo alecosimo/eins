@@ -12,11 +12,6 @@
 
 
 /* FETIPJ stuff */
-typedef enum { FETIPJ_STATE_INITIAL,
-               FETIPJ_STATE_NEIGH_GATHERED,
-	       FETIPJ_STATE_ASSEMBLED,
-               FETIPJ_STATE_FACTORIZED } FETIPJStateType;
-
 typedef struct _FETIPJOps *FETIPJOps;
 struct _FETIPJOps {
   PetscErrorCode (*destroy)(FETIPJ);

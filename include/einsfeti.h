@@ -102,7 +102,13 @@ PETSC_EXTERN PetscClassId      FETIPJ_CLASSID;
 PETSC_EXTERN PetscBool         FETIPJRegisterAllCalled;
 
 /* FETIPJ stuff */
+typedef enum { FETIPJ_STATE_INITIAL,
+               FETIPJ_STATE_NEIGH_GATHERED,
+	       FETIPJ_STATE_ASSEMBLED,
+               FETIPJ_STATE_FACTORIZED } FETIPJStateType;
+
 PETSC_EXTERN PetscErrorCode FETIPJCreate(MPI_Comm,FETI,FETIPJ*);
+PETSC_EXTERN PetscErrorCode FETIPJSetState(FETIPJ,FETIPJStateType);
 PETSC_EXTERN PetscErrorCode FETIPJDestroy(FETIPJ*);
 PETSC_EXTERN PetscErrorCode FETIPJSetType(FETIPJ,const FETIPJType);
 PETSC_EXTERN PetscErrorCode FETIPJSetFromOptions(FETIPJ);

@@ -7,6 +7,7 @@ PetscLogEvent     FETIPJ_SetUp;
 PetscBool         FETIPJRegisterAllCalled   = PETSC_FALSE;
 PetscFunctionList FETIPJList                = 0;
 
+PETSC_EXTERN PetscErrorCode FETIPJCreate_PJ1LEVEL(FETIPJ);
 PETSC_EXTERN PetscErrorCode FETIPJCreate_PJ2LEVEL(FETIPJ);
 PETSC_EXTERN PetscErrorCode FETIPJCreate_PJNONE(FETIPJ);
 
@@ -61,6 +62,7 @@ PetscErrorCode  FETIPJRegisterAll(void)
 
   ierr = FETIPJRegister(PJ_NONE,FETIPJCreate_PJNONE);CHKERRQ(ierr);
   ierr = FETIPJRegister(PJ_SECOND_LEVEL,FETIPJCreate_PJ2LEVEL);CHKERRQ(ierr);
+  ierr = FETIPJRegister(PJ_FIRST_LEVEL,FETIPJCreate_PJ1LEVEL);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 
@@ -110,6 +112,31 @@ PetscErrorCode  FETIPJSetType(FETIPJ ftpj,const FETIPJType type)
   /* Call the FETIPJCreate_XXX routine for this particular FETI formulation */
   ierr       = PetscObjectChangeTypeName((PetscObject)ftpj,type);CHKERRQ(ierr);
   ierr       = (*func)(ftpj);CHKERRQ(ierr);
+  PetscFunctionReturn(0);
+}
+
+
+#undef __FUNCT__
+#define __FUNCT__ "FETIPJSetState"
+/*@C
+   FETIPJSetState - Builds FETIPJ for the particular FETIPJ type
+
+   Collective on FETIPJ
+
+   Input Parameter:
++  ftpj - the FETIPJ context
+-  type - a FETIPJ state
+
+  Level: intermediate
+
+.seealso: FETIPJ, FETIPJStateType
+
+@*/
+PetscErrorCode  FETIPJSetState(FETIPJ ftpj,FETIPJStateType state)
+{
+  PetscFunctionBegin;
+  PetscValidHeaderSpecific(ftpj,FETIPJ_CLASSID,1);
+  ftpj->state = state;
   PetscFunctionReturn(0);
 }
 
@@ -337,7 +364,7 @@ PetscErrorCode FETIPJComputeInitialCondition(FETIPJ ftpj,Vec x,Vec y)
 
    Input: 
 .  ftpj - the FETIPJ context
-.  x    - the vector needed to compute alpha, generally the residual d-F*lambda (it can be NULL)
+.  x    - the vector needed to compute alpha, generally the residual d-F*lambda
 
    Output: 
 .  y    - the result vector
@@ -354,7 +381,7 @@ PetscErrorCode FETIPJComputeAlphaNullSpace(FETIPJ ftpj,Vec x,Vec y)
   
   PetscFunctionBegin;
   PetscValidHeaderSpecific(ftpj,FETIPJ_CLASSID,1);
-  if(x) { PetscValidHeaderSpecific(x,VEC_CLASSID,2);}
+  PetscValidHeaderSpecific(x,VEC_CLASSID,2);
   PetscValidHeaderSpecific(y,VEC_CLASSID,3);
   if(ftpj->state<FETIPJ_STATE_FACTORIZED) PetscFunctionReturn(0);
   if (ftpj->ops->computealpha) {
