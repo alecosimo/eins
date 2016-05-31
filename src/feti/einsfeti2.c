@@ -85,7 +85,7 @@ static PetscErrorCode FETISetUp_FETI2(FETI ft)
     ierr = FETI2SetInterfaceProblemRHS_Private(ft);CHKERRQ(ierr);
   }
 
-  ierr = FETIPJComputeInitialCondition(ft->ftpj);CHKERRQ(ierr);
+  ierr = FETIPJComputeInitialCondition(ft->ftpj,ft->d,ft->lambda_global);CHKERRQ(ierr);
   
   PetscFunctionReturn(0);
 }

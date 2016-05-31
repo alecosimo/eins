@@ -25,7 +25,8 @@ struct _FETIPJOps {
   PetscErrorCode (*gatherneighbors)(FETIPJ);
   PetscErrorCode (*assemble)(FETIPJ);
   PetscErrorCode (*factorize)(FETIPJ);
-  PetscErrorCode (*initialcondition)(FETIPJ);
+  PetscErrorCode (*initialcondition)(FETIPJ,Vec,Vec);
+  PetscErrorCode (*computealpha)(FETIPJ,Vec,Vec);
 };
 
 struct _p_FETIPJ {

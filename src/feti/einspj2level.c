@@ -871,7 +871,7 @@ PetscErrorCode FETIPJReProject_PJ2LEVEL(void* ft_ctx, Vec g_global, Vec y)
 
 #undef __FUNCT__
 #define __FUNCT__ "FETIPJComputeInitialCondition_PJ2LEVEL"
-static PetscErrorCode FETIPJComputeInitialCondition_PJ2LEVEL(FETIPJ ftpj)
+static PetscErrorCode FETIPJComputeInitialCondition_PJ2LEVEL(FETIPJ ftpj,Vec x,Vec y)
 {
   PetscErrorCode    ierr;
   FETI              ft = ftpj->feti;
@@ -884,14 +884,14 @@ static PetscErrorCode FETIPJComputeInitialCondition_PJ2LEVEL(FETIPJ ftpj)
   
   PetscFunctionBegin;
   comm = PetscObjectComm((PetscObject)ft);
-  ierr = VecUnAsmGetLocalVectorRead(ft->d,&lambda_local);CHKERRQ(ierr);
+  ierr = VecUnAsmGetLocalVectorRead(x,&lambda_local);CHKERRQ(ierr);
   ierr = VecCreateSeq(PETSC_COMM_SELF,pj->total_rbm,&asm_e);CHKERRQ(ierr);
   if (ft->n_cs) {
     ierr = VecCreateSeq(PETSC_COMM_SELF,ft->n_cs,&localv);CHKERRQ(ierr);
     ierr = MatMultTranspose(ft->localG,lambda_local,localv);CHKERRQ(ierr);   
     ierr = VecGetArrayRead(localv,&sbuff);CHKERRQ(ierr);
   }
-  ierr = VecUnAsmRestoreLocalVectorRead(ft->d,lambda_local);CHKERRQ(ierr);
+  ierr = VecUnAsmRestoreLocalVectorRead(x,lambda_local);CHKERRQ(ierr);
   ierr = VecGetArray(asm_e,&rbuff);CHKERRQ(ierr); 
   ierr = MPI_Allgatherv(sbuff,ft->n_cs,MPIU_SCALAR,rbuff,pj->n_cs_comm,pj->displ,MPIU_SCALAR,comm);CHKERRQ(ierr);
   ierr = VecRestoreArray(asm_e,&rbuff);CHKERRQ(ierr);
@@ -900,7 +900,7 @@ static PetscErrorCode FETIPJComputeInitialCondition_PJ2LEVEL(FETIPJ ftpj)
     ierr = VecDestroy(&localv);CHKERRQ(ierr);
   }
 
-  ierr = FETIPJApplyCoarseProblem_PJ2LEVEL(ftpj,asm_e,ft->lambda_global);CHKERRQ(ierr);
+  ierr = FETIPJApplyCoarseProblem_PJ2LEVEL(ftpj,asm_e,y);CHKERRQ(ierr);
 
   ierr = VecDestroy(&asm_e);CHKERRQ(ierr);
   PetscFunctionReturn(0);
@@ -929,6 +929,8 @@ PetscErrorCode FETIPJCreate_PJ2LEVEL(FETIPJ ftpj)
   ftpj->ops->assemble            = FETIPJAssembleCoarseProblem_PJ2LEVEL;
   ftpj->ops->factorize           = FETIPJFactorizeCoarseProblem_PJ2LEVEL;
   ftpj->ops->initialcondition    = FETIPJComputeInitialCondition_PJ2LEVEL;
+  ftpj->ops->computealpha        = 0;
+  
   PetscFunctionReturn(0);
 }
 

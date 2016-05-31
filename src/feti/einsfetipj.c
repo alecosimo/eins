@@ -299,6 +299,11 @@ PetscErrorCode FETIPJAssembleCoarseProblem(FETIPJ ftpj)
 
    Input: 
 .  ftpj - the FETIPJ context
+.  x    - the vector to project for computing the initial condition
+
+   Output: 
+.  ftpj - the FETIPJ context
+.  y    - the vector to store the initial condition
 
    Level: basic
 
@@ -306,17 +311,56 @@ PetscErrorCode FETIPJAssembleCoarseProblem(FETIPJ ftpj)
 
 .seealso: FETIPJGatherNeighborsCoarseBasis(),FETIPJFactorizeCoarseProblem() FETIPJAssembleCoarseProblem()
 @*/
-PetscErrorCode FETIPJComputeInitialCondition(FETIPJ ftpj)
+PetscErrorCode FETIPJComputeInitialCondition(FETIPJ ftpj,Vec x,Vec y)
 {
   PetscErrorCode ierr;
   
   PetscFunctionBegin;
   PetscValidHeaderSpecific(ftpj,FETIPJ_CLASSID,1);
+  PetscValidHeaderSpecific(x,VEC_CLASSID,2);
+  PetscValidHeaderSpecific(y,VEC_CLASSID,3);
   if(ftpj->state<FETIPJ_STATE_FACTORIZED) PetscFunctionReturn(0);
   if (ftpj->ops->initialcondition) {
-    ierr = (*ftpj->ops->initialcondition)(ftpj);CHKERRQ(ierr);
+    ierr = (*ftpj->ops->initialcondition)(ftpj,x,y);CHKERRQ(ierr);
   } else {
     SETERRQ(PetscObjectComm((PetscObject)ftpj),PETSC_ERR_ARG_WRONGSTATE,"Error: FETIPJComputeInitialCondition of specific FETIPJ method not found.");
+  }
+  PetscFunctionReturn(0);
+}
+
+
+#undef  __FUNCT__
+#define __FUNCT__ "FETIPJComputeAlphaNullSpace"
+/*@
+   FETIPJComputeAlphaNullSpace - Computes the alpha coefficients
+   associated to the Null Space of the system matrix.
+
+   Input: 
+.  ftpj - the FETIPJ context
+.  x    - the vector needed to compute alpha, generally the residual d-F*lambda
+
+   Output: 
+.  y    - the result vector
+
+   Level: basic
+
+.keywords: FETIPJ
+
+.seealso: FETIPJGatherNeighborsCoarseBasis(),FETIPJFactorizeCoarseProblem() FETIPJAssembleCoarseProblem()
+@*/
+PetscErrorCode FETIPJComputeAlphaNullSpace(FETIPJ ftpj,Vec x,Vec y)
+{
+  PetscErrorCode ierr;
+  
+  PetscFunctionBegin;
+  PetscValidHeaderSpecific(ftpj,FETIPJ_CLASSID,1);
+  PetscValidHeaderSpecific(x,VEC_CLASSID,2);
+  PetscValidHeaderSpecific(y,VEC_CLASSID,3);
+  if(ftpj->state<FETIPJ_STATE_FACTORIZED) PetscFunctionReturn(0);
+  if (ftpj->ops->computealpha) {
+    ierr = (*ftpj->ops->computealpha)(ftpj,x,y);CHKERRQ(ierr);
+  } else {
+    SETERRQ(PetscObjectComm((PetscObject)ftpj),PETSC_ERR_ARG_WRONGSTATE,"Error: FETIPJComputeAlphaNullSpace of specific FETIPJ method not found.");
   }
   PetscFunctionReturn(0);
 }

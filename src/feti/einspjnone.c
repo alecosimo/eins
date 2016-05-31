@@ -2,13 +2,11 @@
 
 #undef __FUNCT__
 #define __FUNCT__ "FETIPJComputeInitialCondition_PJNONE"
-static PetscErrorCode FETIPJComputeInitialCondition_PJNONE(FETIPJ ftpj)
+static PetscErrorCode FETIPJComputeInitialCondition_PJNONE(PETSC_UNUSED FETIPJ ftpj,PETSC_UNUSED Vec x,Vec y)
 {
-  PetscErrorCode    ierr;
-  FETI              ft = ftpj->feti;
-  
+  PetscErrorCode    ierr; 
   PetscFunctionBegin;
-  ierr = VecSet(ft->lambda_global, 0.0);CHKERRQ(ierr);
+  ierr = VecSet(y, 0.0);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 
@@ -27,6 +25,7 @@ PetscErrorCode FETIPJCreate_PJNONE(FETIPJ ftpj)
   ftpj->ops->assemble            = 0;
   ftpj->ops->factorize           = 0;
   ftpj->ops->initialcondition    = FETIPJComputeInitialCondition_PJNONE;
+  ftpj->ops->computealpha        = 0;
   PetscFunctionReturn(0);  
 }
 
