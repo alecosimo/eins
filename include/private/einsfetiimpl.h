@@ -57,6 +57,9 @@ PETSC_EXTERN PetscErrorCode FETICreateFMat(FETI,void (*)(void),void (*)(void),vo
 PETSC_EXTERN PetscErrorCode FETIBuildInterfaceKSP(FETI);
 PETSC_EXTERN PetscErrorCode FETIBuildLambdaAndB(FETI);
 EINS_INTERN  PetscErrorCode MatMultFlambda_FETI(FETI,Vec,Vec);
+EINS_INTERN  PetscErrorCode FETIBuildInterfaceProblem(FETI);
+EINS_INTERN  PetscErrorCode FETISetInterfaceProblemRHS(FETI);
+EINS_INTERN  PetscErrorCode FETISetUpNeumannSolverAndPerformFactorization(FETI,PetscBool);
 
 typedef enum { FETI_STATE_INITIAL,
                FETI_STATE_SETUP_INI,

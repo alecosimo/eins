@@ -1,5 +1,7 @@
 #include <private/einsfetiimpl.h>
 #include <private/einsmatimpl.h>
+#include <petsc/private/matimpl.h>
+#include <private/einsvecimpl.h>
 #include <einssys.h>
 
 PetscClassId      FETI_CLASSID;
@@ -18,6 +20,224 @@ PETSC_EXTERN PetscErrorCode FETIScalingSetUp_rho(FETI);
 PETSC_EXTERN PetscErrorCode FETIScalingSetUp_multiplicity(FETI);
 PETSC_EXTERN PetscErrorCode FETIScalingDestroy(FETI);
 
+
+#undef __FUNCT__
+#define __FUNCT__ "FETISetUpNeumannSolverAndPerformFactorization"
+/*@
+   FETISetUpNeumannSolverAndPerformFactorization - It mainly configures the direct solver
+   for the Neumann problem and performes the factorization.
+
+   Input Parameter:
+.  feti             - the FETI context
+.  deficientMatrix  - if PETSC_TRUE, then it performs null row pivot detection
+
+   Level: developer
+
+.keywords: FETI
+
+.seealso: FETISetUp()
+@*/
+PetscErrorCode FETISetUpNeumannSolverAndPerformFactorization(FETI ft,PetscBool deficientMatrix)
+{
+  PetscErrorCode ierr;
+  PC             pc;
+  PetscBool      issbaij;
+  Subdomain      sd = ft->subdomain;
+  
+  PetscFunctionBegin;
+#if !defined(PETSC_HAVE_MUMPS)
+    SETERRQ(PetscObjectComm((PetscObject)ft),1,"EINS only supports MUMPS for the solution of the Neumann problem");
+#endif
+  if (!ft->ksp_neumann) {
+    ierr = KSPCreate(PETSC_COMM_SELF,&ft->ksp_neumann);CHKERRQ(ierr);
+    ierr = PetscObjectIncrementTabLevel((PetscObject)ft->ksp_neumann,(PetscObject)ft,1);CHKERRQ(ierr);
+    ierr = PetscLogObjectParent((PetscObject)ft,(PetscObject)ft->ksp_neumann);CHKERRQ(ierr);
+    ierr = KSPSetType(ft->ksp_neumann,KSPPREONLY);CHKERRQ(ierr);
+    ierr = KSPGetPC(ft->ksp_neumann,&pc);CHKERRQ(ierr);
+    ierr = PetscObjectTypeCompare((PetscObject)(sd->localA),MATSEQSBAIJ,&issbaij);CHKERRQ(ierr);
+    if (issbaij) {
+      ierr = PCSetType(pc,PCCHOLESKY);CHKERRQ(ierr);
+    } else {
+      ierr = PCSetType(pc,PCLU);CHKERRQ(ierr);
+    }
+    ierr = PCFactorSetMatSolverPackage(pc,MATSOLVERMUMPS);CHKERRQ(ierr);
+    ierr = KSPSetOperators(ft->ksp_neumann,sd->localA,sd->localA);CHKERRQ(ierr);
+    /* prefix for setting options */
+    ierr = KSPSetOptionsPrefix(ft->ksp_neumann,"feti_neumann_");CHKERRQ(ierr);
+    ierr = MatSetOptionsPrefix(sd->localA,"feti_neumann_");CHKERRQ(ierr);
+    ierr = PCFactorSetUpMatSolverPackage(pc);CHKERRQ(ierr);
+    ierr = PCFactorGetMatrix(pc,&ft->F_neumann);CHKERRQ(ierr);
+    /* sequential ordering */
+    ierr = MatMumpsSetIcntl(ft->F_neumann,7,2);CHKERRQ(ierr);
+    if (deficientMatrix) {
+      /* Null row pivot detection */
+      ierr = MatMumpsSetIcntl(ft->F_neumann,24,1);CHKERRQ(ierr);
+      /* threshhold for row pivot detection */
+      ierr = MatMumpsSetCntl(ft->F_neumann,3,1.e-6);CHKERRQ(ierr);
+    }
+    /* Maybe the following two options should be given as external options and not here*/
+    ierr = KSPSetFromOptions(ft->ksp_neumann);CHKERRQ(ierr);
+    ierr = PCFactorSetReuseFill(pc,PETSC_TRUE);CHKERRQ(ierr);
+  } else {
+    ierr = KSPSetOperators(ft->ksp_neumann,sd->localA,sd->localA);CHKERRQ(ierr);
+  }
+  /* Set Up KSP for Neumann problem: here the factorization takes place!!! */
+  ierr = KSPSetUp(ft->ksp_neumann);CHKERRQ(ierr);
+
+  PetscFunctionReturn(0);
+}
+
+
+#undef __FUNCT__
+#define __FUNCT__ "FETISetInterfaceProblemRHS"
+/*@
+   FETISetInterfaceProblemRHS - Sets the RHS vector (vector d) of the interface problem.
+
+   Input Parameters:
+.  ft - the FETI context
+
+@*/
+PetscErrorCode FETISetInterfaceProblemRHS(FETI ft)
+{
+  PetscErrorCode           ierr;
+  Subdomain                sd = ft->subdomain;
+  Vec                      d_local;
+  PetscBool                flg;
+  const MatSolverPackage   ltype;
+
+  PetscFunctionBegin;
+  /** Application of the already factorized pseudo-inverse */
+  /* in the following ICNTL(25)=0 is the default value, so it works for deficient and non-deficient matrices*/
+  ierr = MatFactorGetSolverPackage(ft->F_neumann,&ltype);CHKERRQ(ierr);
+  ierr = PetscStrcmp(MATSOLVERMUMPS,ltype,&flg);CHKERRQ(ierr);
+  if (flg) { ierr = MatMumpsSetIcntl(ft->F_neumann,25,0);CHKERRQ(ierr); }
+  ierr = MatSolve(ft->F_neumann,sd->localRHS,sd->vec1_N);CHKERRQ(ierr);
+  /** Application of B_delta */
+  ierr = VecUnAsmGetLocalVector(ft->d,&d_local);CHKERRQ(ierr);
+  ierr = VecScatterBegin(sd->N_to_B,sd->vec1_N,sd->vec1_B,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
+  ierr = VecScatterEnd(sd->N_to_B,sd->vec1_N,sd->vec1_B,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
+  ierr = MatMult(ft->B_delta,sd->vec1_B,d_local);CHKERRQ(ierr);
+  /*** Communication with other processes is performed for the following operation */
+  ierr = VecExchangeBegin(ft->exchange_lambda,ft->d,ADD_VALUES);CHKERRQ(ierr);
+  ierr = VecExchangeEnd(ft->exchange_lambda,ft->d,ADD_VALUES);CHKERRQ(ierr);
+  ierr = VecUnAsmRestoreLocalVector(ft->d,d_local);CHKERRQ(ierr);
+  PetscFunctionReturn(0);
+}
+
+
+#undef __FUNCT__
+#define __FUNCT__ "FETIMatGetVecs_Private"
+static PetscErrorCode FETIMatGetVecs_Private(Mat mat,Vec *right,Vec *left)
+{
+  PetscErrorCode ierr;
+  PetscBool      flg;
+  FETI           ft  = NULL;
+  FETIMat_ctx    mat_ctx;
+  
+  PetscFunctionBegin;
+  PetscValidHeaderSpecific(mat,MAT_CLASSID,1);
+  ierr = PetscObjectTypeCompare((PetscObject)mat,MATSHELLUNASM,&flg);CHKERRQ(ierr);
+  if(PetscNot(flg)) SETERRQ(PetscObjectComm((PetscObject)mat),PETSC_ERR_SUP,"Cannot create vectors from non-shell matrix");
+  ierr = MatShellUnAsmGetContext(mat,(void**)&mat_ctx);CHKERRQ(ierr);
+  ft   = mat_ctx->ft;
+  if (!ft) SETERRQ(PETSC_COMM_SELF,PETSC_ERR_ARG_WRONG,"Matrix F is missing the FETI context");
+
+  if (right) {
+    if (mat->cmap->n < 0) SETERRQ(PetscObjectComm((PetscObject)mat),PETSC_ERR_ARG_WRONGSTATE,"PetscLayout for columns not yet setup");
+    ierr = VecCreate(PetscObjectComm((PetscObject)mat),right);CHKERRQ(ierr);
+    ierr = VecSetSizes(*right,mat->cmap->n,mat->cmap->N);CHKERRQ(ierr);
+    ierr = VecSetType(*right,VECMPIUNASM);CHKERRQ(ierr);
+    ierr = PetscLayoutReference(mat->cmap,&(*right)->map);CHKERRQ(ierr);
+    if(ft->multiplicity) {ierr = VecUnAsmSetMultiplicity(*right,ft->multiplicity);CHKERRQ(ierr);}
+  }
+  if (left) {
+    if (mat->rmap->n < 0) SETERRQ(PetscObjectComm((PetscObject)mat),PETSC_ERR_ARG_WRONGSTATE,"PetscLayout for rows not yet setup");
+    ierr = VecCreate(PetscObjectComm((PetscObject)mat),left);CHKERRQ(ierr);
+    ierr = VecSetSizes(*left,mat->rmap->n,mat->rmap->N);CHKERRQ(ierr);
+    ierr = VecSetType(*left,VECMPIUNASM);CHKERRQ(ierr);
+    ierr = PetscLayoutReference(mat->rmap,&(*left)->map);CHKERRQ(ierr);
+    if(ft->multiplicity) {ierr = VecUnAsmSetMultiplicity(*left,ft->multiplicity);CHKERRQ(ierr);}
+  }
+  
+  PetscFunctionReturn(0);
+}
+
+
+#undef __FUNCT__
+#define __FUNCT__ "FETIMatMult_Private"
+/*@
+  FETIMatMult_Private - MatMult function for the MatShell matrix defining the interface problem's matrix F. 
+  It performes the product y=F*lambda_global
+
+   Input Parameters:
+.  F             - the Matrix context
+.  lambda_global - vector to be multiplied by the matrix
+.  y             - vector where to save the result of the multiplication
+
+   Level: developer
+
+.seealso FETIBuildInterfaceProblem_Private
+@*/
+static PetscErrorCode FETIMatMult_Private(Mat F, Vec lambda_global, Vec y) /* y=F*lambda_global */
+{
+  FETIMat_ctx    mat_ctx;
+  FETI           ft; 
+  PetscErrorCode ierr;
+
+  PetscFunctionBegin;
+  ierr = MatShellUnAsmGetContext(F,(void**)&mat_ctx);CHKERRQ(ierr);
+  ft   = mat_ctx->ft;
+  ierr = MatMultFlambda_FETI(ft,lambda_global,y);CHKERRQ(ierr);
+  PetscFunctionReturn(0);
+}
+
+
+#undef __FUNCT__
+#define __FUNCT__ "FETIDestroyMatF_Private"
+/*@
+  FETIDestroyMatF_Private - Destroy function for the MatShell matrix defining the interface problem's matrix F
+
+   Input Parameters:
+.  A - the Matrix context
+
+   Level: developer
+
+.seealso FETIBuildInterfaceProblem_Private
+@*/
+static PetscErrorCode FETIDestroyMatF_Private(Mat A)
+{
+  FETIMat_ctx    mat_ctx;
+  PetscErrorCode ierr;
+
+  PetscFunctionBegin;
+  ierr = MatShellUnAsmGetContext(A,(void**)&mat_ctx);CHKERRQ(ierr);
+  ierr = PetscFree(mat_ctx);CHKERRQ(ierr);
+  PetscFunctionReturn(0);
+}
+
+
+#undef __FUNCT__
+#define __FUNCT__ "FETIBuildInterfaceProblem"
+/*@
+   FETIBuildInterfaceProblem_Private - Builds the interface problem, that is the matrix F and the vector d.
+
+   Input Parameters:
+.  ft - the FETI context
+
+@*/
+PetscErrorCode FETIBuildInterfaceProblem(FETI ft)
+{
+  PetscErrorCode ierr;
+  
+  PetscFunctionBegin;
+  /* Create the MatShell for F */
+  ierr = FETICreateFMat(ft,(void (*)(void))FETIMatMult_Private,(void (*)(void))FETIDestroyMatF_Private,(void (*)(void))FETIMatGetVecs_Private);CHKERRQ(ierr);
+  /* Creating vector d for the interface problem */
+  ierr = MatCreateVecs(ft->F,NULL,&ft->d);CHKERRQ(ierr);
+  PetscFunctionReturn(0);
+}
+
+
 #undef __FUNCT__
 #define __FUNCT__ "MatMultFlambda_FETI"
 /*@ 
@@ -34,10 +254,12 @@ PETSC_EXTERN PetscErrorCode FETIScalingDestroy(FETI);
 @*/
 PetscErrorCode MatMultFlambda_FETI(FETI ft, Vec lambda_global, Vec y)
 {
-  Subdomain      sd;
-  Vec            lambda_local,y_local;
-  PetscErrorCode ierr;
-
+  Subdomain                sd;
+  Vec                      lambda_local,y_local;
+  PetscErrorCode           ierr;
+  PetscBool                flg;
+  const MatSolverPackage   ltype;
+  
   PetscFunctionBegin;
   sd   = ft->subdomain;
   ierr = VecUnAsmGetLocalVectorRead(lambda_global,&lambda_local);CHKERRQ(ierr);
@@ -48,6 +270,10 @@ PetscErrorCode MatMultFlambda_FETI(FETI ft, Vec lambda_global, Vec y)
   ierr = VecScatterBegin(sd->N_to_B,sd->vec1_B,sd->vec1_N,INSERT_VALUES,SCATTER_REVERSE);CHKERRQ(ierr);
   ierr = VecScatterEnd(sd->N_to_B,sd->vec1_B,sd->vec1_N,INSERT_VALUES,SCATTER_REVERSE);CHKERRQ(ierr);
   /* Application of the already factorized pseudo-inverse */
+  /* in the following ICNTL(25)=0 is the default value, so it works for deficient and non-deficient matrices*/
+  ierr = MatFactorGetSolverPackage(ft->F_neumann,&ltype);CHKERRQ(ierr);
+  ierr = PetscStrcmp(MATSOLVERMUMPS,ltype,&flg);CHKERRQ(ierr);
+  if (flg) { ierr = MatMumpsSetIcntl(ft->F_neumann,25,0);CHKERRQ(ierr); }
   ierr = MatSolve(ft->F_neumann,sd->vec1_N,sd->vec2_N);CHKERRQ(ierr);
   /* Application of B_delta */
   ierr = VecScatterBegin(sd->N_to_B,sd->vec2_N,sd->vec1_B,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
