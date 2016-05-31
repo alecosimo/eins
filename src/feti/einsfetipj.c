@@ -7,41 +7,9 @@ PetscLogEvent     FETIPJ_SetUp;
 PetscBool         FETIPJRegisterAllCalled   = PETSC_FALSE;
 PetscFunctionList FETIPJList                = 0;
 
+PETSC_EXTERN PetscErrorCode FETIPJCreate_PJ2LEVEL(FETIPJ);
+PETSC_EXTERN PetscErrorCode FETIPJCreate_PJNONE(FETIPJ);
 
-#undef __FUNCT__
-#define __FUNCT__ "FETIPJCreate_NOPJ"
-PETSC_EXTERN PetscErrorCode FETIPJCreate_2LEVEL(FETIPJ);
-PetscErrorCode FETIPJCreate_2LEVEL(FETIPJ ftpj)
-{
-  PetscFunctionBegin;
-  ftpj->data = 0;
-  ftpj->ops->setup               = 0;
-  ftpj->ops->destroy             = 0;
-  ftpj->ops->setfromoptions      = 0;
-  ftpj->ops->gatherneighbors     = 0;
-  ftpj->ops->assemble            = 0;
-  ftpj->ops->factorize           = 0;
-
-  PetscFunctionReturn(0);  
-}
-
-
-#undef __FUNCT__
-#define __FUNCT__ "FETIPJCreate_NOPJ"
-PETSC_EXTERN PetscErrorCode FETIPJCreate_NOPJ(FETIPJ);
-PetscErrorCode FETIPJCreate_NOPJ(FETIPJ ftpj)
-{
-  PetscFunctionBegin;
-  ftpj->data = 0;
-  ftpj->ops->setup               = 0;
-  ftpj->ops->destroy             = 0;
-  ftpj->ops->setfromoptions      = 0;
-  ftpj->ops->gatherneighbors     = 0;
-  ftpj->ops->assemble            = 0;
-  ftpj->ops->factorize           = 0;
-
-  PetscFunctionReturn(0);  
-}
 
 #undef __FUNCT__
 #define __FUNCT__ "FETIPJRegister"
@@ -91,8 +59,8 @@ PetscErrorCode  FETIPJRegisterAll(void)
   if (FETIPJRegisterAllCalled) PetscFunctionReturn(0);
   FETIPJRegisterAllCalled = PETSC_TRUE;
 
-  ierr = FETIPJRegister(PJ_NONE,FETIPJCreate_NOPJ);CHKERRQ(ierr);
-  ierr = FETIPJRegister(PJ_SECOND_LEVEL,FETIPJCreate_2LEVEL);CHKERRQ(ierr);
+  ierr = FETIPJRegister(PJ_NONE,FETIPJCreate_PJNONE);CHKERRQ(ierr);
+  ierr = FETIPJRegister(PJ_SECOND_LEVEL,FETIPJCreate_PJ2LEVEL);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 
@@ -177,7 +145,7 @@ PetscErrorCode  FETIPJSetFromOptions(FETIPJ ftpj)
   ierr = FETIPJRegisterAll();CHKERRQ(ierr);
   if (!ftpj->feti) SETERRQ(PetscObjectComm((PetscObject)ftpj),PETSC_ERR_ARG_WRONGSTATE,"Error FETI context not defined");
   ierr = PetscObjectOptionsBegin((PetscObject)ftpj);CHKERRQ(ierr);
-  ierr = PetscOptionsFList("-fetics_type","FETIPJ","FETIPJSetType",FETIPJList,ftpj->feti->ftpj_type,type,256,&flg);CHKERRQ(ierr);
+  ierr = PetscOptionsFList("-fetipj_type","FETIPJ","FETIPJSetType",FETIPJList,ftpj->feti->ftpj_type,type,256,&flg);CHKERRQ(ierr);
   if (flg) {
     ierr = FETIPJSetType(ftpj,type);CHKERRQ(ierr);
     ftpj->feti->ftpj_type = ((PetscObject)ftpj)->type_name;
@@ -290,11 +258,7 @@ PetscErrorCode FETIPJGatherNeighborsCoarseBasis(FETIPJ ftpj)
   PetscFunctionBegin;
   PetscValidHeaderSpecific(ftpj,FETIPJ_CLASSID,1);
   if(ftpj->state==FETIPJ_STATE_NEIGH_GATHERED || ftpj->state==FETIPJ_STATE_ASSEMBLED) PetscFunctionReturn(0);
-  if (ftpj->ops->gatherneighbors) {
-    ierr = (*ftpj->ops->gatherneighbors)(ftpj);CHKERRQ(ierr);
-  } else {
-    SETERRQ(PetscObjectComm((PetscObject)ftpj),PETSC_ERR_ARG_WRONGSTATE,"Error: FETIPJGatherNeighborsCoarseBasis of specific FETIPJ method not found.");
-  }
+  if (ftpj->ops->gatherneighbors) { ierr = (*ftpj->ops->gatherneighbors)(ftpj);CHKERRQ(ierr); }
   ftpj->state = FETIPJ_STATE_NEIGH_GATHERED;
   PetscFunctionReturn(0);
 }
@@ -321,12 +285,39 @@ PetscErrorCode FETIPJAssembleCoarseProblem(FETIPJ ftpj)
   PetscFunctionBegin;
   PetscValidHeaderSpecific(ftpj,FETIPJ_CLASSID,1);
   if(ftpj->state!=FETIPJ_STATE_NEIGH_GATHERED) PetscFunctionReturn(0);
-  if (ftpj->ops->assemble) {
-    ierr = (*ftpj->ops->assemble)(ftpj);CHKERRQ(ierr);
-  } else {
-    SETERRQ(PetscObjectComm((PetscObject)ftpj),PETSC_ERR_ARG_WRONGSTATE,"Error: FETIPJAssembleCoarseProblem of specific FETIPJ method not found.");
-  }
+  if (ftpj->ops->assemble) { ierr = (*ftpj->ops->assemble)(ftpj);CHKERRQ(ierr); }
   ftpj->state = FETIPJ_STATE_ASSEMBLED;
+  PetscFunctionReturn(0);
+}
+
+
+#undef  __FUNCT__
+#define __FUNCT__ "FETIPJComputeInitialCondition"
+/*@
+   FETIPJComputeInitialCondition - Computes initial condition
+   for the FETI interface problem.
+
+   Input: 
+.  ftpj - the FETIPJ context
+
+   Level: basic
+
+.keywords: FETIPJ
+
+.seealso: FETIPJGatherNeighborsCoarseBasis(),FETIPJFactorizeCoarseProblem() FETIPJAssembleCoarseProblem()
+@*/
+PetscErrorCode FETIPJComputeInitialCondition(FETIPJ ftpj)
+{
+  PetscErrorCode ierr;
+  
+  PetscFunctionBegin;
+  PetscValidHeaderSpecific(ftpj,FETIPJ_CLASSID,1);
+  if(ftpj->state<FETIPJ_STATE_FACTORIZED) PetscFunctionReturn(0);
+  if (ftpj->ops->initialcondition) {
+    ierr = (*ftpj->ops->initialcondition)(ftpj);CHKERRQ(ierr);
+  } else {
+    SETERRQ(PetscObjectComm((PetscObject)ftpj),PETSC_ERR_ARG_WRONGSTATE,"Error: FETIPJComputeInitialCondition of specific FETIPJ method not found.");
+  }
   PetscFunctionReturn(0);
 }
 
@@ -352,11 +343,7 @@ PetscErrorCode FETIPJFactorizeCoarseProblem(FETIPJ ftpj)
   PetscFunctionBegin;
   PetscValidHeaderSpecific(ftpj,FETIPJ_CLASSID,1);
   if(ftpj->state!=FETIPJ_STATE_ASSEMBLED) PetscFunctionReturn(0);
-  if (ftpj->ops->factorize) {
-    ierr = (*ftpj->ops->factorize)(ftpj);CHKERRQ(ierr);
-  } else {
-    SETERRQ(PetscObjectComm((PetscObject)ftpj),PETSC_ERR_ARG_WRONGSTATE,"Error: FETIPJFactorizeCoarseProblem of specific FETIPJ method not found.");
-  }
+  if (ftpj->ops->factorize) { ierr = (*ftpj->ops->factorize)(ftpj);CHKERRQ(ierr); }
   ftpj->state = FETIPJ_STATE_FACTORIZED;
   PetscFunctionReturn(0);
 }
@@ -431,7 +418,7 @@ PetscErrorCode FETIPJGetType(FETIPJ ftpj,FETIPJType *type)
 .  feti - the FETI context.
 
    Options Database:
-.  -fetics_type <type> - Sets the FETIPJ type
+.  -fetipj_type <type> - Sets the FETIPJ type
 
    Level: developer
 

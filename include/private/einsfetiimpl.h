@@ -1,6 +1,7 @@
 #if !defined(FETIIMPL_H)
 #define FETIIMPL_H
 
+#include <einssys.h>
 #include <einsfeti.h>
 #include <einsvec.h>
 #include <einsmat.h>
@@ -24,6 +25,7 @@ struct _FETIPJOps {
   PetscErrorCode (*gatherneighbors)(FETIPJ);
   PetscErrorCode (*assemble)(FETIPJ);
   PetscErrorCode (*factorize)(FETIPJ);
+  PetscErrorCode (*initialcondition)(FETIPJ);
 };
 
 struct _p_FETIPJ {
@@ -58,6 +60,7 @@ PETSC_EXTERN PetscErrorCode FETIRegisterAll(void);
 PETSC_EXTERN PetscErrorCode FETICreateFMat(FETI,void (*)(void),void (*)(void),void (*)(void));
 PETSC_EXTERN PetscErrorCode FETIBuildInterfaceKSP(FETI);
 PETSC_EXTERN PetscErrorCode FETIBuildLambdaAndB(FETI);
+EINS_INTERN  PetscErrorCode MatMultFlambda_FETI(FETI,Vec,Vec);
 
 typedef enum { FETI_STATE_INITIAL,
                FETI_STATE_SETUP_INI,
@@ -119,6 +122,7 @@ struct _p_FETI {
   PetscBool        resetup_pc_interface;
   PetscObjectState mat_state;
   PetscInt         n_cs;           /* local number of vector for the Coarse Space */
+  Mat              localG;         /* local G matrix (current processor) holding the coarse space basis at interface dofs */
   FETICS           ftcs;
   FETICSType       ftcs_type;
   FETIPJ           ftpj;

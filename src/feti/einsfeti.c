@@ -19,6 +19,50 @@ PETSC_EXTERN PetscErrorCode FETIScalingSetUp_multiplicity(FETI);
 PETSC_EXTERN PetscErrorCode FETIScalingDestroy(FETI);
 
 #undef __FUNCT__
+#define __FUNCT__ "MatMultFlambda_FETI"
+/*@ 
+  MatMultFlambda_FETI - MatMult function implementing the
+  application of the interface problem's matrix F to a vector lambda.
+  It performes the product y=F*lambda
+
+   Input Parameters:
+.  F             - the Matrix context
+.  lambda_global - vector to be multiplied by the matrix
+.  y             - vector where to save the result of the multiplication
+
+   Level: developer
+@*/
+PetscErrorCode MatMultFlambda_FETI(FETI ft, Vec lambda_global, Vec y)
+{
+  Subdomain      sd;
+  Vec            lambda_local,y_local;
+  PetscErrorCode ierr;
+
+  PetscFunctionBegin;
+  sd   = ft->subdomain;
+  ierr = VecUnAsmGetLocalVectorRead(lambda_global,&lambda_local);CHKERRQ(ierr);
+  ierr = VecUnAsmGetLocalVector(y,&y_local);CHKERRQ(ierr);
+  /* Application of B_delta^T */
+  ierr = MatMultTranspose(ft->B_delta,lambda_local,sd->vec1_B);CHKERRQ(ierr);
+  ierr = VecSet(sd->vec1_N,0.0);CHKERRQ(ierr);
+  ierr = VecScatterBegin(sd->N_to_B,sd->vec1_B,sd->vec1_N,INSERT_VALUES,SCATTER_REVERSE);CHKERRQ(ierr);
+  ierr = VecScatterEnd(sd->N_to_B,sd->vec1_B,sd->vec1_N,INSERT_VALUES,SCATTER_REVERSE);CHKERRQ(ierr);
+  /* Application of the already factorized pseudo-inverse */
+  ierr = MatSolve(ft->F_neumann,sd->vec1_N,sd->vec2_N);CHKERRQ(ierr);
+  /* Application of B_delta */
+  ierr = VecScatterBegin(sd->N_to_B,sd->vec2_N,sd->vec1_B,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
+  ierr = VecScatterEnd(sd->N_to_B,sd->vec2_N,sd->vec1_B,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
+  ierr = MatMult(ft->B_delta,sd->vec1_B,y_local);CHKERRQ(ierr);
+  /** Communication with other processes is performed for the following operation */
+  ierr = VecExchangeBegin(ft->exchange_lambda,y,ADD_VALUES);CHKERRQ(ierr);
+  ierr = VecExchangeEnd(ft->exchange_lambda,y,ADD_VALUES);CHKERRQ(ierr);
+  ierr = VecUnAsmRestoreLocalVectorRead(lambda_global,lambda_local);CHKERRQ(ierr);
+  ierr = VecUnAsmRestoreLocalVector(y,y_local);CHKERRQ(ierr);
+  PetscFunctionReturn(0);
+}
+
+
+#undef __FUNCT__
 #define __FUNCT__ "FETIRegister"
 /*@C
   FETIRegister -  Adds a FETI method.
@@ -450,6 +494,7 @@ PetscErrorCode FETIDestroy(FETI *_feti)
   feti->state = FETI_STATE_INITIAL;
   /* destroying FETI objects */
   ierr = MatDestroy(&feti->F);CHKERRQ(ierr);
+  ierr = MatDestroy(&feti->localG);CHKERRQ(ierr);
   ierr = KSPDestroy(&feti->ksp_neumann);CHKERRQ(ierr);
   ierr = KSPDestroy(&feti->ksp_interface);CHKERRQ(ierr);
   ierr = MatDestroy(&feti->B_delta);CHKERRQ(ierr);
@@ -1285,6 +1330,7 @@ PetscErrorCode  FETICreate(MPI_Comm comm,FETI *newfeti)
   feti->shared_lb            = 0;
   feti->mat_state            = -1;
   feti->resetup_pc_interface = PETSC_TRUE;
+  feti->localG               = 0;
   feti->ftcs                 = 0;
   feti->ftcs_type            = CS_NONE;
   feti->ftpj                 = 0;
@@ -1296,9 +1342,7 @@ PetscErrorCode  FETICreate(MPI_Comm comm,FETI *newfeti)
 
   ierr = KSPCreate(comm,&feti->ksp_interface);CHKERRQ(ierr);
   ierr = FETICSCreate(PetscObjectComm((PetscObject)feti),feti,&feti->ftcs);CHKERRQ(ierr);
-  ierr = PetscObjectSetOptionsPrefix((PetscObject)feti->ftcs,"feti_");CHKERRQ(ierr);
   ierr = FETIPJCreate(PetscObjectComm((PetscObject)feti),feti,&feti->ftpj);CHKERRQ(ierr);
-  ierr = PetscObjectSetOptionsPrefix((PetscObject)feti->ftpj,"feti_");CHKERRQ(ierr);
   
   *newfeti = feti;
   PetscFunctionReturn(0);

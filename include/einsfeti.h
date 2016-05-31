@@ -108,6 +108,7 @@ PETSC_EXTERN PetscErrorCode FETIPJSetType(FETIPJ,const FETIPJType);
 PETSC_EXTERN PetscErrorCode FETIPJSetFromOptions(FETIPJ);
 PETSC_EXTERN PetscErrorCode FETIPJGatherNeighborsCoarseBasis(FETIPJ);
 PETSC_EXTERN PetscErrorCode FETIPJAssembleCoarseProblem(FETIPJ);
+PETSC_EXTERN PetscErrorCode FETIPJComputeInitialCondition(FETIPJ);
 PETSC_EXTERN PetscErrorCode FETIPJFactorizeCoarseProblem(FETIPJ);
 PETSC_EXTERN PetscErrorCode FETIPJRegister(const char[],PetscErrorCode (*)(FETIPJ));
 PETSC_EXTERN PetscErrorCode FETIPJRegisterAll(void);

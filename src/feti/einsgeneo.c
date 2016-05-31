@@ -144,7 +144,7 @@ static PetscErrorCode FETICSSetUp_GENEO(FETICS ftcs)
   ierr = EPSSetWhichEigenpairs(gn->eps,EPS_LARGEST_REAL);CHKERRQ(ierr);
   ierr = EPSSetDimensions(gn->eps,3,PETSC_DEFAULT,PETSC_DEFAULT);CHKERRQ(ierr); /* -eps_nev <nev> - Sets the number of eigenvalues */
   ierr = EPSSetStoppingTestFunction(gn->eps,EPSStoppingGeneo_Private,(void*)&gn->pc,NULL);CHKERRQ(ierr);
-  ierr = EPSSetOptionsPrefix(gn->eps,"feti_geneo_");CHKERRQ(ierr);
+  ierr = EPSSetOptionsPrefix(gn->eps,"fetics_geneo_");CHKERRQ(ierr);
   ierr = EPSSetFromOptions(gn->eps);CHKERRQ(ierr);
 
   /* crete localG matrix */
