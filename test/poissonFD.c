@@ -302,8 +302,8 @@ int main(int argc,char **args)
   ierr = VecDuplicate(localRHS,&u_local);CHKERRQ(ierr);
   /* Setting FETI */
   ierr = FETICreate(dd.gcomm,&feti);CHKERRQ(ierr);
-  ierr = FETISetType(feti,FETI1);CHKERRQ(ierr);
-  ierr = FETI1SetDefaultOptions(&argc,&args,NULL);CHKERRQ(ierr);
+  ierr = FETISetType(feti,FETISTAT);CHKERRQ(ierr);
+  ierr = FETISTATSetDefaultOptions(&argc,&args,NULL);CHKERRQ(ierr);
   ierr = FETISetFromOptions(feti);CHKERRQ(ierr);
   ierr = FETISetLocalMat(feti,localA);CHKERRQ(ierr);
   ierr = FETISetLocalRHS(feti,localRHS);CHKERRQ(ierr);

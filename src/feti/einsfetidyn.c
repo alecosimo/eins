@@ -1,85 +1,67 @@
-#include <../src/feti/einsfeti1.h>
+#include <../src/feti/einsfetidyn.h>
 #include <private/einsvecimpl.h>
 #include <petsc/private/matimpl.h>
 #include <einsksp.h>
+#include <einspc.h>
 #include <einssys.h>
 
 
 /* private functions*/
-static PetscErrorCode FETI1SetUpNeumannSolver_Private(FETI);
-static PetscErrorCode FETI1BuildInterfaceProblem_Private(FETI);
-static PetscErrorCode FETIDestroy_FETI1(FETI);
-static PetscErrorCode FETISetUp_FETI1(FETI);
-static PetscErrorCode FETI1DestroyMatF_Private(Mat);
-static PetscErrorCode FETI1MatMult_Private(Mat,Vec,Vec);
-static PetscErrorCode FETISolve_FETI1(FETI,Vec);
-static PetscErrorCode FETI1SetInterfaceProblemRHS_Private(FETI);
-  
+static PetscErrorCode FETIDYNSetUpNeumannSolver_Private(FETI);
+static PetscErrorCode FETIDYNDestroyMatF_Private(Mat);
+static PetscErrorCode FETIDYNMatMult_Private(Mat,Vec,Vec);
+static PetscErrorCode FETIDYNBuildInterfaceProblem_Private(FETI);
+static PetscErrorCode FETIDestroy_FETIDYN(FETI);
+static PetscErrorCode FETISetUp_FETIDYN(FETI);
+static PetscErrorCode FETISolve_FETIDYN(FETI,Vec);
+static PetscErrorCode FETIDYNSetInterfaceProblemRHS_Private(FETI);
+
 
 #undef __FUNCT__
-#define __FUNCT__ "FETIDestroy_FETI1"
-/*@
-   FETIDestroy_FETI1 - Destroys the FETI-1 context
-
-   Input Parameters:
-.  ft - the FETI context
-
-.seealso FETICreate_FETI1
-@*/
-static PetscErrorCode FETIDestroy_FETI1(FETI ft)
+#define __FUNCT__ "FETIDestroy_FETIDYN"
+static PetscErrorCode FETIDestroy_FETIDYN(FETI ft)
 {
   PetscErrorCode ierr;
-  FETI_1         *ft1 = (FETI_1*)ft->data;
+  FETI_DYN         *ft2 = (FETI_DYN*)ft->data;
   
   PetscFunctionBegin;
-  if (!ft1) PetscFunctionReturn(0);
-  ierr = VecDestroy(&ft1->local_e);CHKERRQ(ierr);
-  ierr = VecDestroy(&ft1->alpha_local);CHKERRQ(ierr);
-  ierr = MatDestroy(&ft1->rbm);CHKERRQ(ierr);
+  if (!ft2) PetscFunctionReturn(0);
+
   ierr = PetscFree(ft->data);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 
 
 #undef __FUNCT__
-#define __FUNCT__ "FETISetUp_FETI1"
-/*@
-   FETISetUp_FETI1 - Prepares the structures needed by the FETI-1 solver.
-
-   Input Parameters:
-.  ft - the FETI context
-
-@*/
-static PetscErrorCode FETISetUp_FETI1(FETI ft)
+#define __FUNCT__ "FETISetUp_FETIDYN"
+static PetscErrorCode FETISetUp_FETIDYN(FETI ft)
 {
-  PetscErrorCode    ierr;   
+  PetscErrorCode    ierr;
   Subdomain         sd = ft->subdomain;
   PetscObjectState  mat_state;
-  FETI_1            *ft1 = (FETI_1*)ft->data;
+  PetscBool         flg;
   
   PetscFunctionBegin;
+  ierr = PetscObjectTypeCompare((PetscObject)ft->ftcs,CS_NONE,&flg);CHKERRQ(ierr);
   if (ft->state==FETI_STATE_INITIAL) {
     ierr = FETIScalingSetUp(ft);CHKERRQ(ierr);
     ierr = FETIBuildLambdaAndB(ft);CHKERRQ(ierr);
-    ierr = FETI1SetUpNeumannSolver_Private(ft);CHKERRQ(ierr);
-    ierr = FETI1BuildInterfaceProblem_Private(ft);CHKERRQ(ierr);
-    ierr = FETIBuildInterfaceKSP(ft);CHKERRQ(ierr);
-
-    ierr = FETICSSetUp(ft->ftcs);CHKERRQ(ierr);
-    ierr = FETICSComputeCoarseBasis(ft->ftcs,&ft->localG,&ft1->rbm);CHKERRQ(ierr);
-
-    /* compute matrix local_e */
-    if(ft->n_cs){
-      ierr = VecCreateSeq(PETSC_COMM_SELF,ft->n_cs,&ft1->local_e);CHKERRQ(ierr);
-      ierr = MatMultTranspose(ft1->rbm,sd->localRHS,ft1->local_e);CHKERRQ(ierr);
+    ierr = FETIDYNSetUpNeumannSolver_Private(ft);CHKERRQ(ierr);
+    ierr = FETIDYNBuildInterfaceProblem_Private(ft);CHKERRQ(ierr);
+    ierr = FETIBuildInterfaceKSP(ft);CHKERRQ(ierr); /* the PC for the interface problem is setup here */
+    if (PetscNot(flg)) {
+      ierr = FETICSSetUp(ft->ftcs);CHKERRQ(ierr);
+      ierr = FETICSComputeCoarseBasis(ft->ftcs,&ft->localG,NULL);CHKERRQ(ierr);
     }
-    ierr = FETI1SetInterfaceProblemRHS_Private(ft);CHKERRQ(ierr);
+    ierr = FETIDYNSetInterfaceProblemRHS_Private(ft);CHKERRQ(ierr);
 
-    /* setup projection */
-    ierr = FETIPJSetUp(ft->ftpj);CHKERRQ(ierr);
-    ierr = FETIPJFactorizeCoarseProblem(ft->ftpj);CHKERRQ(ierr);
-    /* creates alpha_local vector for holding local coefficients for vector with rigid body modes */
-    if (ft->n_cs){ ierr = VecCreateSeq(PETSC_COMM_SELF,ft->n_cs,&ft1->alpha_local);CHKERRQ(ierr); }
+    /* set projection in ksp */
+    //    if (PetscNot(flg)) {
+      ierr = FETIPJSetUp(ft->ftpj);CHKERRQ(ierr);     
+      ierr = FETIPJGatherNeighborsCoarseBasis(ft->ftpj);CHKERRQ(ierr);
+      ierr = FETIPJAssembleCoarseProblem(ft->ftpj);CHKERRQ(ierr);
+      ierr = FETIPJFactorizeCoarseProblem(ft->ftpj);CHKERRQ(ierr);
+      //    }
   } else {
     ierr = PetscObjectStateGet((PetscObject)sd->localA,&mat_state);CHKERRQ(ierr);
     if (mat_state>ft->mat_state) {
@@ -89,80 +71,84 @@ static PetscErrorCode FETISetUp_FETI1(FETI ft)
 	ierr = KSPGetPC(ft->ksp_interface,&pc);CHKERRQ(ierr);
 	ierr = PCSetUp(pc);CHKERRQ(ierr);
       }
-      ierr = FETI1SetUpNeumannSolver_Private(ft);CHKERRQ(ierr);
+      ierr = FETIDYNSetUpNeumannSolver_Private(ft);CHKERRQ(ierr);
+      if (ft->resetup_pc_interface && PetscNot(flg)) {
+	ierr = FETICSComputeCoarseBasis(ft->ftcs,&ft->localG,NULL);CHKERRQ(ierr);
+	ierr = FETIPJGatherNeighborsCoarseBasis(ft->ftpj);CHKERRQ(ierr);
+      }
+      //if (PetscNot(flg)) {
+      ierr = FETIPJAssembleCoarseProblem(ft->ftpj);CHKERRQ(ierr);
+	ierr = FETIPJFactorizeCoarseProblem(ft->ftpj);CHKERRQ(ierr);
+	//}
       ft->mat_state = mat_state;
     }
-    /* compute matrix local_e */
-    if(ft->n_cs){ ierr = MatMultTranspose(ft1->rbm,sd->localRHS,ft1->local_e);CHKERRQ(ierr);}
-    ierr = FETI1SetInterfaceProblemRHS_Private(ft);CHKERRQ(ierr);
+    ierr = FETIDYNSetInterfaceProblemRHS_Private(ft);CHKERRQ(ierr);
   }
 
-  ierr = FETIPJComputeInitialCondition(ft->ftpj,ft1->local_e,ft->lambda_global);CHKERRQ(ierr);  
+  ierr = FETIPJComputeInitialCondition(ft->ftpj,ft->d,ft->lambda_global);CHKERRQ(ierr);
+  
   PetscFunctionReturn(0);
 }
 
 
 EXTERN_C_BEGIN
 #undef __FUNCT__
-#define __FUNCT__ "FETICreate_FETI1"
+#define __FUNCT__ "FETICreate_FETIDYN"
 /*@
-   FETI1 - Implementation of the FETI-1 method. Some comments about options can be put here!
+   FETIDYN - Implementation of the FETI method for dynamic problems. Some comments about options can be put here!
 
    Options database:
 .  -feti_fullyredundant: use fully redundant Lagrange multipliers.
 .  -feti_interface_<ksp or pc option>: options for the KSP for the interface problem
-.  -feti1_neumann_<ksp or pc option>: for setting pc and ksp options for the neumann solver. 
+.  -fetidyn_neumann_<ksp or pc option>: for setting pc and ksp options for the neumann solver. 
 .  -feti_pc_dirichilet_<ksp or pc option>: options for the KSP or PC to use for solving the Dirichlet problem
    associated to the Dirichlet preconditioner
 .  -feti_scaling_type - Sets the scaling type
 .  -feti_scaling_factor - Sets a scaling factor different from one
-.  -feti_pj1level_destroy_coarse - If set, the matrix of the coarse problem, that is (G^T*G) or (G^T*Q*G), will be destroyed after factorization.
-.  -feti1_pc_coarse_<ksp or pc option>: options for the KSP for the coarse problem
+.  -feti_pj2level_pc_coarse_<ksp or pc option>: options for the KSP for the coarse problem
+.  -fetics_geneo_<option>: options for FETIDYN using GENEO modes (e.g.:-fetics_geneo_eps_nev sets the number of eigenvalues)
 
    Level: beginner
 
-.keywords: FETI, FETI-1
+.keywords: FETI, FETIDYN
 @*/
-PetscErrorCode FETICreate_FETI1(FETI ft);
-PetscErrorCode FETICreate_FETI1(FETI ft)
+PetscErrorCode FETICreate_FETIDYN(FETI ft);
+PetscErrorCode FETICreate_FETIDYN(FETI ft)
 {
   PetscErrorCode      ierr;
-  FETI_1*             feti1;
+  FETI_DYN*             feti2;
 
   PetscFunctionBegin;
-  ierr      = PetscNewLog(ft,&feti1);CHKERRQ(ierr);
-  ft->data  = (void*)feti1;
-
-  feti1->res_interface         = 0;
-  feti1->alpha_local           = 0;
-  feti1->rbm                   = 0;
-  ft->ftcs_type                = CS_RIGID_BODY_MODES;
+  ierr      = PetscNewLog(ft,&feti2);CHKERRQ(ierr);
+  ft->data  = (void*)feti2;
+  ierr      = PetscMemzero(feti2,sizeof(FETI_DYN));CHKERRQ(ierr);
+  
   /* function pointers */
-  ft->ops->setup               = FETISetUp_FETI1;
-  ft->ops->destroy             = FETIDestroy_FETI1;
+  ft->ops->setup               = FETISetUp_FETIDYN;
+  ft->ops->destroy             = FETIDestroy_FETIDYN;
   ft->ops->setfromoptions      = 0;
-  ft->ops->computesolution     = FETISolve_FETI1;
+  ft->ops->computesolution     = FETISolve_FETIDYN;
   ft->ops->view                = 0;
 
-  ft->ftpj_type = PJ_FIRST_LEVEL;
+  ft->ftpj_type = PJ_SECOND_LEVEL;
   PetscFunctionReturn(0);
 }
 EXTERN_C_END
 
 
 #undef __FUNCT__
-#define __FUNCT__ "FETI1DestroyMatF_Private"
+#define __FUNCT__ "FETIDYNDestroyMatF_Private"
 /*@
-  FETI1DestroyMatF_Private - Destroy function for the MatShell matrix defining the interface problem's matrix F
+  FETIDYNDestroyMatF_Private - Destroy function for the MatShell matrix defining the interface problem's matrix F
 
    Input Parameters:
 .  A - the Matrix context
 
    Level: developer
 
-.seealso FETI1BuildInterfaceProblem_Private
+.seealso FETIDYNBuildInterfaceProblem_Private
 @*/
-static PetscErrorCode FETI1DestroyMatF_Private(Mat A)
+static PetscErrorCode FETIDYNDestroyMatF_Private(Mat A)
 {
   FETIMat_ctx    mat_ctx;
   PetscErrorCode ierr;
@@ -175,9 +161,9 @@ static PetscErrorCode FETI1DestroyMatF_Private(Mat A)
 
 
 #undef __FUNCT__
-#define __FUNCT__ "FETI1MatMult_Private"
+#define __FUNCT__ "FETIDYNMatMult_Private"
 /*@
-  FETI1MatMult_Private - MatMult function for the MatShell matrix defining the interface problem's matrix F. 
+  FETIDYNMatMult_Private - MatMult function for the MatShell matrix defining the interface problem's matrix F. 
   It performes the product y=F*lambda_global
 
    Input Parameters:
@@ -187,47 +173,25 @@ static PetscErrorCode FETI1DestroyMatF_Private(Mat A)
 
    Level: developer
 
-.seealso FETI1BuildInterfaceProblem_Private
+.seealso FETIDYNBuildInterfaceProblem_Private
 @*/
-static PetscErrorCode FETI1MatMult_Private(Mat F, Vec lambda_global, Vec y) /* y=F*lambda_global */
+static PetscErrorCode FETIDYNMatMult_Private(Mat F, Vec lambda_global, Vec y) /* y=F*lambda_global */
 {
-  FETIMat_ctx  mat_ctx;
-  FETI         ft;
-  Subdomain    sd;
-  Vec          lambda_local,y_local;
-  
+  FETIMat_ctx    mat_ctx;
+  FETI           ft; 
   PetscErrorCode ierr;
 
   PetscFunctionBegin;
   ierr = MatShellUnAsmGetContext(F,(void**)&mat_ctx);CHKERRQ(ierr);
   ft   = mat_ctx->ft;
-  sd   = ft->subdomain;
-  ierr = VecUnAsmGetLocalVectorRead(lambda_global,&lambda_local);CHKERRQ(ierr);
-  ierr = VecUnAsmGetLocalVector(y,&y_local);CHKERRQ(ierr);
-  /* Application of B_delta^T */
-  ierr = MatMultTranspose(ft->B_delta,lambda_local,sd->vec1_B);CHKERRQ(ierr);
-  ierr = VecSet(sd->vec1_N,0.0);CHKERRQ(ierr);
-  ierr = VecScatterBegin(sd->N_to_B,sd->vec1_B,sd->vec1_N,INSERT_VALUES,SCATTER_REVERSE);CHKERRQ(ierr);
-  ierr = VecScatterEnd(sd->N_to_B,sd->vec1_B,sd->vec1_N,INSERT_VALUES,SCATTER_REVERSE);CHKERRQ(ierr);
-  /* Application of the already factorized pseudo-inverse */
-  ierr = MatMumpsSetIcntl(ft->F_neumann,25,0);CHKERRQ(ierr);
-  ierr = MatSolve(ft->F_neumann,sd->vec1_N,sd->vec2_N);CHKERRQ(ierr);
-  /* Application of B_delta */
-  ierr = VecScatterBegin(sd->N_to_B,sd->vec2_N,sd->vec1_B,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
-  ierr = VecScatterEnd(sd->N_to_B,sd->vec2_N,sd->vec1_B,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
-  ierr = MatMult(ft->B_delta,sd->vec1_B,y_local);CHKERRQ(ierr);
-  /** Communication with other processes is performed for the following operation */
-  ierr = VecExchangeBegin(ft->exchange_lambda,y,ADD_VALUES);CHKERRQ(ierr);
-  ierr = VecExchangeEnd(ft->exchange_lambda,y,ADD_VALUES);CHKERRQ(ierr);
-  ierr = VecUnAsmRestoreLocalVectorRead(lambda_global,lambda_local);CHKERRQ(ierr);
-  ierr = VecUnAsmRestoreLocalVector(y,y_local);CHKERRQ(ierr);
+  ierr = MatMultFlambda_FETI(ft,lambda_global,y);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 
 
 #undef __FUNCT__
-#define __FUNCT__ "FETI1MatGetVecs_Private"
-static PetscErrorCode FETI1MatGetVecs_Private(Mat mat,Vec *right,Vec *left)
+#define __FUNCT__ "FETIDYNMatGetVecs_Private"
+static PetscErrorCode FETIDYNMatGetVecs_Private(Mat mat,Vec *right,Vec *left)
 {
   PetscErrorCode ierr;
   PetscBool      flg;
@@ -237,7 +201,7 @@ static PetscErrorCode FETI1MatGetVecs_Private(Mat mat,Vec *right,Vec *left)
   PetscFunctionBegin;
   PetscValidHeaderSpecific(mat,MAT_CLASSID,1);
   ierr = PetscObjectTypeCompare((PetscObject)mat,MATSHELLUNASM,&flg);CHKERRQ(ierr);
-  if(!flg) SETERRQ(PetscObjectComm((PetscObject)mat),PETSC_ERR_SUP,"Cannot create vectors from non-shell matrix");
+  if(PetscNot(flg)) SETERRQ(PetscObjectComm((PetscObject)mat),PETSC_ERR_SUP,"Cannot create vectors from non-shell matrix");
   ierr = MatShellUnAsmGetContext(mat,(void**)&mat_ctx);CHKERRQ(ierr);
   ft   = mat_ctx->ft;
   if (!ft) SETERRQ(PETSC_COMM_SELF,PETSC_ERR_ARG_WRONG,"Matrix F is missing the FETI context");
@@ -264,15 +228,15 @@ static PetscErrorCode FETI1MatGetVecs_Private(Mat mat,Vec *right,Vec *left)
 
 
 #undef __FUNCT__
-#define __FUNCT__ "FETI1SetInterfaceProblemRHS_Private"
+#define __FUNCT__ "FETIDYNSetInterfaceProblemRHS_Private"
 /*@
-   FETI1SetInterfaceProblemRHS_Private - Sets the RHS vector (vector d) of the interface problem.
+   FETIDYNSetInterfaceProblemRHS_Private - Sets the RHS vector (vector d) of the interface problem.
 
    Input Parameters:
 .  ft - the FETI context
 
 @*/
-static PetscErrorCode FETI1SetInterfaceProblemRHS_Private(FETI ft)
+static PetscErrorCode FETIDYNSetInterfaceProblemRHS_Private(FETI ft)
 {
   PetscErrorCode ierr;
   Subdomain      sd = ft->subdomain;
@@ -280,7 +244,6 @@ static PetscErrorCode FETI1SetInterfaceProblemRHS_Private(FETI ft)
   
   PetscFunctionBegin;
   /** Application of the already factorized pseudo-inverse */
-  ierr = MatMumpsSetIcntl(ft->F_neumann,25,0);CHKERRQ(ierr);
   ierr = MatSolve(ft->F_neumann,sd->localRHS,sd->vec1_N);CHKERRQ(ierr);
   /** Application of B_delta */
   ierr = VecUnAsmGetLocalVector(ft->d,&d_local);CHKERRQ(ierr);
@@ -296,21 +259,21 @@ static PetscErrorCode FETI1SetInterfaceProblemRHS_Private(FETI ft)
 
 
 #undef __FUNCT__
-#define __FUNCT__ "FETI1BuildInterfaceProblem_Private"
+#define __FUNCT__ "FETIDYNBuildInterfaceProblem_Private"
 /*@
-   FETI1BuildInterfaceProblem_Private - Builds the interface problem, that is the matrix F and the vector d.
+   FETIDYNBuildInterfaceProblem_Private - Builds the interface problem, that is the matrix F and the vector d.
 
    Input Parameters:
 .  ft - the FETI context
 
 @*/
-static PetscErrorCode FETI1BuildInterfaceProblem_Private(FETI ft)
+static PetscErrorCode FETIDYNBuildInterfaceProblem_Private(FETI ft)
 {
   PetscErrorCode ierr;
   
   PetscFunctionBegin;
   /* Create the MatShell for F */
-  ierr = FETICreateFMat(ft,(void (*)(void))FETI1MatMult_Private,(void (*)(void))FETI1DestroyMatF_Private,(void (*)(void))FETI1MatGetVecs_Private);CHKERRQ(ierr);
+  ierr = FETICreateFMat(ft,(void (*)(void))FETIDYNMatMult_Private,(void (*)(void))FETIDYNDestroyMatF_Private,(void (*)(void))FETIDYNMatGetVecs_Private);CHKERRQ(ierr);
   /* Creating vector d for the interface problem */
   ierr = MatCreateVecs(ft->F,NULL,&ft->d);CHKERRQ(ierr);
   PetscFunctionReturn(0);
@@ -318,9 +281,9 @@ static PetscErrorCode FETI1BuildInterfaceProblem_Private(FETI ft)
 
 
 #undef __FUNCT__
-#define __FUNCT__ "FETI1SetUpNeumannSolver_Private"
+#define __FUNCT__ "FETIDYNSetUpNeumannSolver_Private"
 /*@
-   FETI1SetUpNeumannSolver - It mainly configures the neumann direct solver and performes the factorization.
+   FETIDYNSetUpNeumannSolver - It mainly configures the neumann direct solver and performes the factorization.
 
    Input Parameter:
 .  feti - the FETI context
@@ -330,11 +293,11 @@ static PetscErrorCode FETI1BuildInterfaceProblem_Private(FETI ft)
 
    Level: developer
 
-.keywords: FETI1
+.keywords: FETIDYN
 
-.seealso: FETISetUp_FETI1()
+.seealso: FETISetUp_FETIDYN()
 @*/
-static PetscErrorCode FETI1SetUpNeumannSolver_Private(FETI ft)
+static PetscErrorCode FETIDYNSetUpNeumannSolver_Private(FETI ft)
 {
   PetscErrorCode ierr;
   PC             pc;
@@ -345,6 +308,7 @@ static PetscErrorCode FETI1SetUpNeumannSolver_Private(FETI ft)
 #if !defined(PETSC_HAVE_MUMPS)
     SETERRQ(PetscObjectComm((PetscObject)ft),1,"EINS only supports MUMPS for the solution of the Neumann problem");
 #endif
+
   if (!ft->ksp_neumann) {
     ierr = KSPCreate(PETSC_COMM_SELF,&ft->ksp_neumann);CHKERRQ(ierr);
     ierr = PetscObjectIncrementTabLevel((PetscObject)ft->ksp_neumann,(PetscObject)ft,1);CHKERRQ(ierr);
@@ -360,34 +324,28 @@ static PetscErrorCode FETI1SetUpNeumannSolver_Private(FETI ft)
     ierr = PCFactorSetMatSolverPackage(pc,MATSOLVERMUMPS);CHKERRQ(ierr);
     ierr = KSPSetOperators(ft->ksp_neumann,sd->localA,sd->localA);CHKERRQ(ierr);
     /* prefix for setting options */
-    ierr = KSPSetOptionsPrefix(ft->ksp_neumann,"feti1_neumann_");CHKERRQ(ierr);
-    ierr = MatSetOptionsPrefix(sd->localA,"feti1_neumann_");CHKERRQ(ierr);
+    ierr = KSPSetOptionsPrefix(ft->ksp_neumann,"fetidyn_neumann_");CHKERRQ(ierr);
+    ierr = MatSetOptionsPrefix(sd->localA,"fetidyn_neumann_");CHKERRQ(ierr);
     ierr = PCFactorSetUpMatSolverPackage(pc);CHKERRQ(ierr);
     ierr = PCFactorGetMatrix(pc,&ft->F_neumann);CHKERRQ(ierr);
     /* sequential ordering */
     ierr = MatMumpsSetIcntl(ft->F_neumann,7,2);CHKERRQ(ierr);
-    /* Null row pivot detection */
-    ierr = MatMumpsSetIcntl(ft->F_neumann,24,1);CHKERRQ(ierr);
-    /* threshhold for row pivot detection */
-    ierr = MatMumpsSetCntl(ft->F_neumann,3,1.e-6);CHKERRQ(ierr);
-
     /* Maybe the following two options should be given as external options and not here*/
     ierr = KSPSetFromOptions(ft->ksp_neumann);CHKERRQ(ierr);
     ierr = PCFactorSetReuseFill(pc,PETSC_TRUE);CHKERRQ(ierr);
   } else {
     ierr = KSPSetOperators(ft->ksp_neumann,sd->localA,sd->localA);CHKERRQ(ierr);
   }
-  /* Set Up KSP for Neumann problem: here the factorization takes place!!! */
   ierr = KSPSetUp(ft->ksp_neumann);CHKERRQ(ierr);
-
+    
   PetscFunctionReturn(0);
 }
 
 
 #undef __FUNCT__
-#define __FUNCT__ "FETISolve_FETI1"
+#define __FUNCT__ "FETISolve_FETIDYN"
 /*@
-   FETISolve_FETI1 - Computes the primal solution using the FETI1 method.
+   FETISolve_FETIDYN - Computes the primal solution using the FETIDYN method.
 
    Input: 
 .  ft - the FETI context
@@ -397,21 +355,16 @@ static PetscErrorCode FETI1SetUpNeumannSolver_Private(FETI ft)
 
    Level: beginner
 
-.keywords: FETI1
+.keywords: FETIDYN
 @*/
-static PetscErrorCode FETISolve_FETI1(FETI ft, Vec u){
+static PetscErrorCode FETISolve_FETIDYN(FETI ft, Vec u){
   PetscErrorCode    ierr;
-  FETI_1            *ft1 = (FETI_1*)ft->data;
   Subdomain         sd = ft->subdomain;
   Vec               lambda_local;
   
   PetscFunctionBegin;
   /* Solve interface problem */
   ierr = KSPSolve(ft->ksp_interface,ft->d,ft->lambda_global);CHKERRQ(ierr);
-  /* Get residual of the interface problem */
-  ierr = KSPGetResidual(ft->ksp_interface,&ft1->res_interface);CHKERRQ(ierr);
-  /* compute alpha_local */
-  if(ft->n_cs) { ierr = FETIPJComputeAlphaNullSpace(ft->ftpj,ft1->res_interface,ft1->alpha_local);CHKERRQ(ierr);}
   /* computing B_delta^T*lambda */
   ierr = VecUnAsmGetLocalVectorRead(ft->lambda_global,&lambda_local);CHKERRQ(ierr);
   ierr = MatMultTranspose(ft->B_delta,lambda_local,sd->vec1_B);CHKERRQ(ierr);
@@ -420,24 +373,17 @@ static PetscErrorCode FETISolve_FETI1(FETI ft, Vec u){
   ierr = VecScatterEnd(sd->N_to_B,sd->vec1_B,sd->vec1_N,INSERT_VALUES,SCATTER_REVERSE);CHKERRQ(ierr);
   ierr = VecUnAsmRestoreLocalVectorRead(ft->lambda_global,lambda_local);CHKERRQ(ierr);
   /* computing f - B_delta^T*lambda */
-  ierr = VecAYPX(sd->vec1_N,-1.0,sd->localRHS);CHKERRQ(ierr);   
+  ierr = VecAYPX(sd->vec1_N,-1.0,sd->localRHS);CHKERRQ(ierr);
   /* Application of the already factorized pseudo-inverse */
-  ierr = MatMumpsSetIcntl(ft->F_neumann,25,0);CHKERRQ(ierr);
   ierr = MatSolve(ft->F_neumann,sd->vec1_N,u);CHKERRQ(ierr);
-  if (ft->n_cs) {
-    /* computing R*alpha */
-    ierr = MatMult(ft1->rbm,ft1->alpha_local,sd->vec1_N);CHKERRQ(ierr);
-    /* computing u = A^+*(f - B_delta^T*lambda) + R*alpha */
-    ierr = VecAXPY(u,-1.0,sd->vec1_N);CHKERRQ(ierr);
-  }
   PetscFunctionReturn(0);
 }
 
 
 #undef __FUNCT__
-#define __FUNCT__ "FETI1SetDefaultOptions"
+#define __FUNCT__ "FETIDYNSetDefaultOptions"
 /*@
-   FETI1SetDefaultOptions - Sets default options for the FETI1
+   FETIDYNSetDefaultOptions - Sets default options for the FETIDYN
    solver. Mainly, it sets every KSP to MUMPS and sets fully redudant
    lagrange multipliers.
 
@@ -448,20 +394,21 @@ static PetscErrorCode FETISolve_FETI1(FETI ft, Vec u){
 
    Level: beginner
 
-.keywords: FETI1
+.keywords: FETIDYN
 
 .seealso: PetscOptionsInsert()
 @*/
-PetscErrorCode FETI1SetDefaultOptions(int *argc,char ***args,const char file[])
+PetscErrorCode FETIDYNSetDefaultOptions(int *argc,char ***args,const char file[])
 {
   PetscErrorCode    ierr;
   char mumps_options[]        = "-feti_pc_dirichlet_pc_factor_mat_solver_package mumps \
                                  -feti_pc_dirichlet_mat_mumps_icntl_7 2                \
-                                 -feti_pj1level_pc_coarse_pc_factor_mat_solver_package mumps   \
-                                 -feti_pj1level_pc_coarse_mat_mumps_icntl_7 2";
+                                 -fetidyn_neumann_pc_factor_mat_solver_package mumps     \
+                                 -fetidyn_neumann_mat_mumps_icntl_7 2                    \
+                                 -feti_pj2level_pc_coarse_pc_factor_mat_solver_package mumps   \
+                                 -feti_pj2level_pc_coarse_mat_mumps_icntl_7 2";
   char other_options[]        = "-feti_fullyredundant             \
-                                 -feti_scaling_type scmultiplicity \
-                                 -feti_pj1level_destroy_coarse";
+                                 -feti_scaling_type scmultiplicity";
   
   PetscFunctionBegin;
 #if defined(PETSC_HAVE_MUMPS)
@@ -472,3 +419,4 @@ PetscErrorCode FETI1SetDefaultOptions(int *argc,char ***args,const char file[])
     
   PetscFunctionReturn(0);
 }
+

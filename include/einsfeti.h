@@ -28,8 +28,8 @@ typedef struct _p_FETI* FETI;
 J*/
 typedef const char* FETIType;
 #define FETINONE            "none"
-#define FETI1               "feti1"
-#define FETI2               "feti2"
+#define FETISTAT            "fetistat"
+#define FETIDYN             "fetidyn"
 
 /*
     FETIList contains the list of FETI methods currently registered
@@ -167,10 +167,10 @@ PETSC_EXTERN PetscErrorCode FETISetFactorizeLocalProblem(FETI,PetscBool);
 PETSC_EXTERN PetscErrorCode FETISetReSetupPCInterface(FETI,PetscBool);
 PETSC_EXTERN PetscErrorCode FETIComputeForceNorm(FETI,Vec,NormType,PetscReal*);
 PETSC_EXTERN PetscErrorCode FETIComputeForceNormLocal(FETI,Vec,NormType,PetscReal*);
-/* FETI1 stuff */
-PETSC_EXTERN PetscErrorCode FETI1SetDefaultOptions(int*,char***,const char[]);
-/* FETI2 stuff */
-PETSC_EXTERN PetscErrorCode FETI2SetDefaultOptions(int*,char***,const char[]);
+/* FETISTAT stuff */
+PETSC_EXTERN PetscErrorCode FETISTATSetDefaultOptions(int*,char***,const char[]);
+/* FETIDYN stuff */
+PETSC_EXTERN PetscErrorCode FETIDYNSetDefaultOptions(int*,char***,const char[]);
 /* scaling */
 PETSC_EXTERN PetscErrorCode FETIScalingSetUp(FETI);
 PETSC_EXTERN PetscErrorCode FETIScalingSetScalingFactor(FETI,PetscScalar);

@@ -1,6 +1,6 @@
 static char help[] = "Solve the 2D Poisson equation using Finite Differences in a cavity of lx*ly.\n\n\
 In this example, FETI is accessed by using its KSP interface KSPFETI and the solution is stored in\n\
-globally unassembled vectors VECMPIUNASM.
+globally unassembled vectors VECMPIUNASM.\n\
 Exaple usage:\n\
 mpiexec -n 4 ./poissonFD -npx 2 -npy 2 -nex 2 -ney 2\n\
 Dirichlet boundaries on x=0 side by default. Options:\n\
@@ -316,8 +316,8 @@ int main(int argc,char **args)
   ierr = KSPGetFETI(ksp_feti,&feti);CHKERRQ(ierr);
   
   /* Setting FETI */
-  ierr = FETISetType(feti,FETI1);CHKERRQ(ierr);
-  ierr = FETI1SetDefaultOptions(&argc,&args,NULL);CHKERRQ(ierr);
+  ierr = FETISetType(feti,FETISTAT);CHKERRQ(ierr);
+  ierr = FETISTATSetDefaultOptions(&argc,&args,NULL);CHKERRQ(ierr);
   ierr = FETISetFromOptions(feti);CHKERRQ(ierr);
   ierr = FETISetInterfaceSolver(feti,KSPPJCG,PCFETI_DIRICHLET);CHKERRQ(ierr);
   ierr = FETISetMappingAndGlobalSize(feti,mapping,dd.xm*dd.ym);CHKERRQ(ierr);

@@ -10,8 +10,8 @@ PetscFunctionList FETIScalingList         = 0;
 static PetscBool  FETIPackageInitialized  = PETSC_FALSE;
 
 
-PETSC_EXTERN PetscErrorCode FETICreate_FETI1(FETI);
-PETSC_EXTERN PetscErrorCode FETICreate_FETI2(FETI);
+PETSC_EXTERN PetscErrorCode FETICreate_FETISTAT(FETI);
+PETSC_EXTERN PetscErrorCode FETICreate_FETIDYN(FETI);
 /* scaling stuff */
 PETSC_EXTERN PetscErrorCode FETIScalingSetUp_none(FETI);
 PETSC_EXTERN PetscErrorCode FETIScalingSetUp_rho(FETI);
@@ -110,8 +110,8 @@ PetscErrorCode  FETIRegisterAll(void)
   if (FETIRegisterAllCalled) PetscFunctionReturn(0);
   FETIRegisterAllCalled = PETSC_TRUE;
 
-  ierr = FETIRegister(FETI1,FETICreate_FETI1);CHKERRQ(ierr);
-  ierr = FETIRegister(FETI2,FETICreate_FETI2);CHKERRQ(ierr);
+  ierr = FETIRegister(FETISTAT,FETICreate_FETISTAT);CHKERRQ(ierr);
+  ierr = FETIRegister(FETIDYN,FETICreate_FETIDYN);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 

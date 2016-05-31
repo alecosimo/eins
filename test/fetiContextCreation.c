@@ -14,7 +14,7 @@ int main(int argc,char **argv)
   comm = MPI_COMM_SELF;
 
   ierr = FETICreate(comm,&feti);CHKERRQ(ierr);
-  ierr = FETISetType(feti,FETI1);CHKERRQ(ierr);
+  ierr = FETISetType(feti,FETISTAT);CHKERRQ(ierr);
   ierr = FETIDestroy(&feti);CHKERRQ(ierr);
   
   ierr = EinsFinalize();
