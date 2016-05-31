@@ -1,0 +1,86 @@
+      Residual norms for feti_interface_ solve.
+      0 KSP Residual norm 1.59414 
+      1 KSP Residual norm 0.0115475 
+      2 KSP Residual norm 8.49264e-05 
+      3 KSP Residual norm < 1.e-11
+Processor # 0 out of 4 
+%Vec Object:DOM0000000 1 MPI processes
+%  type: seq
+DOM0000000 = [
+-5.0000000000000000e+00
+-1.1678932188142499e+01
+-1.4573593128854995e+01
+-5.0000000000000000e+00
+-1.0821067811857500e+01
+-1.4426406871145005e+01
+-5.0000000000000000e+00
+-1.1678932188142497e+01
+-1.4573593128854993e+01
+];
+Processor # 1 out of 4 
+%Vec Object: 1 MPI processes
+%  type: seq
+Vec_0x84000004_0 = [
+-1.4573593128854993e+01
+-1.7262626584987469e+01
+-1.9502166381069806e+01
+-1.4426406871145005e+01
+-1.7237373415012531e+01
+-1.9497833618930187e+01
+-1.4573593128854993e+01
+-1.7262626584987466e+01
+-1.9502166381069806e+01
+];
+Processor # 2 out of 4 
+%Vec Object: 1 MPI processes
+%  type: seq
+Vec_0x84000004_1 = [
+-1.9502166381069806e+01
+-2.1250371701431387e+01
+-2.2500063827518513e+01
+-1.9497833618930187e+01
+-2.1249628298568606e+01
+-2.2499936172481473e+01
+-1.9502166381069806e+01
+-2.1250371701431384e+01
+-2.2500063827518517e+01
+];
+Processor # 3 out of 4 
+%Vec Object: 1 MPI processes
+%  type: seq
+Vec_0x84000004_2 = [
+-2.2500063827518513e+01
+-2.3250011263679731e+01
+-2.3500003754559902e+01
+-2.2499936172481469e+01
+-2.3249988736320251e+01
+-2.3499996245440077e+01
+-2.2500063827518513e+01
+-2.3250011263679731e+01
+-2.3500003754559902e+01
+];
+------------------------------------------------------------------------------------------------------------------------
+
+Memory usage is given in bytes:
+
+Object Type          Creations   Destructions
+Reports information only for process 0.
+
+--- Event Stage 0: Main Stage
+
+     Vector Exchange     2              2
+              Vector   134            134
+      Vector Scatter     3              3
+              Matrix    16             16
+    Distributed Mesh     1              1
+Star Forest Bipartite Graph     3              3
+     Discrete System     1              1
+           Index Set    45             45
+   IS L to G Mapping     4              4
+   Application Order     1              1
+       Krylov Solver     6              6
+      Preconditioner     6              6
+                FETI     1              1
+              FETICS     1              1
+              FETIPJ     1              1
+              Viewer     2              0

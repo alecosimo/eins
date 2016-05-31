@@ -1,4 +1,6 @@
-static char help[] = "Solve the 2D Poisson equation using Finite Differences in a cavity of lx*ly.\n\n\
+static char help[] = "Solves the 2D Poisson equation using Finite Differences in a cavity of lx*ly.\n\n\
+In this example FETI is configured directly without using KSPFETI and the solution is stored in sequential\n\
+vectors, one per subdomain's internal and interface DOFs.\n\n\
 Exaple usage:\n\
 mpiexec -n 4 ./poissonFD -npx 2 -npy 2 -nex 2 -ney 2\n\
 Dirichlet boundaries on x=0 side by default. Options:\n\
@@ -285,7 +287,6 @@ int main(int argc,char **args)
   ISLocalToGlobalMapping   mapping=0;
   FETI                     feti;
   KSP                      ksp_interface;
-  PetscInt                 rank;
   
   /* Init EINS */
   EinsInitialize(&argc,&args,(char*)0,help);
@@ -297,12 +298,6 @@ int main(int argc,char **args)
   ierr = ComputeMatrixAndRHS(dd,&localA,&localRHS);CHKERRQ(ierr);
   /* Compute global mapping of local dofs */
   ierr = ComputeMapping(dd,&mapping);CHKERRQ(ierr);
-
-  ierr = MPI_Comm_rank(dd.gcomm,&rank);CHKERRQ(ierr);
-  /* MatSeqViewSynchronized(PETSC_COMM_WORLD,localA); */
-  /* VecSeqViewSynchronized(PETSC_COMM_WORLD,localRHS); */
-  /* if(rank==2) */
-  /* ISLocalToGlobalMappingView(mapping,PETSC_VIEWER_STDOUT_SELF); */
   
   ierr = VecDuplicate(localRHS,&u_local);CHKERRQ(ierr);
   /* Setting FETI */
@@ -312,7 +307,7 @@ int main(int argc,char **args)
   ierr = FETISetFromOptions(feti);CHKERRQ(ierr);
   ierr = FETISetLocalMat(feti,localA);CHKERRQ(ierr);
   ierr = FETISetLocalRHS(feti,localRHS);CHKERRQ(ierr);
-  ierr = FETISetInterfaceSolver(feti,KSPPJCG,PCFETI_DIRICHLET);CHKERRQ(ierr);//
+  ierr = FETISetInterfaceSolver(feti,KSPPJCG,PCFETI_DIRICHLET);CHKERRQ(ierr);
   ierr = FETISetMappingAndGlobalSize(feti,mapping,dd.xm*dd.ym);CHKERRQ(ierr);
   ierr = ISCreateMPIVec(dd.gcomm,dd.xm*dd.ym,mapping,&global_sol);CHKERRQ(ierr);
 
