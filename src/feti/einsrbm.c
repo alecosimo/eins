@@ -9,7 +9,7 @@
    Logically Collective on FETICS
 
    Input Parameters:
-+  ft   - the FETI context 
++  ftcs - the FETICS context 
 .  S    - matrix to hold the stiffness matrix (or NULL to have it created internally)
 .  fun  - the function evaluation routine
 -  ctx  - user-defined context for private data for the function evaluation routine (may be NULL)
@@ -26,21 +26,23 @@ $  fun(FETICS ftcs,Mat stiffness,ctx);
 .keywords: FETICS, stiffness matrix, rigid body modes
 
 @*/
-PETSC_EXTERN PetscErrorCode FETICSRBMSetStiffnessMatrixFunction(FETI ft,Mat S,FETICSRBMIStiffness fun,void *ctx)
+PETSC_EXTERN PetscErrorCode FETICSRBMSetStiffnessMatrixFunction(FETICS ftcs,Mat S,FETICSRBMIStiffness fun,void *ctx)
 {
   RBM_CS         *gn;
   PetscErrorCode ierr;
   PetscBool      flg;
+  FETI           ft;
   
   PetscFunctionBegin;
-  PetscValidHeaderSpecific(ft,FETI_CLASSID,1);
-  if (!((PetscObject)ft->ftcs)->type_name) {
-    ierr = FETICSSetType(ft->ftcs,ft->ftcs_type);CHKERRQ(ierr);
-    ierr = FETICSSetFromOptions(ft->ftcs);CHKERRQ(ierr);
+  PetscValidHeaderSpecific(ftcs,FETICS_CLASSID,1);
+  ft = ftcs->feti;
+  if (!((PetscObject)ftcs)->type_name) {
+    ierr = FETICSSetType(ftcs,ft->ftcs_type);CHKERRQ(ierr);
+    ierr = FETICSSetFromOptions(ftcs);CHKERRQ(ierr);
   }
-  ierr = PetscObjectTypeCompare((PetscObject)ft->ftcs,CS_RIGID_BODY_MODES,&flg);CHKERRQ(ierr);
+  ierr = PetscObjectTypeCompare((PetscObject)ftcs,CS_RIGID_BODY_MODES,&flg);CHKERRQ(ierr);
   if(PetscNot(flg)) SETERRQ(PetscObjectComm((PetscObject)ft),PETSC_ERR_SUP,"Cannot set stiffness matrix function to non FETICS RBM");
-  gn = (RBM_CS*)(ft->ftcs)->data;
+  gn = (RBM_CS*)ftcs->data;
   if (S) {
     PetscValidHeaderSpecific(S,MAT_CLASSID,2);
     ierr = PetscObjectReference((PetscObject)S);CHKERRQ(ierr);

@@ -137,7 +137,7 @@ PETSC_EXTERN PetscErrorCode FETICSGetType(FETICS,FETICSType*);
 
 /* FETICSRBM */ 
 typedef PetscErrorCode      (*FETICSRBMIStiffness)(FETICS,Mat,void*);
-PETSC_EXTERN PetscErrorCode FETICSRBMSetStiffnessMatrixFunction(FETI,Mat,FETICSRBMIStiffness,void*);
+PETSC_EXTERN PetscErrorCode FETICSRBMSetStiffnessMatrixFunction(FETICS,Mat,FETICSRBMIStiffness,void*);
 
 /* FETI stuff */
 PETSC_EXTERN PetscErrorCode FETICreate(MPI_Comm,FETI*);
