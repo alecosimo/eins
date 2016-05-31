@@ -1,23 +1,7 @@
-#include <../src/feti/einsfetidyn.h>
 #include <einsksp.h>
 #include <einspc.h>
 #include <einssys.h>
-
-
-#undef __FUNCT__
-#define __FUNCT__ "FETIDestroy_FETIDYN"
-static PetscErrorCode FETIDestroy_FETIDYN(FETI ft)
-{
-  PetscErrorCode ierr;
-  FETI_DYN         *ft2 = (FETI_DYN*)ft->data;
-  
-  PetscFunctionBegin;
-  if (!ft2) PetscFunctionReturn(0);
-
-  ierr = PetscFree(ft->data);CHKERRQ(ierr);
-  PetscFunctionReturn(0);
-}
-
+#include <private/einsfetiimpl.h>
 
 #undef __FUNCT__
 #define __FUNCT__ "FETISetUp_FETIDYN"
@@ -160,17 +144,10 @@ EXTERN_C_BEGIN
 PetscErrorCode FETICreate_FETIDYN(FETI ft);
 PetscErrorCode FETICreate_FETIDYN(FETI ft)
 {
-  PetscErrorCode      ierr;
-  FETI_DYN*             feti2;
-
-  PetscFunctionBegin;
-  ierr      = PetscNewLog(ft,&feti2);CHKERRQ(ierr);
-  ft->data  = (void*)feti2;
-  ierr      = PetscMemzero(feti2,sizeof(FETI_DYN));CHKERRQ(ierr);
-  
+  PetscFunctionBegin;  
   /* function pointers */
   ft->ops->setup               = FETISetUp_FETIDYN;
-  ft->ops->destroy             = FETIDestroy_FETIDYN;
+  ft->ops->destroy             = 0;
   ft->ops->setfromoptions      = 0;
   ft->ops->computesolution     = FETISolve_FETIDYN;
   ft->ops->view                = 0;
