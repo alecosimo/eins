@@ -60,6 +60,7 @@ static PetscErrorCode EinsRegisterAll(void)
   /*Register SNES*/
   ierr = SNESRegisterAll();CHKERRQ(ierr);
   ierr = SNESRegister(SNESFETIONLY,SNESCreate_FETIONLY);CHKERRQ(ierr);
+  ierr = SNESRegister(SNESNLFETI,SNESCreate_NLFETI);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 

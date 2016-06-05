@@ -5,6 +5,7 @@
 #include <einsfeti.h>
 
 #define SNESFETIONLY      "fetionly"
+#define SNESNLFETI        "nlfeti" /* nonlinear-FETI */
 
 PETSC_EXTERN PetscErrorCode SNESGetFETIContext(SNES,FETI*);
   
