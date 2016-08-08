@@ -196,7 +196,7 @@ static PetscErrorCode FETIPJSetUp_PJ1LEVEL(FETIPJ ftpj)
       ierr = MatGetSubMatrix(ft->localG,isindex,NULL,MAT_INITIAL_MATRIX,&submat[j]);CHKERRQ(ierr);
       ierr = MatDenseGetArray(submat[j],&array[j]);CHKERRQ(ierr);   
       ierr = PetscMPIIntCast(ft->neigh_lb[i],&i_mpi);CHKERRQ(ierr);   
-      ierr = MPI_Isend(array[j],ft->n_cs*ft->n_shared_lb[i],MPIU_SCALAR,i_mpi,0,comm,&send_reqs[j]);CHKERRQ(ierr);
+      ierr = MPI_Isend(array[j],ft->n_cs*ft->n_shared_lb[i],MPIU_SCALAR,i_mpi,ft->tag,comm,&send_reqs[j]);CHKERRQ(ierr);
       ierr = ISDestroy(&isindex);CHKERRQ(ierr);
       j++;
     }
@@ -207,7 +207,7 @@ static PetscErrorCode FETIPJSetUp_PJ1LEVEL(FETIPJ ftpj)
     for (j=0,idx=0,i=1; i<ft->n_neigh_lb; i++){
       if (n_cs_comm[ft->neigh_lb[i]]>0) {
 	ierr = PetscMPIIntCast(ft->neigh_lb[i],&i_mpi);CHKERRQ(ierr);
-	ierr = MPI_Irecv(&pj->matrices[idx],n_cs_comm[ft->neigh_lb[i]]*ft->n_shared_lb[i],MPIU_SCALAR,i_mpi,0,comm,&recv_reqs[j]);CHKERRQ(ierr);    
+	ierr = MPI_Irecv(&pj->matrices[idx],n_cs_comm[ft->neigh_lb[i]]*ft->n_shared_lb[i],MPIU_SCALAR,i_mpi,ft->tag,comm,&recv_reqs[j]);CHKERRQ(ierr);    
 	idx += n_cs_comm[ft->neigh_lb[i]]*ft->n_shared_lb[i]; 
 	j++;
       }	  

@@ -38,7 +38,7 @@ typedef struct {
   PetscInt       n_Gholder;       /* number of floating neighbours */
   PetscInt       **neigh_holder;  /* Entry neigh_holder[i][0] corresponds to rank of the processor of the neighbour with matrix localG stored in Gholder[i]. 
 				   Entry neigh_holder[i][1] corresponds to the index in which neigh_holder[i][0] is listed in the array ft->neigh_lb. */
-
+  PetscMPIInt    *tags;           /* tags for point to point communication */
 } PJ2LEVEL;
 
 #endif /* PJ2LEVEL_H */

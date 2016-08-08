@@ -153,6 +153,7 @@ PETSC_EXTERN PetscErrorCode VecExchangeBegin(VecExchange ve,Vec xin,InsertMode i
   MPI_Comm            comm;
   Vec_UNASM           *xi;
   PetscBool           flg;
+  PetscMPIInt         tag;
   
   PetscFunctionBegin;
   PetscValidHeaderSpecific(ve,VEC_EXCHANGE_CLASSID,1);
@@ -166,12 +167,13 @@ PETSC_EXTERN PetscErrorCode VecExchangeBegin(VecExchange ve,Vec xin,InsertMode i
   }
   xi   = (Vec_UNASM*)xin->data;
   ierr = PetscObjectGetComm((PetscObject)xin,&comm);CHKERRQ(ierr);
+  ierr = PetscCommGetNewTag(comm, &tag);CHKERRQ(ierr);
   for (i=0; i<ve->n_neigh; i++){
     ierr = ISCreateGeneral(PETSC_COMM_SELF,ve->n_shared[i],ve->shared[i],PETSC_USE_POINTER,&isindex);CHKERRQ(ierr);
     ierr = VecGetSubVector(xi->vlocal,isindex,&vec);CHKERRQ(ierr);
     ierr = VecGetArrayRead(vec,&array_s);CHKERRQ(ierr);   
     ierr = PetscMPIIntCast(ve->neigh[i],&i_mpi);CHKERRQ(ierr);   
-    ierr = MPI_Isend(array_s,ve->n_shared[i],MPIU_SCALAR,i_mpi,0,comm,&ve->s_reqs[i]);CHKERRQ(ierr);
+    ierr = MPI_Isend(array_s,ve->n_shared[i],MPIU_SCALAR,i_mpi,tag,comm,&ve->s_reqs[i]);CHKERRQ(ierr);
     ierr = VecRestoreArrayRead(vec,&array_s);CHKERRQ(ierr);   
     ierr = VecRestoreSubVector(xi->vlocal,isindex,&vec);CHKERRQ(ierr);
     ierr = ISDestroy(&isindex);CHKERRQ(ierr);
@@ -179,7 +181,7 @@ PETSC_EXTERN PetscErrorCode VecExchangeBegin(VecExchange ve,Vec xin,InsertMode i
 
   for (i=0; i<ve->n_neigh; i++){
     ierr = PetscMPIIntCast(ve->neigh[i],&i_mpi);CHKERRQ(ierr);
-    ierr = MPI_Irecv(ve->work_vecs[i],ve->n_shared[i],MPIU_SCALAR,i_mpi,0,comm,&ve->r_reqs[i]);CHKERRQ(ierr);    
+    ierr = MPI_Irecv(ve->work_vecs[i],ve->n_shared[i],MPIU_SCALAR,i_mpi,tag,comm,&ve->r_reqs[i]);CHKERRQ(ierr);    
   }
   
   PetscFunctionReturn(0);

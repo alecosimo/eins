@@ -1566,6 +1566,7 @@ PetscErrorCode  FETICreate(MPI_Comm comm,FETI *newfeti)
   feti->scaling_factor       = 1.;
   feti->scaling_type         = SCUNK;
 
+  ierr = PetscObjectGetNewTag((PetscObject)feti,&feti->tag);CHKERRQ(ierr);
   ierr = KSPCreate(comm,&feti->ksp_interface);CHKERRQ(ierr);
   ierr = FETICSCreate(PetscObjectComm((PetscObject)feti),feti,&feti->ftcs);CHKERRQ(ierr);
   ierr = FETIPJCreate(PetscObjectComm((PetscObject)feti),feti,&feti->ftpj);CHKERRQ(ierr);

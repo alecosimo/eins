@@ -126,6 +126,7 @@ struct _p_FETI {
   FETICSType       ftcs_type;
   FETIPJ           ftpj;
   FETIPJType       ftpj_type;
+  PetscMPIInt      tag;
 };
 
 PETSC_EXTERN PetscLogEvent FETI_SetUp;

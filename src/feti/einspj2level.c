@@ -36,7 +36,7 @@ static PetscErrorCode FETIPJGatherNeighborsCoarseBasis_PJ2LEVEL(FETIPJ ftpj)
       ierr = MatGetSubMatrix(ft->localG,isindex,NULL,MAT_INITIAL_MATRIX,&submat[j]);CHKERRQ(ierr);
       ierr = MatDenseGetArray(submat[j],&array[j]);CHKERRQ(ierr);   
       ierr = PetscMPIIntCast(ft->neigh_lb[i],&i_mpi);CHKERRQ(ierr);   
-      ierr = MPI_Isend(array[j],ft->n_cs*ft->n_shared_lb[i],MPIU_SCALAR,i_mpi,0,comm,&pj->send_reqs[j]);CHKERRQ(ierr);
+      ierr = MPI_Isend(array[j],ft->n_cs*ft->n_shared_lb[i],MPIU_SCALAR,i_mpi,ft->tag,comm,&pj->send_reqs[j]);CHKERRQ(ierr);
       ierr = ISDestroy(&isindex);CHKERRQ(ierr);
       j++;
     }
@@ -46,7 +46,7 @@ static PetscErrorCode FETIPJGatherNeighborsCoarseBasis_PJ2LEVEL(FETIPJ ftpj)
       n_cs = pj->n_cs_comm[ft->neigh_lb[i]];
       if (n_cs>0) {
 	ierr  = PetscMPIIntCast(ft->neigh_lb[i],&i_mpi);CHKERRQ(ierr);
-	ierr  = MPI_Irecv(&pj->matrices[idx],n_cs*ft->n_shared_lb[i],MPIU_SCALAR,i_mpi,0,comm,&pj->recv_reqs[j]);CHKERRQ(ierr);    
+	ierr  = MPI_Irecv(&pj->matrices[idx],n_cs*ft->n_shared_lb[i],MPIU_SCALAR,i_mpi,ft->tag,comm,&pj->recv_reqs[j]);CHKERRQ(ierr);    
 	idx  += n_cs*ft->n_shared_lb[i]; 
 	j++;
       }	  
@@ -163,7 +163,7 @@ static PetscErrorCode FETIPJAssembleCoarseProblem_PJ2LEVEL(FETIPJ ftpj)
 	  /*>>>*/
 	  ierr = MatGetSubMatrix(pj->FGholder[kdx],isindex,NULL,MAT_INITIAL_MATRIX,&submat[idx]);CHKERRQ(ierr);
 	  ierr = MatDenseGetArray(submat[idx],&array[idx]);CHKERRQ(ierr);   
-	  ierr = MPI_Isend(array[idx],ft->n_cs*ft->n_shared_lb[i],MPIU_SCALAR,i_mpi0,rankG,comm,&pj->send2_reqs[idx]);CHKERRQ(ierr);
+	  ierr = MPI_Isend(array[idx],ft->n_cs*ft->n_shared_lb[i],MPIU_SCALAR,i_mpi0,pj->tags[rankG],comm,&pj->send2_reqs[idx]);CHKERRQ(ierr);
 	  idx++;
 	  /*<<<*/
 	}
@@ -176,7 +176,7 @@ static PetscErrorCode FETIPJAssembleCoarseProblem_PJ2LEVEL(FETIPJ ftpj)
 	    /*>>>*/
 	    ierr = MatGetSubMatrix(pj->FGholder[kdx],isindex,NULL,MAT_INITIAL_MATRIX,&submat[idx]);CHKERRQ(ierr);
 	    ierr = MatDenseGetArray(submat[idx],&array[idx]);CHKERRQ(ierr);   
-	    ierr = MPI_Isend(array[idx],pj->n_cs_comm[k]*ft->n_shared_lb[i],MPIU_SCALAR,i_mpi0,k,comm,&pj->send2_reqs[idx]);CHKERRQ(ierr);
+	    ierr = MPI_Isend(array[idx],pj->n_cs_comm[k]*ft->n_shared_lb[i],MPIU_SCALAR,i_mpi0,pj->tags[k],comm,&pj->send2_reqs[idx]);CHKERRQ(ierr);
 	    /*<<<*/
 	    idx++;
 	  }
@@ -193,7 +193,7 @@ static PetscErrorCode FETIPJAssembleCoarseProblem_PJ2LEVEL(FETIPJ ftpj)
 	if(rankG<=k && n_cs) {
 	  /*>>>*/
 	  sz     = n_cs*ft->n_shared_lb[i];
-	  ierr   = MPI_Irecv(&pj->fgmatrices[delta],sz,MPIU_SCALAR,i_mpi0,k,comm,&pj->recv2_reqs[jdx]);CHKERRQ(ierr);    
+	  ierr   = MPI_Irecv(&pj->fgmatrices[delta],sz,MPIU_SCALAR,i_mpi0,pj->tags[k],comm,&pj->recv2_reqs[jdx]);CHKERRQ(ierr);
 	  delta += sz; 
 	  jdx++;
 	  /*<<<*/
@@ -357,8 +357,8 @@ static PetscErrorCode FETIPJSetUp_PJ2LEVEL(FETIPJ ftpj)
   /* n_neighs2[0] != ft->n_neigh_lb; not count myself */
   for (i=1; i<ft->n_neigh_lb; i++){
     ierr = PetscMPIIntCast(ft->neigh_lb[i],&i_mpi);CHKERRQ(ierr);
-    ierr = MPI_Isend(&ft->n_neigh_lb,1,MPIU_INT,i_mpi,0,comm,&pj->send_reqs[i-1]);CHKERRQ(ierr);
-    ierr = MPI_Irecv(&pj->n_neighs2[i-1],1,MPIU_INT,i_mpi,0,comm,&pj->recv_reqs[i-1]);CHKERRQ(ierr);
+    ierr = MPI_Isend(&ft->n_neigh_lb,1,MPIU_INT,i_mpi,ft->tag,comm,&pj->send_reqs[i-1]);CHKERRQ(ierr);
+    ierr = MPI_Irecv(&pj->n_neighs2[i-1],1,MPIU_INT,i_mpi,ft->tag,comm,&pj->recv_reqs[i-1]);CHKERRQ(ierr);
   }
   ierr = MPI_Waitall(ft->n_neigh_lb-1,pj->recv_reqs,MPI_STATUSES_IGNORE);CHKERRQ(ierr);
   ierr = MPI_Waitall(ft->n_neigh_lb-1,pj->send_reqs,MPI_STATUSES_IGNORE);CHKERRQ(ierr);
@@ -375,8 +375,8 @@ static PetscErrorCode FETIPJSetUp_PJ2LEVEL(FETIPJ ftpj)
   }
   for (i=1; i<ft->n_neigh_lb; i++){
     ierr = PetscMPIIntCast(ft->neigh_lb[i],&i_mpi);CHKERRQ(ierr);
-    ierr = MPI_Isend(ft->neigh_lb,ft->n_neigh_lb,MPIU_INT,i_mpi,0,comm,&pj->send_reqs[i-1]);CHKERRQ(ierr);
-    ierr = MPI_Irecv(pj->neighs2[i-1],pj->n_neighs2[i-1],MPIU_INT,i_mpi,0,comm,&pj->recv_reqs[i-1]);CHKERRQ(ierr);
+    ierr = MPI_Isend(ft->neigh_lb,ft->n_neigh_lb,MPIU_INT,i_mpi,ft->tag,comm,&pj->send_reqs[i-1]);CHKERRQ(ierr);
+    ierr = MPI_Irecv(pj->neighs2[i-1],pj->n_neighs2[i-1],MPIU_INT,i_mpi,ft->tag,comm,&pj->recv_reqs[i-1]);CHKERRQ(ierr);
   }
   ierr = MPI_Waitall(ft->n_neigh_lb-1,pj->recv_reqs,MPI_STATUSES_IGNORE);CHKERRQ(ierr);
   ierr = MPI_Waitall(ft->n_neigh_lb-1,pj->send_reqs,MPI_STATUSES_IGNORE);CHKERRQ(ierr);
@@ -550,6 +550,10 @@ static PetscErrorCode FETIPJSetUp_PJ2LEVEL(FETIPJ ftpj)
     ierr = PetscMalloc1(pj->n_recv2,&pj->recv2_reqs);CHKERRQ(ierr);
   } 
 
+  /* create tags for point to point communication */
+  ierr = PetscMalloc1(sizeG,&pj->tags);CHKERRQ(ierr);
+  for (i=0;i<sizeG;i++) { ierr = PetscObjectGetNewTag((PetscObject)ft,pj->tags+i);CHKERRQ(ierr);}
+  
   /* creating structures for assembling the matrix for the coarse problem */
   ierr            = PetscMalloc1(pj->total_rbm,&pj->r_coarse);CHKERRQ(ierr);
   n_cs           = pj->n_cs_comm[0];
@@ -608,7 +612,7 @@ static PetscErrorCode FETIPJDestroy_PJ2LEVEL_CS(FETIPJ ftpj)
     for (i=0;i<pj->n_FGholder;i++) { ierr = MatDestroy(&pj->FGholder[i]);CHKERRQ(ierr); }
     ierr = PetscFree(pj->FGholder);CHKERRQ(ierr);
   }
-
+  ierr = PetscFree(pj->tags);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 
