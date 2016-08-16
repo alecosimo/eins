@@ -10,12 +10,12 @@ static PetscErrorCode KSPView_PJCG(KSP,PetscViewer);
 static PetscErrorCode KSPSetFromOptions_PJCG(PetscOptionItems*,KSP);
 static PetscErrorCode KSPGetResidual_PJCG(KSP,Vec*);
 
-const char *const KSPPJCGTruncationTypes[]     = {"STANDARD","NOTAY","KSPPJCGTrunctionTypes","KSP_PJCG_TRUNC_TYPE_",0};
+const char *const KSPPJCGTruncationTypes[]     = {"FULL","PCG","STANDARD","NOTAY","KSPPJCGTrunctionTypes","KSP_PJCG_TRUNC_TYPE_",0};
 
 #define KSPPJCG_DEFAULT_MMAX 30          /* maximum number of search directions to keep */
 #define KSPPJCG_DEFAULT_NPREALLOC 10     /* number of search directions to preallocate */
 #define KSPPJCG_DEFAULT_VECB 5           /* number of search directions to allocate each time new direction vectors are needed */
-#define KSPPJCG_DEFAULT_TRUNCSTRAT KSP_PJCG_TRUNC_TYPE_NOTAY
+#define KSPPJCG_DEFAULT_TRUNCSTRAT KSP_PJCG_TRUNC_TYPE_PCG
 
 #undef __FUNCT__
 #define __FUNCT__ "KSPGetProjection_PJCG"
@@ -82,6 +82,23 @@ static PetscErrorCode KSPSetUp_PJCG(KSP ksp)
   /* Allocate "standard" work vectors (not including the basis and transformed basis vectors) */
   ierr = KSPSetWorkVecs(ksp,nworkstd);CHKERRQ(ierr);
 
+  /* default values for truncation_types */
+  switch(cg->truncstrat){
+  case KSP_PJCG_TRUNC_TYPE_NOTAY :
+  case KSP_PJCG_TRUNC_TYPE_STANDARD :
+    break;
+  case KSP_PJCG_TRUNC_TYPE_PCG :
+    cg->mmax      = 1;
+    cg->nprealloc = 1;
+    cg->vecb      = 1;
+    break;
+  case KSP_PJCG_TRUNC_TYPE_FULL :
+    cg->mmax      = ksp->max_it;
+    break;
+  default:
+    SETERRQ(PETSC_COMM_SELF,PETSC_ERR_ARG_WRONG,"Unrecognized PJCG Truncation Strategy");CHKERRQ(ierr);
+  }
+  
   /* Allocated space for pointers to additional work vectors
    note that mmax is the number of previous directions, so we add 1 for the current direction,
    and an extra 1 for the prealloc (which might be empty) */
@@ -95,6 +112,8 @@ static PetscErrorCode KSPSetUp_PJCG(KSP ksp)
   work space needed
   */
   if (ksp->calc_sings) {
+    SETERRQ(PETSC_COMM_SELF,PETSC_ERR_ARG_WRONGSTATE,"Eigenvalue computations in KSP PJCG must be revisited and assuring correct behaviour. Currently its support has been deactivated.");
+    
     /* get space to store tridiagonal matrix for Lanczos */
     ierr = PetscMalloc4(maxit,&cg->e,maxit,&cg->d,maxit,&cg->ee,maxit,&cg->dd);CHKERRQ(ierr);
     ierr = PetscLogObjectMemory((PetscObject)ksp,(PetscLogDouble)(2*(maxit+1)*(sizeof(PetscScalar)+sizeof(PetscReal))));CHKERRQ(ierr);
@@ -111,10 +130,10 @@ static PetscErrorCode KSPSolve_PJCG(KSP ksp)
 {
   PetscErrorCode ierr;
   PetscInt       i,k,idx,mi;
-  KSP_PJCG        *cg = (KSP_PJCG*)ksp->data;
-  PetscScalar    alpha=0.0,beta = 0.0,dpi;
-  PetscReal      dp=0.0;
-  Vec            B,R,W,Z,Zp,X,Pcurr,Ccurr;
+  KSP_PJCG       *cg = (KSP_PJCG*)ksp->data;
+  PetscScalar    alpha = 0.0,beta = 0.0,dpi;
+  PetscReal      dp = 0.0;
+  Vec            B,R,W,Y,Zp,X,Pcurr,Ccurr;
   Mat            Amat,Pmat;
   PetscInt       eigs = ksp->calc_sings; /* Variables for eigen estimation - START*/
   PetscInt       stored_max_it = ksp->max_it;
@@ -129,7 +148,7 @@ static PetscErrorCode KSPSolve_PJCG(KSP ksp)
   X             = ksp->vec_sol;
   B             = ksp->vec_rhs;
   R             = ksp->work[0];
-  Z             = ksp->work[1];
+  Y             = ksp->work[1];
   W             = ksp->work[2];
   Zp            = ksp->work[3];
   
@@ -143,7 +162,7 @@ static PetscErrorCode KSPSolve_PJCG(KSP ksp)
   } else {
     ierr = VecCopy(B,R);CHKERRQ(ierr);                         /*   r <- b (x is 0) */
   }
-  if(pj->project) {ierr = (*pj->project)(pj->ctxProj,R,W);CHKERRQ(ierr);} /* w = P^T*r */
+  if(pj->project) {ierr = (*pj->project)(pj->ctxProj,R,W);CHKERRQ(ierr);} /* W = P^T*R (project residual) */
   ierr = VecNorm(W,NORM_2,&dp);CHKERRQ(ierr);
 
   /* Initial Convergence Check */
@@ -153,19 +172,20 @@ static PetscErrorCode KSPSolve_PJCG(KSP ksp)
   ierr       = (*ksp->converged)(ksp,0,dp,&ksp->reason,ksp->cnvP);CHKERRQ(ierr);
   if (ksp->reason) PetscFunctionReturn(0);
 
-  /* Apply PC if not already done for convergence check */
-  ierr = KSP_PCApply(ksp,W,Zp);CHKERRQ(ierr);               /*   z <- Bw         */
+  /* Continue by applying preconditioner */
+  ierr = KSP_PCApply(ksp,W,Zp);CHKERRQ(ierr);                   /*   Zp <- B*W               */
+  /* Reproject */
   if(pj->reproject) {
-    ierr = (*pj->reproject)(pj->ctxReProj,Zp,Z);CHKERRQ(ierr);
+    ierr = (*pj->reproject)(pj->ctxReProj,Zp,Y);CHKERRQ(ierr);  /*   Y <- P*Zp  (reproject)  */
   } else {
-    ierr = VecCopy(Zp,Z);CHKERRQ(ierr);
+    ierr = VecCopy(Zp,Y);CHKERRQ(ierr);
   }
 
   i = 0;
-  do {
+  do { /* at the beginning of the loop the steps Project-Precondition-Reproject have been already computed for the current iteration*/
     ksp->its = i+1;
 
-    /*  If needbe, allocate a new chunk of vectors in P and C */
+    /*  If needed, allocate a new chunk of vectors in P and C */
     ierr = KSPAllocateVectors_PJCG(ksp,i+1,cg->vecb);CHKERRQ(ierr);
 
     /* Note that we wrap around and start clobbering old vectors */
@@ -175,18 +195,25 @@ static PetscErrorCode KSPSolve_PJCG(KSP ksp)
 
     /* Compute a new column of P (Currently does not support modified G-S or iterative refinement)*/
     switch(cg->truncstrat){
-      case KSP_PJCG_TRUNC_TYPE_NOTAY :
-        mi = PetscMax(1,i%(cg->mmax+1));
-        break;
-      case KSP_PJCG_TRUNC_TYPE_STANDARD :
-        mi = cg->mmax;
-        break;
-      default:
-        SETERRQ(PETSC_COMM_SELF,PETSC_ERR_ARG_WRONG,"Unrecognized PJCG Truncation Strategy");CHKERRQ(ierr);
+    case KSP_PJCG_TRUNC_TYPE_NOTAY :
+      mi = PetscMax(1,i%(cg->mmax+1));
+      break;
+    case KSP_PJCG_TRUNC_TYPE_STANDARD :
+      mi = cg->mmax;
+      break;
+    case KSP_PJCG_TRUNC_TYPE_PCG :
+      mi = 1;
+      break;
+    case KSP_PJCG_TRUNC_TYPE_FULL :
+      mi = i;
+      break;
+    default:
+      SETERRQ(PETSC_COMM_SELF,PETSC_ERR_ARG_WRONG,"Unrecognized PJCG Truncation Strategy");CHKERRQ(ierr);
     }
-    ierr = VecCopy(Z,Pcurr);CHKERRQ(ierr);
+    ierr = VecCopy(Y,Pcurr);CHKERRQ(ierr); 
 
-    {
+    /* Computing the conjugation of directions and re-orthogonalize them */
+    { 
       PetscInt l,ndots;
 
       l = PetscMax(0,i-mi);
@@ -202,25 +229,26 @@ static PetscErrorCode KSPSolve_PJCG(KSP ksp)
           Cold[j] = cg->Cvecs[idx];
           Pold[j] = cg->Pvecs[idx];
         }
-        ierr = VecXMDot(Z,ndots,Cold,dots);CHKERRQ(ierr);
+        ierr = VecXMDot(Y,ndots,Cold,dots);CHKERRQ(ierr);     /* compute the dot products Y^T*(A*p_i)/p_i^T*(A*p_i) */
         for(k=0;k<ndots;++k){
           dots[k] = -dots[k];
         }
-        ierr = VecMAXPY(Pcurr,ndots,dots,Pold);CHKERRQ(ierr);
+        ierr = VecMAXPY(Pcurr,ndots,dots,Pold);CHKERRQ(ierr); /* p_k =  Y - sum(Y^T*(A*p_i)/p_i^T*(A*p_i))          */
         ierr = PetscFree3(dots,Cold,Pold);CHKERRQ(ierr);
       }
     }
 
     /* Update X and R */
     betaold = beta;
-    ierr = VecXDot(Pcurr,W,&beta);CHKERRQ(ierr);                 /*  beta <- pi'*r       */
-    ierr = KSP_MatMult(ksp,Amat,Pcurr,Ccurr);CHKERRQ(ierr);      /*  w <- A*pi (stored in ci)   */
-    ierr = VecXDot(Pcurr,Ccurr,&dpi);CHKERRQ(ierr);              /*  dpi <- pi'*w        */
+    ierr = VecXDot(Pcurr,W,&beta);CHKERRQ(ierr);                 /*  beta <- p_k'*W                       */
+    ierr = KSP_MatMult(ksp,Amat,Pcurr,Ccurr);CHKERRQ(ierr);      /*  C_k <- A*p_k (stored in Ccurr)       */
+    ierr = VecXDot(Pcurr,Ccurr,&dpi);CHKERRQ(ierr);              /*  dpi <- p_k'*C_k                      */
     alphaold = alpha;
-    alpha = beta / dpi;                                          /*  alpha <- beta/dpi    */
-    ierr = VecAXPY(X,alpha,Pcurr);CHKERRQ(ierr);                 /*  x <- x + alpha * pi  */
-    ierr = VecAXPY(R,-alpha,Ccurr);CHKERRQ(ierr);                /*  r <- r - alpha * wi  */
+    alpha = beta / dpi;                                          /*  alpha <- beta/dpi                    */
+    ierr = VecAXPY(X,alpha,Pcurr);CHKERRQ(ierr);                 /*  X <- X + alpha * p_k                 */
+    ierr = VecAXPY(R,-alpha,Ccurr);CHKERRQ(ierr);                /*  R <- R - alpha * C_k, (C_k = A*p_k)  */
 
+    /* Project new residual W = P^T*R */
     if(pj->project) {ierr = (*pj->project)(pj->ctxProj,R,W);CHKERRQ(ierr);}
     ierr = VecNorm(W,NORM_2,&dp);CHKERRQ(ierr);
    
@@ -231,15 +259,16 @@ static PetscErrorCode KSPSolve_PJCG(KSP ksp)
     ierr = (*ksp->converged)(ksp,i+1,dp,&ksp->reason,ksp->cnvP);CHKERRQ(ierr);
     if (ksp->reason) break;
 
-    ierr = KSP_PCApply(ksp,W,Zp);CHKERRQ(ierr);               /*   z <- Br         */
+    /* Apply preconditioner */
+    ierr = KSP_PCApply(ksp,W,Zp);CHKERRQ(ierr);                   /*   Zp <- B*W               */
     if(pj->reproject) {
-      ierr = (*pj->reproject)(pj->ctxReProj,Zp,Z);CHKERRQ(ierr);
+      ierr = (*pj->reproject)(pj->ctxReProj,Zp,Y);CHKERRQ(ierr);  /*   Y <- P*Zp  (reproject)  */
     } else {
-      ierr = VecCopy(Zp,Z);CHKERRQ(ierr);
+      ierr = VecCopy(Zp,Y);CHKERRQ(ierr);
     }
     
-    /* Compute current C (which is W/dpi) */
-    ierr = VecScale(Ccurr,1.0/dpi);CHKERRQ(ierr);              /*   w <- ci/dpi   */
+    /* Compute current C (which is A*p_k/p_k'*A*p_k = C_k/dpi) */
+    ierr = VecScale(Ccurr,1.0/dpi);CHKERRQ(ierr);               /*   Ccurr <- C_k/dpi   */
 
     /* --->>> Begin eigen values computation */
     if (eigs) {
@@ -456,8 +485,10 @@ PetscErrorCode KSPPJCGGetNprealloc(KSP ksp,PetscInt *nprealloc)
 
   Logically Collective on KSP
 
+  KSP_PJCG_TRUNC_TYPE_PCG (default option) uses only the last direction. The standard PCG is recovered. 
   KSP_PJCG_TRUNC_TYPE_STANDARD uses all (up to mmax) stored directions
   KSP_PJCG_TRUNC_TYPE_NOTAY uses the last max(1,mod(i,mmax)) stored directions at iteration i=0,1..
+  KSP_PJCG_TRUNC_TYPE_FULL uses all previous directions
 
   Input Parameters:
 +  ksp - the Krylov space context
@@ -538,17 +569,19 @@ static PetscErrorCode KSPSetFromOptions_PJCG(PetscOptionItems *PetscOptionsObjec
 }
 
 /*MC
-      KSPPJCG - Implements the Flexible Conjugate Gradient method (PJCG)
+      KSPPJCG - Implements the Flexible Conjugate Gradient method with the support for Project-Precondition-Re-Project steps (PJCG)
 
   Options Database Keys:
-+   -ksp_cg_mmax <N>
-.   -ksp_cg_nprealloc <N>
--   -ksp_cg_truncation_type <standard,notay>
++   -ksp_cg_mmax <N>: maximum number of search directions to keep
+.   -ksp_cg_nprealloc <N>: number of search directions to preallocate
+.   -ksp_cg_vecb <N>: number of search directions to allocate each time new direction vectors are needed
+-   -ksp_cg_truncation_type <standard,notay,pcg,full>: "PCG": (default option) uses only the last direction; the standard PCG is recovered. "standard": uses all (up to mmax) stored directions. "notay": uses the last max(1,mod(i,mmax)) stored directions at iteration i=0,1. "full": uses all previous directions
 
-    Contributed by Patrick Sanan
+
+    Version modified from the contribution of Patrick Sanan done to the FCG from PETSc
 
    Notes:
-   Supports left preconditioning only.
+   Supports left preconditioning only. 
 
    Level: beginner
 

@@ -23,15 +23,17 @@ PETSC_EXTERN PetscErrorCode KSPGetFETI(KSP,FETI*);
 
   KSPPJCGTruncationType - Define how stored directions are used to orthogonalize in PJCG
 
+  KSP_PJCG_TRUNC_TYPE_PCG (default option) uses only the last direction. The standard PCG is recovered. 
   KSP_PJCG_TRUNC_TYPE_STANDARD uses all (up to mmax) stored directions
   KSP_PJCG_TRUNC_TYPE_NOTAY uses the last max(1,mod(i,mmax)) stored directions at iteration i=0,1..
+  KSP_PJCG_TRUNC_TYPE_FULL uses all previous directions
 
    Level: intermediate
 
 .seealso : KSPPJCG,KSPPJCGSetTruncationType(),KSPPJCGGetTruncationType()
 
 E*/
-typedef enum {KSP_PJCG_TRUNC_TYPE_STANDARD,KSP_PJCG_TRUNC_TYPE_NOTAY} KSPPJCGTruncationType;
+typedef enum {KSP_PJCG_TRUNC_TYPE_STANDARD,KSP_PJCG_TRUNC_TYPE_NOTAY,KSP_PJCG_TRUNC_TYPE_FULL,KSP_PJCG_TRUNC_TYPE_PCG} KSPPJCGTruncationType;
 PETSC_EXTERN const char *const KSPPJCGTruncationTypes[];
 
 PETSC_EXTERN PetscErrorCode KSPPJCGSetMmax(KSP,PetscInt);
