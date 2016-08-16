@@ -159,6 +159,7 @@ static PetscErrorCode KSPSolve_PJCG(KSP ksp)
   if (!ksp->guess_zero) {
     ierr = KSP_MatMult(ksp,Amat,X,R);CHKERRQ(ierr);
     ierr = VecAYPX(R,-1.0,B);CHKERRQ(ierr);                    /*   r <- b - Ax     */
+    ierr = KSPConvergedDefaultSetUIRNorm(ksp);CHKERRQ(ierr);
   } else {
     ierr = VecCopy(B,R);CHKERRQ(ierr);                         /*   r <- b (x is 0) */
   }
