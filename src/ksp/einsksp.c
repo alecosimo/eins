@@ -79,3 +79,57 @@ PETSC_EXTERN PetscErrorCode KSPSetReProjection(KSP ksp,PetscErrorCode (*reprojec
   pj->ctxReProj = (void*)ctx;
   PetscFunctionReturn(0);
 }
+
+
+#undef __FUNCT__
+#define __FUNCT__ "KSPMonitorWriteToASCIIFile"
+/*@C
+   KSPMonitorWriteToASCIIFile - Print the residual norm at each iteration to an ASCII file.
+
+   Collective on KSP
+
+   Input Parameters:
++  ksp   - iterative context
+.  n     - iteration number
+.  rnorm - 2-norm (preconditioned) residual value (may be estimated).
+-  dummy - a PetscViewer
+
+   Level: intermediate
+@*/
+PetscErrorCode  KSPMonitorWriteToASCIIFile(PETSC_UNUSED KSP ksp,PetscInt n,PetscReal rnorm,void *dummy)
+{
+  PetscErrorCode ierr;
+  PetscViewer    viewer = (PetscViewer)dummy;
+
+  PetscFunctionBegin;
+  PetscValidHeaderSpecific(viewer,PETSC_VIEWER_CLASSID,4);
+  ierr = PetscViewerASCIIPrintf(viewer,"%3D %14.12e\n",n,(double)rnorm);CHKERRQ(ierr);
+  PetscFunctionReturn(0);
+}
+
+
+#undef __FUNCT__
+#define __FUNCT__ "KSPSetMonitorASCIIFile"
+/*@C
+   KSPSetMonitorASCIIFile - Sets monitor for printing the residual norm at each iteration to an ASCII file.
+
+   Collective on KSP
+
+   Input Parameters:
++  ksp   - iterative context
+-  name  - name of the file to write
+
+   Level: intermediate
+@*/
+PetscErrorCode  KSPSetMonitorASCIIFile(KSP ksp,const char name[])
+{
+  PetscErrorCode ierr;
+  PetscViewer    viewer;
+    
+  PetscFunctionBegin;
+  ierr   = PetscViewerCreate(PetscObjectComm((PetscObject)ksp), &viewer);CHKERRQ(ierr);
+  ierr   = PetscViewerSetType(viewer, PETSCVIEWERASCII);CHKERRQ(ierr);
+  ierr   = PetscViewerFileSetName(viewer, name);CHKERRQ(ierr);
+  ierr   = KSPMonitorSet(ksp,KSPMonitorWriteToASCIIFile,viewer,(PetscErrorCode (*)(void**))PetscViewerDestroy);
+  PetscFunctionReturn(0);
+}

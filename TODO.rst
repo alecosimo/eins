@@ -41,3 +41,8 @@ NOT SO IMPORTANT:
 * Subdomain::vec1_D is not being used by the moment... Try to optimize
   the "work vectors"
   
+
+PROFILING:
+------------
+* Command example: mpiexec -n 4 ./poissonFDkspfeti -npx 4 -npy 1 -nex 8 -ney 2 -feti_interface_ksp_monitor_short -log_view :filename.py:ascii_info_detail
+
