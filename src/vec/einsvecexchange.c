@@ -76,9 +76,14 @@ PETSC_EXTERN PetscErrorCode VecExchangeCreate(Vec xin,PetscInt n_neigh,PetscInt*
   
   ierr = PetscMalloc1(ctx->n_neigh,&ctx->r_reqs);CHKERRQ(ierr);
   ierr = PetscMalloc1(ctx->n_neigh,&ctx->s_reqs);CHKERRQ(ierr);
-  ierr = PetscMalloc1(ctx->n_neigh,&ctx->work_vecs);CHKERRQ(ierr); 
+  ierr = PetscMalloc1(ctx->n_neigh,&ctx->work_vecs);CHKERRQ(ierr);
   ierr = PetscMalloc1(j,&ctx->work_vecs[0]);CHKERRQ(ierr);
-  for (i=1;i<ctx->n_neigh;i++) ctx->work_vecs[i] = ctx->work_vecs[i-1]+ctx->n_shared[i-1];
+  ierr = PetscMalloc1(ctx->n_neigh,&ctx->send_arrays);CHKERRQ(ierr);
+  ierr = PetscMalloc1(j,&ctx->send_arrays[0]);CHKERRQ(ierr);
+  for (i=1;i<ctx->n_neigh;i++) {
+    ctx->work_vecs[i] = ctx->work_vecs[i-1]+ctx->n_shared[i-1];
+    ctx->send_arrays[i] = ctx->send_arrays[i-1]+ctx->n_shared[i-1];
+  }
   
   ctx->ops->destroy  = 0;
   ctx->ops->view     = 0;
@@ -124,7 +129,51 @@ PETSC_EXTERN PetscErrorCode VecExchangeDestroy(VecExchange* vec_exchange)
   ierr = PetscFree(ctx->r_reqs);CHKERRQ(ierr);
   ierr = PetscFree(ctx->work_vecs[0]);CHKERRQ(ierr);
   ierr = PetscFree(ctx->work_vecs);CHKERRQ(ierr);
+  ierr = PetscFree(ctx->send_arrays[0]);CHKERRQ(ierr);
+  ierr = PetscFree(ctx->send_arrays);CHKERRQ(ierr);
   ierr = PetscHeaderDestroy(&ctx);CHKERRQ(ierr);
+  PetscFunctionReturn(0);
+}
+
+
+#undef __FUNCT__
+#define __FUNCT__ "VecGetEntriesInArrayFromLocalVector"
+/*@ VecGetEntriesInArrayFromLocalVector - Gets entries of X specified
+  by the IS and returns then in array allocated by the user.
+
+  Input Parameter:
+. X: Vector from which to extract entries
+. is: Index Set indicating which entries to extract
+
+  Outpur Parameter:
+. array: preallocated array where to store the entries to extract
+
+  Level: beginner
+
+.seealso: VecGetSubVector()
+@*/
+PETSC_EXTERN PetscErrorCode VecGetEntriesInArrayFromLocalVector(Vec X,IS is,const PetscScalar *array)
+{
+  PetscErrorCode      ierr;
+  VecScatter          scatter;
+  PetscInt            n;
+  Vec                 Z;
+  PetscBool           flg;
+  
+  PetscFunctionBegin;
+  PetscValidHeaderSpecific(X,VEC_CLASSID,1);
+  PetscValidHeaderSpecific(is,IS_CLASSID,2);
+  ierr = PetscObjectTypeCompare((PetscObject)X, VECSEQ, &flg);CHKERRQ(ierr);
+  if(PetscNot(flg)) SETERRQ(PetscObjectComm((PetscObject)X),PETSC_ERR_SUP,"Cannot VecGetSubVectorInArray from non-sequential vector");
+
+  ierr = ISGetLocalSize(is,&n);CHKERRQ(ierr);
+  ierr = VecCreateSeqWithArray(PETSC_COMM_SELF,1,n,array,&Z);CHKERRQ(ierr);
+  ierr = VecScatterCreate(X,is,Z,NULL,&scatter);CHKERRQ(ierr);
+  ierr = VecScatterBegin(scatter,X,Z,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
+  ierr = VecScatterEnd(scatter,X,Z,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
+  ierr = VecScatterDestroy(&scatter);CHKERRQ(ierr);
+  ierr = VecDestroy(&Z);CHKERRQ(ierr);
+  
   PetscFunctionReturn(0);
 }
 
@@ -147,8 +196,6 @@ PETSC_EXTERN PetscErrorCode VecExchangeBegin(VecExchange ve,Vec xin,InsertMode i
   PetscErrorCode      ierr;
   PetscInt            i;
   IS                  isindex;
-  Vec                 vec;
-  const PetscScalar   *array_s;
   PetscMPIInt         i_mpi;
   MPI_Comm            comm;
   Vec_UNASM           *xi;
@@ -170,12 +217,9 @@ PETSC_EXTERN PetscErrorCode VecExchangeBegin(VecExchange ve,Vec xin,InsertMode i
   ierr = PetscCommGetNewTag(comm, &tag);CHKERRQ(ierr);
   for (i=0; i<ve->n_neigh; i++){
     ierr = ISCreateGeneral(PETSC_COMM_SELF,ve->n_shared[i],ve->shared[i],PETSC_USE_POINTER,&isindex);CHKERRQ(ierr);
-    ierr = VecGetSubVector(xi->vlocal,isindex,&vec);CHKERRQ(ierr);
-    ierr = VecGetArrayRead(vec,&array_s);CHKERRQ(ierr);   
+    ierr = VecGetEntriesInArrayFromLocalVector(xi->vlocal,isindex,ve->send_arrays[i]);CHKERRQ(ierr);
     ierr = PetscMPIIntCast(ve->neigh[i],&i_mpi);CHKERRQ(ierr);   
-    ierr = MPI_Isend(array_s,ve->n_shared[i],MPIU_SCALAR,i_mpi,tag,comm,&ve->s_reqs[i]);CHKERRQ(ierr);
-    ierr = VecRestoreArrayRead(vec,&array_s);CHKERRQ(ierr);   
-    ierr = VecRestoreSubVector(xi->vlocal,isindex,&vec);CHKERRQ(ierr);
+    ierr = MPI_Isend(ve->send_arrays[i],ve->n_shared[i],MPIU_SCALAR,i_mpi,tag,comm,&ve->s_reqs[i]);CHKERRQ(ierr);
     ierr = ISDestroy(&isindex);CHKERRQ(ierr);
   }
 
@@ -227,7 +271,8 @@ PETSC_EXTERN PetscErrorCode VecExchangeEnd(VecExchange ve,Vec xin,InsertMode imo
   for (i=0; i<ve->n_neigh; i++){   
     ierr = VecSetValues(xi->vlocal,ve->n_shared[i],ve->shared[i],ve->work_vecs[i],imode);CHKERRQ(ierr);
   }
-  
+  ierr = VecAssemblyBegin(xi->vlocal);CHKERRQ(ierr);
+  ierr = VecAssemblyEnd(xi->vlocal);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 

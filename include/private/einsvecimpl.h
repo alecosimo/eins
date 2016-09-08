@@ -25,6 +25,7 @@ struct _p_VecExchange {
   PetscInt        n_reqs;
   MPI_Request     *s_reqs,*r_reqs;
   PetscScalar     **work_vecs;
+  PetscScalar     **send_arrays;
 };
 
 PETSC_EXTERN PetscErrorCode VecCreate_UNASM(Vec);

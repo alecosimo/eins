@@ -1353,9 +1353,18 @@ PetscErrorCode FETIBuildLambdaAndB(FETI ft)
   /* compute ft->n_lambda */
   ierr = VecSet(sd->vec1_global,0.0);CHKERRQ(ierr);
   ierr = VecScatterUABegin(sd->N_to_B,sd->vec1_B,sd->vec1_global,INSERT_VALUES,SCATTER_REVERSE);CHKERRQ(ierr);
-  ierr = VecScatterUAEnd(sd->N_to_B,sd->vec1_B,sd->vec1_global,INSERT_VALUES,SCATTER_REVERSE);CHKERRQ(ierr);
+  ierr = VecScatterUAEnd(sd->N_to_B,sd->vec1_B,sd->vec1_global,INSERT_VALUES,SCATTER_REVERSE);CHKERRQ(ierr); 
   ierr = VecExchangeBegin(sd->exchange_vec1global,sd->vec1_global,ADD_VALUES);CHKERRQ(ierr);
   ierr = VecExchangeEnd(sd->exchange_vec1global,sd->vec1_global,ADD_VALUES);CHKERRQ(ierr);
+
+  /* { */
+  /*   PetscReal s; */
+  /*   Vec d_local; */
+  /*   ierr = VecUnAsmGetLocalVector(sd->vec1_global,&d_local);CHKERRQ(ierr); */
+  /*   VecSum(d_local,&s); */
+  /*   PetscPrintf(MPI_COMM_SELF,"\n-----------------------LOCAL %d %d %g %g\n",rank,ft->n_lambda_local,PetscRealPart(s),PetscRealPart(scalar_value)); */
+  /* } */
+
   ierr = VecUnAsmSum(sd->vec1_global,&scalar_value);CHKERRQ(ierr);
   ft->n_lambda = (PetscInt)PetscRealPart(scalar_value);
   

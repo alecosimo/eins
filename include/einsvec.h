@@ -35,6 +35,7 @@ PETSC_EXTERN PetscErrorCode VecExchangeCreate(Vec,PetscInt,PetscInt*,PetscInt*,P
 PETSC_EXTERN PetscErrorCode VecExchangeDestroy(VecExchange*);
 PETSC_EXTERN PetscErrorCode VecExchangeBegin(VecExchange,Vec,InsertMode);
 PETSC_EXTERN PetscErrorCode VecExchangeEnd(VecExchange,Vec,InsertMode);
+PETSC_EXTERN PetscErrorCode VecGetEntriesInArrayFromLocalVector(Vec,IS,const PetscScalar*);
 /* VECUNASM functions */
 PETSC_EXTERN PetscErrorCode VecUnAsmSetMultiplicity(Vec,Vec);
 PETSC_EXTERN PetscErrorCode VecUnAsmCreateMPIVec(Vec,ISLocalToGlobalMapping,CompatibilityRule,Vec*);
