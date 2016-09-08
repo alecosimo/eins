@@ -11,7 +11,8 @@
   PetscInt        n_reqs;            \
   MPI_Request     *s_reqs,*r_reqs;   \
   PetscScalar     **work_vecs;       \
-  IS              *isindex;          \
+  PetscScalar     **send_arrays;     \
+  IS              *isindex;	     \
   PetscBool       *pnc;              \
   Vec             vec1;              \
   PetscMPIInt     tag,tagp;	     \

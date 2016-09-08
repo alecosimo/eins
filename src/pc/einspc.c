@@ -77,12 +77,17 @@ PetscErrorCode PCAllocateFETIWorkVecs_Private(PC pc, FETI ft)
   ierr = PetscMalloc1(pch->n_reqs,&pch->r_reqs);CHKERRQ(ierr);
   ierr = PetscMalloc1(pch->n_reqs,&pch->s_reqs);CHKERRQ(ierr);
   ierr = PetscMalloc1(pch->n_reqs,&pch->work_vecs);CHKERRQ(ierr);
+  ierr = PetscMalloc1(pch->n_reqs,&pch->send_arrays);CHKERRQ(ierr);
   ierr = PetscMalloc1(pch->n_reqs,&pch->pnc);CHKERRQ(ierr);
   ierr = VecUnAsmGetLocalVectorRead(ft->lambda_global,&lambda_local);CHKERRQ(ierr);
   ierr = VecDuplicate(lambda_local,&pch->vec1);CHKERRQ(ierr);
   ierr = VecUnAsmRestoreLocalVectorRead(ft->lambda_global,lambda_local);CHKERRQ(ierr);
   ierr = PetscMalloc1(total,&pch->work_vecs[0]);CHKERRQ(ierr);
-  for (i=1;i<pch->n_reqs;i++) pch->work_vecs[i] = pch->work_vecs[i-1]+ft->n_shared_lb[i];
+  ierr = PetscMalloc1(total,&pch->send_arrays[0]);CHKERRQ(ierr);
+  for (i=1;i<pch->n_reqs;i++) {
+    pch->work_vecs[i] = pch->work_vecs[i-1]+ft->n_shared_lb[i];
+    pch->send_arrays[i] = pch->send_arrays[i-1]+ft->n_shared_lb[i];
+  }
   ierr = PetscMalloc1(pch->n_reqs,&pch->isindex);CHKERRQ(ierr);
   for (i=1; i<ft->n_neigh_lb; i++){
     ierr = ISCreateGeneral(PETSC_COMM_SELF,ft->n_shared_lb[i],ft->shared_lb[i],PETSC_USE_POINTER,&pch->isindex[i-1]);CHKERRQ(ierr);
@@ -109,6 +114,8 @@ PetscErrorCode PCDeAllocateFETIWorkVecs_Private(PC pc)
   ierr = PetscFree(pch->pnc);CHKERRQ(ierr);
   ierr = PetscFree(pch->work_vecs[0]);CHKERRQ(ierr);
   ierr = PetscFree(pch->work_vecs);CHKERRQ(ierr);
+  ierr = PetscFree(pch->send_arrays[0]);CHKERRQ(ierr);
+  ierr = PetscFree(pch->send_arrays);CHKERRQ(ierr);
   ierr = VecDestroy(&pch->vec1);CHKERRQ(ierr);
   for (i=0;i<pch->n_reqs;i++){ ierr = ISDestroy(&pch->isindex[i]);CHKERRQ(ierr);}
   ierr = PetscFree(pch->isindex);CHKERRQ(ierr);

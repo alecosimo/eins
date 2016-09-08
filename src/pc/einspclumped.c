@@ -83,9 +83,7 @@ static PetscErrorCode PCApplyLocal_LUMPED(PC pc,Vec x,Vec y)
   Subdomain           sd   = ft->subdomain;
   PetscMPIInt         i_mpi;
   PetscInt            i;
-  Vec                 vec,vec_res,vec_aux;
-  const PetscScalar   *array_s;
-
+  Vec                 vec_res;
   
   PetscFunctionBegin;
   /* allocate resources if not available */
@@ -100,12 +98,9 @@ static PetscErrorCode PCApplyLocal_LUMPED(PC pc,Vec x,Vec y)
 
   /* send to my neighbors my local vector to which my neighbors' preconditioner must be applied */
   for (i=1; i<ft->n_neigh_lb; i++){
-    ierr = VecGetSubVector(x,pcl->isindex[i-1],&vec);CHKERRQ(ierr);
-    ierr = VecGetArrayRead(vec,&array_s);CHKERRQ(ierr);   
+    ierr = VecGetEntriesInArrayFromLocalVector(x,pcl->isindex[i-1],pcl->send_arrays[i-1]);CHKERRQ(ierr);
     ierr = PetscMPIIntCast(ft->neigh_lb[i],&i_mpi);CHKERRQ(ierr);   
-    ierr = MPI_Isend(array_s,ft->n_shared_lb[i],MPIU_SCALAR,i_mpi,pcl->tag,pcl->comm,&pcl->s_reqs[i-1]);CHKERRQ(ierr);
-    ierr = VecRestoreArrayRead(vec,&array_s);CHKERRQ(ierr);   
-    ierr = VecRestoreSubVector(x,pcl->isindex[i-1],&vec);CHKERRQ(ierr);
+    ierr = MPI_Isend(pcl->send_arrays[i-1],ft->n_shared_lb[i],MPIU_SCALAR,i_mpi,pcl->tag,pcl->comm,&pcl->s_reqs[i-1]);CHKERRQ(ierr);
   }
   /* receive vectors from my neighbors */
   for (i=1; i<ft->n_neigh_lb; i++){
@@ -128,12 +123,9 @@ static PetscErrorCode PCApplyLocal_LUMPED(PC pc,Vec x,Vec y)
     /* Application of B_Ddelta */
     ierr = MatMult(ft->B_Ddelta,sd->vec2_B,vec_res);CHKERRQ(ierr);
     /* communicate result */
-    ierr = VecGetSubVector(vec_res,pcl->isindex[i-1],&vec_aux);CHKERRQ(ierr);
-    ierr = VecGetArrayRead(vec_aux,&array_s);CHKERRQ(ierr);   
+    ierr = VecGetEntriesInArrayFromLocalVector(vec_res,pcl->isindex[i-1],pcl->send_arrays[i-1]);CHKERRQ(ierr);
     ierr = PetscMPIIntCast(ft->neigh_lb[i],&i_mpi);CHKERRQ(ierr);   
-    ierr = MPI_Isend(array_s,ft->n_shared_lb[i],MPIU_SCALAR,i_mpi,pcl->tag,pcl->comm,&pcl->s_reqs[i-1]);CHKERRQ(ierr);
-    ierr = VecRestoreArrayRead(vec_aux,&array_s);CHKERRQ(ierr);   
-    ierr = VecRestoreSubVector(vec_res,pcl->isindex[i-1],&vec_aux);CHKERRQ(ierr);   
+    ierr = MPI_Isend(pcl->send_arrays[i-1],ft->n_shared_lb[i],MPIU_SCALAR,i_mpi,pcl->tag,pcl->comm,&pcl->s_reqs[i-1]);CHKERRQ(ierr);
   } 
   /* receive results */
   for (i=1; i<ft->n_neigh_lb; i++){
@@ -165,9 +157,8 @@ static PetscErrorCode PCApplyLocalWithPolling_LUMPED(PC pc,Vec x,Vec y,PetscInt 
   Subdomain           sd   = ft->subdomain;
   PetscMPIInt         i_mpi;
   PetscInt            i,is,ir;
-  Vec                 vec,vec_res,vec_aux;
+  Vec                 vec_res;
   PetscInt            n2c,n2c0;
-  const PetscScalar   *array_s;
   
   PetscFunctionBegin;
   /* allocate resources if not available */
@@ -190,12 +181,9 @@ static PetscErrorCode PCApplyLocalWithPolling_LUMPED(PC pc,Vec x,Vec y,PetscInt 
 
       /* send to my neighbors my local vector to which my neighbors' preconditioner must be applied */
       for (is=0; is<ft->n_neigh_lb-1; is++){
-	ierr = VecGetSubVector(x,pcl->isindex[is],&vec);CHKERRQ(ierr);
-	ierr = VecGetArrayRead(vec,&array_s);CHKERRQ(ierr);   
+	ierr = VecGetEntriesInArrayFromLocalVector(x,pcl->isindex[is],pcl->send_arrays[is]);CHKERRQ(ierr);
 	ierr = PetscMPIIntCast(ft->neigh_lb[is+1],&i_mpi);CHKERRQ(ierr);   
-	ierr = MPI_Isend(array_s,ft->n_shared_lb[is+1],MPIU_SCALAR,i_mpi,pcl->tag,pcl->comm,&pcl->s_reqs[is]);CHKERRQ(ierr);
-	ierr = VecRestoreArrayRead(vec,&array_s);CHKERRQ(ierr);   
-	ierr = VecRestoreSubVector(x,pcl->isindex[is],&vec);CHKERRQ(ierr);
+	ierr = MPI_Isend(pcl->send_arrays[is],ft->n_shared_lb[is+1],MPIU_SCALAR,i_mpi,pcl->tag,pcl->comm,&pcl->s_reqs[is]);CHKERRQ(ierr);
       }
     }
     /* receive vectors from my neighbors */
@@ -225,12 +213,9 @@ static PetscErrorCode PCApplyLocalWithPolling_LUMPED(PC pc,Vec x,Vec y,PetscInt 
 	/* Application of B_Ddelta */
 	ierr = MatMult(ft->B_Ddelta,sd->vec2_B,vec_res);CHKERRQ(ierr);
 	/* communicate result */
-	ierr = VecGetSubVector(vec_res,pcl->isindex[i],&vec_aux);CHKERRQ(ierr);
-	ierr = VecGetArrayRead(vec_aux,&array_s);CHKERRQ(ierr);   
+	ierr = VecGetEntriesInArrayFromLocalVector(vec_res,pcl->isindex[i],pcl->send_arrays[i]);CHKERRQ(ierr);
 	ierr = PetscMPIIntCast(ft->neigh_lb[i+1],&i_mpi);CHKERRQ(ierr);   
-	ierr = MPI_Isend(array_s,ft->n_shared_lb[i+1],MPIU_SCALAR,i_mpi,pcl->tag,pcl->comm,&pcl->s_reqs[is++]);CHKERRQ(ierr);
-	ierr = VecRestoreArrayRead(vec_aux,&array_s);CHKERRQ(ierr);   
-	ierr = VecRestoreSubVector(vec_res,pcl->isindex[i],&vec_aux);CHKERRQ(ierr);
+	ierr = MPI_Isend(pcl->send_arrays[i],ft->n_shared_lb[i+1],MPIU_SCALAR,i_mpi,pcl->tag,pcl->comm,&pcl->s_reqs[is++]);CHKERRQ(ierr);
       }
     } 
     /* receive results */

@@ -305,6 +305,7 @@ Reports information only for process 0.
 
      Vector Exchange     1              1
               Vector    32             32
-           Index Set     2              2
+      Vector Scatter     2              2
+           Index Set     4              4
    IS L to G Mapping     1              1
               Viewer     2              0

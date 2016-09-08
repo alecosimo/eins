@@ -69,12 +69,12 @@ Reports information only for process 0.
 
      Vector Exchange     2              2
               Vector   112            112
-      Vector Scatter    15             15
+      Vector Scatter    23             23
               Matrix    16             16
     Distributed Mesh     1              1
 Star Forest Bipartite Graph     3              3
      Discrete System     1              1
-           Index Set    73             73
+           Index Set    81             81
    IS L to G Mapping     4              4
    Application Order     1              1
                 FETI     1              1
