@@ -15,7 +15,7 @@ const char *const KSPPJCGTruncationTypes[]     = {"FULL","PCG","STANDARD","NOTAY
 #define KSPPJCG_DEFAULT_MMAX 30          /* maximum number of search directions to keep */
 #define KSPPJCG_DEFAULT_NPREALLOC 10     /* number of search directions to preallocate */
 #define KSPPJCG_DEFAULT_VECB 5           /* number of search directions to allocate each time new direction vectors are needed */
-#define KSPPJCG_DEFAULT_TRUNCSTRAT KSP_PJCG_TRUNC_TYPE_PCG
+#define KSPPJCG_DEFAULT_TRUNCSTRAT KSP_PJCG_TRUNC_TYPE_FULL
 
 #undef __FUNCT__
 #define __FUNCT__ "KSPGetProjection_PJCG"
