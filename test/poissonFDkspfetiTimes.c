@@ -339,10 +339,10 @@ int main(int argc,char **args)
   /* SetUp and Solve*/
   ierr = KSPSetUp(ksp_feti);CHKERRQ(ierr);
   ierr = KSPSolve(ksp_feti,lgRHS,u);CHKERRQ(ierr);
-
+  
   /* Timing */
   /* ierr = PetscTime(&t2);CHKERRQ(ierr); */
-  /* ierr = PetscPrintf(PETSC_COMM_WORLD," Elapsed Time: %f\n",t2-t1); */
+  ierr = PetscPrintf(PETSC_COMM_WORLD,"source: %g, CB: %g\n",dd.source,dd.boundary);
 
   ierr = KSPGetIterationNumber(ksp_interface,&its);CHKERRQ(ierr);
   ierr = PetscPrintf(PETSC_COMM_WORLD," Iterations count: %d\n",its);

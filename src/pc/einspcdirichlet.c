@@ -211,14 +211,14 @@ static PetscErrorCode PCApplyLocalWithPolling_DIRICHLET(PC pc,Vec x,Vec y,PetscI
   /* allocate resources if not available */
   if(!pcd->work_vecs) { ierr = PCAllocateFETIWorkVecs_Private(pc,ft);CHKERRQ(ierr);}
   
-  n2c  = ((!x)==0);
+  n2c  = ((!x)==0); /* I need to apply another iteration */
   n2c0 = n2c;
   ierr = PCAllocateCommunication_Private(pc,&n2c);CHKERRQ(ierr);
   if (_n2c) *_n2c = n2c;
 
   if (n2c) {
     is = 0;
-    if (n2c0) {
+    if (n2c0) { /* I need to apply another iteration */
       /* Application of B_Ddelta^T */
       ierr = MatMultTranspose(ft->B_Ddelta,x,sd->vec1_B);CHKERRQ(ierr);
       /* Application of local Schur complement */
