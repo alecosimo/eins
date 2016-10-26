@@ -139,7 +139,7 @@ static PetscErrorCode FETICSSetUp_GENEO(FETICS ftcs)
   /* create and setup SLEPc solver */
   ierr = EPSCreate(PETSC_COMM_SELF,&gn->eps);CHKERRQ(ierr);
   ierr = EPSSetOperators(gn->eps,gn->Ag,NULL);CHKERRQ(ierr);
-  ierr = EPSSetProblemType(gn->eps,EPS_HEP);CHKERRQ(ierr); /* hermitanian problem */
+  ierr = EPSSetProblemType(gn->eps,EPS_NHEP);CHKERRQ(ierr); /* non-hermitanian problem */
   ierr = EPSSetType(gn->eps,EPSKRYLOVSCHUR);CHKERRQ(ierr); 
   ierr = EPSSetWhichEigenpairs(gn->eps,EPS_LARGEST_REAL);CHKERRQ(ierr);
   ierr = EPSSetDimensions(gn->eps,3,PETSC_DEFAULT,PETSC_DEFAULT);CHKERRQ(ierr); /* -eps_nev <nev> - Sets the number of eigenvalues */
@@ -172,7 +172,7 @@ static PetscErrorCode MatMultAg_GENEO(Mat A,Vec x,Vec y)
   GENEO_CS          *gn;
   Subdomain         sd;
   
-  PetscFunctionBeginUser;
+  PetscFunctionBeginUser;  
   ierr = MatShellGetContext(A,&mat_ctx);CHKERRQ(ierr);
   ft   = mat_ctx->ft;
   gn   = mat_ctx->gn;
