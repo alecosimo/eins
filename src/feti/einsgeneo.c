@@ -141,7 +141,7 @@ static PetscErrorCode FETICSSetUp_GENEO(FETICS ftcs)
   ierr = EPSSetOperators(gn->eps,gn->Ag,NULL);CHKERRQ(ierr);
   ierr = EPSSetProblemType(gn->eps,EPS_NHEP);CHKERRQ(ierr); /* non-hermitanian problem */
   ierr = EPSSetType(gn->eps,EPSKRYLOVSCHUR);CHKERRQ(ierr); 
-  ierr = EPSSetWhichEigenpairs(gn->eps,EPS_LARGEST_REAL);CHKERRQ(ierr);
+  ierr = EPSSetWhichEigenpairs(gn->eps,EPS_LARGEST_MAGNITUDE);CHKERRQ(ierr);
   ierr = EPSSetDimensions(gn->eps,3,PETSC_DEFAULT,PETSC_DEFAULT);CHKERRQ(ierr); /* -eps_nev <nev> - Sets the number of eigenvalues */
   ierr = EPSSetStoppingTestFunction(gn->eps,EPSStoppingGeneo_Private,(void*)&gn->pc,NULL);CHKERRQ(ierr);
   ierr = EPSSetOptionsPrefix(gn->eps,"fetics_geneo_");CHKERRQ(ierr);
