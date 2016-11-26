@@ -103,8 +103,11 @@ static PetscErrorCode PCApply_DIRICHLET(PC pc,Vec x,Vec y)
   FETI             ft   = pcd->ft;
   Subdomain        sd   = ft->subdomain;
   Vec              lambda_local,y_local;
+  //  Vec x_aux,y_aux;
+  //  PetscMPIInt       rank;
   
   PetscFunctionBegin;
+  //ierr = MPI_Comm_rank(PETSC_COMM_WORLD,&rank);CHKERRQ(ierr);
   ierr = VecUnAsmGetLocalVectorRead(x,&lambda_local);CHKERRQ(ierr);
   ierr = VecUnAsmGetLocalVector(y,&y_local);CHKERRQ(ierr);
   /* Application of B_Ddelta^T */
@@ -117,6 +120,24 @@ static PetscErrorCode PCApply_DIRICHLET(PC pc,Vec x,Vec y)
   ierr = VecExchangeEnd(ft->exchange_lambda,y,ADD_VALUES);CHKERRQ(ierr);
   ierr = VecUnAsmRestoreLocalVectorRead(x,lambda_local);CHKERRQ(ierr);
   ierr = VecUnAsmRestoreLocalVector(y,y_local);CHKERRQ(ierr);
+
+  /* VecDuplicate(x,&x_aux); */
+  /* VecDuplicate(y,&y_aux); */
+  /* VecSet(x_aux,1.0); */
+  /* ierr = VecUnAsmGetLocalVectorRead(x_aux,&lambda_local);CHKERRQ(ierr); */
+  /* ierr = VecUnAsmGetLocalVector(y_aux,&y_local);CHKERRQ(ierr); */
+  /* ierr = MatMultTranspose(ft->B_Ddelta,lambda_local,y_local);CHKERRQ(ierr); */
+
+  /* //  ierr = MatMult(ft->B_Ddelta,sd->vec2_B,y_local);CHKERRQ(ierr); */
+  /* ierr = VecExchangeBegin(ft->exchange_lambda,y_aux,ADD_VALUES);CHKERRQ(ierr); */
+  /* ierr = VecExchangeEnd(ft->exchange_lambda,y_aux,ADD_VALUES);CHKERRQ(ierr); */
+  /* ierr = VecUnAsmRestoreLocalVectorRead(x,lambda_local);CHKERRQ(ierr); */
+  /* ierr = VecUnAsmRestoreLocalVector(y,y_local);CHKERRQ(ierr); */
+
+  /* //if(rank==3) { */
+  /*   VecView(y_aux, PETSC_VIEWER_STDOUT_WORLD ); */
+  /*   //} */
+  
   PetscFunctionReturn(0);
 }
 

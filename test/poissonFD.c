@@ -144,14 +144,20 @@ static PetscErrorCode ComputeDirichletLocalRows(DomainData dd,PetscInt **dirichl
 static PetscErrorCode ComputeMatrixAndRHS(DomainData dd,Mat* localA,Vec* localRHS)
 {
   PetscErrorCode         ierr;
+  PetscMPIInt            rank;
   PetscInt               localsize,*dirichlet=0,n_dirichlet=0;
   Vec                    tempRHS,vfix;
   PetscInt               n,m,i,j,Ii,Jj;
-  PetscScalar            hx,hy;
+  PetscScalar            hx,hy,k;
   Mat                    temp_local_mat;
   
   PetscFunctionBeginUser;
   localsize = dd.xm_l*dd.ym_l;
+  MPI_Comm_rank(dd.gcomm,&rank);
+  if(rank==0)
+    k=1;
+  else
+    k=1;
   ierr      = VecCreateSeq(PETSC_COMM_SELF,localsize,&tempRHS);CHKERRQ(ierr);
   ierr      = VecSet(tempRHS,dd.source);CHKERRQ(ierr);
   /* Assemble subdomain matrix */
@@ -167,38 +173,38 @@ static PetscErrorCode ComputeMatrixAndRHS(DomainData dd,Mat* localA,Vec* localRH
   for (Ii=0; Ii<localsize; Ii++) { 
     j = Ii/n;     i = Ii - j*n;
     if (i==n-1) {
-      if (j<m-1) {Jj = Ii + n; ierr = MatSetValue(temp_local_mat,Ii,Jj,-0.5/hy/hy,INSERT_VALUES);CHKERRQ(ierr);}
+      if (j<m-1) {Jj = Ii + n; ierr = MatSetValue(temp_local_mat,Ii,Jj,-0.5/hy/hy*k,INSERT_VALUES);CHKERRQ(ierr);}
       if ((j==0)||(j==m-1)){
-	ierr = MatSetValue(temp_local_mat,Ii,Ii,0.5/hx/hx + 0.5/hy/hy,INSERT_VALUES);CHKERRQ(ierr);
+	ierr = MatSetValue(temp_local_mat,Ii,Ii,0.5/hx/hx*k + 0.5/hy/hy*k,INSERT_VALUES);CHKERRQ(ierr);
 	ierr = VecSetValue(tempRHS,Ii,dd.source/4.0,INSERT_VALUES);CHKERRQ(ierr);
       }else{
-	ierr = MatSetValue(temp_local_mat,Ii,Ii,1.0/hx/hx + 1.0/hy/hy,INSERT_VALUES);CHKERRQ(ierr);
+	ierr = MatSetValue(temp_local_mat,Ii,Ii,1.0/hx/hx*k + 1.0/hy/hy*k,INSERT_VALUES);CHKERRQ(ierr);
 	ierr = VecSetValue(tempRHS,Ii,dd.source/2.0,INSERT_VALUES);CHKERRQ(ierr);
       }
     } else if ((i==0)&&(dd.ipx > 0)) {
-      if (j<m-1) {Jj = Ii + n; ierr = MatSetValue(temp_local_mat,Ii,Jj,-0.5/hy/hy,INSERT_VALUES);CHKERRQ(ierr);}
+      if (j<m-1) {Jj = Ii + n; ierr = MatSetValue(temp_local_mat,Ii,Jj,-0.5/hy/hy*k,INSERT_VALUES);CHKERRQ(ierr);}
       if ((j==0)||(j==m-1)){
-	Jj = Ii + 1; ierr = MatSetValue(temp_local_mat,Ii,Jj,-0.5/hx/hx,INSERT_VALUES);CHKERRQ(ierr);
-	ierr = MatSetValue(temp_local_mat,Ii,Ii,0.5/hx/hx + 0.5/hy/hy,INSERT_VALUES);CHKERRQ(ierr);
+	Jj = Ii + 1; ierr = MatSetValue(temp_local_mat,Ii,Jj,-0.5/hx/hx*k,INSERT_VALUES);CHKERRQ(ierr);
+	ierr = MatSetValue(temp_local_mat,Ii,Ii,0.5/hx/hx*k + 0.5/hy/hy*k,INSERT_VALUES);CHKERRQ(ierr);
 	ierr = VecSetValue(tempRHS,Ii,dd.source/4.0,INSERT_VALUES);CHKERRQ(ierr);
       }else{
-	Jj = Ii + 1; ierr = MatSetValue(temp_local_mat,Ii,Jj,-1.0/hx/hx,INSERT_VALUES);CHKERRQ(ierr);
-	ierr = MatSetValue(temp_local_mat,Ii,Ii,1.0/hx/hx + 1.0/hy/hy,INSERT_VALUES);CHKERRQ(ierr);
+	Jj = Ii + 1; ierr = MatSetValue(temp_local_mat,Ii,Jj,-1.0/hx/hx*k,INSERT_VALUES);CHKERRQ(ierr);
+	ierr = MatSetValue(temp_local_mat,Ii,Ii,1.0/hx/hx*k + 1.0/hy/hy*k,INSERT_VALUES);CHKERRQ(ierr);
 	ierr = VecSetValue(tempRHS,Ii,dd.source/2.0,INSERT_VALUES);CHKERRQ(ierr);
       }
     } else if ((j==0)&&(i>0)&&(i<n-1)) {
-      Jj = Ii + n; ierr = MatSetValue(temp_local_mat,Ii,Jj,-1.0/hy/hy,INSERT_VALUES);CHKERRQ(ierr);
-      if (i<n-1) {Jj = Ii + 1; ierr = MatSetValue(temp_local_mat,Ii,Jj,-0.5/hx/hx,INSERT_VALUES);CHKERRQ(ierr);}
-      ierr = MatSetValue(temp_local_mat,Ii,Ii,1.0/hx/hx + 1.0/hy/hy,INSERT_VALUES);CHKERRQ(ierr);
+      Jj = Ii + n; ierr = MatSetValue(temp_local_mat,Ii,Jj,-1.0/hy/hy*k,INSERT_VALUES);CHKERRQ(ierr);
+      if (i<n-1) {Jj = Ii + 1; ierr = MatSetValue(temp_local_mat,Ii,Jj,-0.5/hx/hx*k,INSERT_VALUES);CHKERRQ(ierr);}
+      ierr = MatSetValue(temp_local_mat,Ii,Ii,1.0/hx/hx*k + 1.0/hy/hy*k,INSERT_VALUES);CHKERRQ(ierr);
       ierr = VecSetValue(tempRHS,Ii,dd.source/2.0,INSERT_VALUES);CHKERRQ(ierr);
     } else if ((j==m-1)&&(i>0)&&(i<n-1)) {
-      if (i<n-1) {Jj = Ii + 1; ierr = MatSetValue(temp_local_mat,Ii,Jj,-0.5/hx/hx,INSERT_VALUES);CHKERRQ(ierr);}
-      ierr = MatSetValue(temp_local_mat,Ii,Ii,1.0/hx/hx + 1.0/hy/hy,INSERT_VALUES);CHKERRQ(ierr);
+      if (i<n-1) {Jj = Ii + 1; ierr = MatSetValue(temp_local_mat,Ii,Jj,-0.5/hx/hx*k,INSERT_VALUES);CHKERRQ(ierr);}
+      ierr = MatSetValue(temp_local_mat,Ii,Ii,1.0/hx/hx*k + 1.0/hy/hy*k,INSERT_VALUES);CHKERRQ(ierr);
       ierr = VecSetValue(tempRHS,Ii,dd.source/2.0,INSERT_VALUES);CHKERRQ(ierr);
     } else {
-      if (j<m-1) {Jj = Ii + n; ierr = MatSetValue(temp_local_mat,Ii,Jj,-1.0/hy/hy,INSERT_VALUES);CHKERRQ(ierr);}
-      if (i<n-1) {Jj = Ii + 1; ierr = MatSetValue(temp_local_mat,Ii,Jj,-1.0/hx/hx,INSERT_VALUES);CHKERRQ(ierr);}
-      ierr = MatSetValue(temp_local_mat,Ii,Ii,2.0/hx/hx + 2.0/hy/hy,INSERT_VALUES);CHKERRQ(ierr);
+      if (j<m-1) {Jj = Ii + n; ierr = MatSetValue(temp_local_mat,Ii,Jj,-1.0/hy/hy*k,INSERT_VALUES);CHKERRQ(ierr);}
+      if (i<n-1) {Jj = Ii + 1; ierr = MatSetValue(temp_local_mat,Ii,Jj,-1.0/hx/hx*k,INSERT_VALUES);CHKERRQ(ierr);}
+      ierr = MatSetValue(temp_local_mat,Ii,Ii,2.0/hx/hx*k + 2.0/hy/hy*k,INSERT_VALUES);CHKERRQ(ierr);
     }
   }
   ierr    = MatAssemblyBegin(temp_local_mat,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
@@ -307,7 +313,7 @@ int main(int argc,char **args)
   ierr = FETISetFromOptions(feti);CHKERRQ(ierr);
   ierr = FETISetLocalMat(feti,localA);CHKERRQ(ierr);
   ierr = FETISetLocalRHS(feti,localRHS);CHKERRQ(ierr);
-  ierr = FETISetInterfaceSolver(feti,KSPPJCG,PCFETI_DIRICHLET);CHKERRQ(ierr);
+  ierr = FETISetInterfaceSolver(feti,KSPPJCG,PCFETI_DIRICHLET);CHKERRQ(ierr);//KSPPJCG
   ierr = FETISetMappingAndGlobalSize(feti,mapping,dd.xm*dd.ym);CHKERRQ(ierr);
   ierr = ISCreateMPIVec(dd.gcomm,dd.xm*dd.ym,mapping,&global_sol);CHKERRQ(ierr);
 
@@ -316,14 +322,14 @@ int main(int argc,char **args)
   ierr = KSPSetTolerances(ksp_interface,1e-10,0,PETSC_DEFAULT,1000);CHKERRQ(ierr);
   ierr = FETISolve(feti,u_local);CHKERRQ(ierr);
 
-  if (dd.nex<10) {
-#if PETSC_VERSION_LT(3,7,0)
-    ierr = PetscViewerSetFormat(PETSC_VIEWER_STDOUT_SELF,PETSC_VIEWER_ASCII_MATLAB);CHKERRQ(ierr);
-#else
-    ierr = PetscViewerPushFormat(PETSC_VIEWER_STDOUT_SELF,PETSC_VIEWER_ASCII_MATLAB);CHKERRQ(ierr);
-#endif
-    ierr = VecSeqViewSynchronized(dd.gcomm,u_local);CHKERRQ(ierr);
-  }
+/*   if (dd.nex<10) { */
+/* #if PETSC_VERSION_LT(3,7,0) */
+/*     ierr = PetscViewerSetFormat(PETSC_VIEWER_STDOUT_SELF,PETSC_VIEWER_ASCII_MATLAB);CHKERRQ(ierr); */
+/* #else */
+/*     ierr = PetscViewerPushFormat(PETSC_VIEWER_STDOUT_SELF,PETSC_VIEWER_ASCII_MATLAB);CHKERRQ(ierr); */
+/* #endif */
+/*     ierr = VecSeqViewSynchronized(dd.gcomm,u_local);CHKERRQ(ierr); */
+/*   } */
 
   ierr = FETIDestroy(&feti);CHKERRQ(ierr);
   ierr = MatDestroy(&localA);CHKERRQ(ierr);

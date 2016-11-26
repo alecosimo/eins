@@ -235,6 +235,7 @@ static PetscErrorCode KSPSolve_PJCG(KSP ksp)
           dots[k] = -dots[k];
         }
         ierr = VecMAXPY(Pcurr,ndots,dots,Pold);CHKERRQ(ierr); /* p_k =  Y - sum(Y^T*(A*p_i)/p_i^T*(A*p_i))          */
+
         ierr = PetscFree3(dots,Cold,Pold);CHKERRQ(ierr);
       }
     }
@@ -624,7 +625,7 @@ PETSC_EXTERN PetscErrorCode KSPCreate_PJCG(KSP ksp)
   cg->truncstrat = KSPPJCG_DEFAULT_TRUNCSTRAT;
 
   ierr = KSPSetSupportedNorm(ksp,KSP_NORM_UNPRECONDITIONED,PC_LEFT,1);CHKERRQ(ierr);
-
+  ierr = KSPSetNormType(ksp,KSP_NORM_UNPRECONDITIONED);CHKERRQ(ierr);
   ierr = PetscObjectComposeFunction((PetscObject)ksp,"KSPGetProjecion_C",KSPGetProjection_PJCG);CHKERRQ(ierr);
   ierr = PetscObjectComposeFunction((PetscObject)ksp,"KSPGetResidual_C",KSPGetResidual_PJCG);CHKERRQ(ierr);
   

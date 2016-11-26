@@ -329,7 +329,7 @@ int main(int argc,char **args)
   ierr = FETISetInterfaceSolver(feti,KSPPJCG,PCFETI_DIRICHLET);CHKERRQ(ierr);
   ierr = FETISetMappingAndGlobalSize(feti,mapping,dd.xm*dd.ym);CHKERRQ(ierr);
   ierr = FETIGetKSPInterface(feti,&ksp_interface);CHKERRQ(ierr);
-  ierr = KSPSetTolerances(ksp_interface,1e-10,0,PETSC_DEFAULT,1000);CHKERRQ(ierr);
+  ierr = KSPSetTolerances(ksp_interface,1e-8,0,PETSC_DEFAULT,1000);CHKERRQ(ierr);
   ierr = MPI_Comm_size(dd.gcomm,&sizeG);CHKERRQ(ierr);
   ierr = PetscOptionsGetBool(NULL,NULL,"-take_times",NULL,&take_times);CHKERRQ(ierr);
   if (PetscNot(take_times)) {

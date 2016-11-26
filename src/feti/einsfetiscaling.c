@@ -25,13 +25,21 @@ PetscErrorCode FETIScalingSetUp_multiplicity(FETI ft)
   Subdomain        sd = ft->subdomain;
   PetscInt         i;
   PetscScalar      *array;
+  PetscMPIInt       rank;
   
   PetscFunctionBegin;
+  ierr = MPI_Comm_rank(PETSC_COMM_WORLD,&rank);CHKERRQ(ierr);
   PetscValidHeaderSpecific(ft,FETI_CLASSID,1);
   ierr = VecDuplicate(sd->vec1_B,&ft->Wscaling);CHKERRQ(ierr);
   ierr = VecGetArray(ft->Wscaling,&array);CHKERRQ(ierr);
   for ( i=0;i<sd->n_B;i++ ) { array[i]=ft->scaling_factor/(sd->count[i]+1);}
   ierr = VecRestoreArray(ft->Wscaling,&array);CHKERRQ(ierr);
+
+  if(rank==0) {
+    PetscPrintf(PETSC_COMM_SELF,"wscaling result:\n");
+    VecView(ft->Wscaling, PETSC_VIEWER_STDOUT_SELF);
+  }
+
   PetscFunctionReturn(0);
 }
 
@@ -137,16 +145,25 @@ PetscErrorCode FETIScalingSetUp_rho(FETI);
 PetscErrorCode FETIScalingSetUp_rho(FETI ft)
 {
   PetscErrorCode   ierr;
+  PetscMPIInt       rank;
   Subdomain        sd = ft->subdomain;
   
   PetscFunctionBegin;
+  ierr = MPI_Comm_rank(PETSC_COMM_WORLD,&rank);CHKERRQ(ierr);
   PetscValidHeaderSpecific(ft,FETI_CLASSID,1);
   ierr = VecDuplicate(sd->vec1_B,&ft->Wscaling);CHKERRQ(ierr);
   ierr = MatGetDiagonal(sd->localA,sd->vec1_N);CHKERRQ(ierr);
   ierr = VecScatterBegin(sd->N_to_B,sd->vec1_N,ft->Wscaling,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
   ierr = VecScatterEnd(sd->N_to_B,sd->vec1_N,ft->Wscaling,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
 
+  
   ierr = VecSet(sd->vec1_global,0.0);CHKERRQ(ierr);
+
+  /* if(rank==1) { */
+  /*   PetscPrintf(PETSC_COMM_SELF,"wscaling result: rank %d\n",rank); */
+  /*   VecView(ft->Wscaling, PETSC_VIEWER_STDOUT_SELF); */
+  /* } */
+
   ierr = VecScatterUABegin(sd->N_to_B,ft->Wscaling,sd->vec1_global,INSERT_VALUES,SCATTER_REVERSE);CHKERRQ(ierr);
   ierr = VecScatterUAEnd(sd->N_to_B,ft->Wscaling,sd->vec1_global,INSERT_VALUES,SCATTER_REVERSE);CHKERRQ(ierr);
   ierr = VecExchangeBegin(sd->exchange_vec1global,sd->vec1_global,ADD_VALUES);CHKERRQ(ierr);
@@ -154,6 +171,11 @@ PetscErrorCode FETIScalingSetUp_rho(FETI ft)
   ierr = VecScatterUABegin(sd->N_to_B,sd->vec1_global,sd->vec1_B,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
   ierr = VecScatterUAEnd(sd->N_to_B,sd->vec1_global,sd->vec1_B,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
   ierr = VecPointwiseDivide(ft->Wscaling,ft->Wscaling,sd->vec1_B);CHKERRQ(ierr);
+  /* if(rank==0) { */
+  /*   PetscPrintf(PETSC_COMM_SELF,"wscaling result: rank %d\n",rank); */
+  /*   VecView(ft->Wscaling, PETSC_VIEWER_STDOUT_SELF); */
+  /* } */
+
   PetscFunctionReturn(0);
 }
 
