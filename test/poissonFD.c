@@ -154,8 +154,8 @@ static PetscErrorCode ComputeMatrixAndRHS(DomainData dd,Mat* localA,Vec* localRH
   PetscFunctionBeginUser;
   localsize = dd.xm_l*dd.ym_l;
   MPI_Comm_rank(dd.gcomm,&rank);
-  if(rank==0)
-    k=1;
+  if(rank==1)
+    k=1e3;
   else
     k=1;
   ierr      = VecCreateSeq(PETSC_COMM_SELF,localsize,&tempRHS);CHKERRQ(ierr);
@@ -270,7 +270,7 @@ static PetscErrorCode InitializeDomainData(DomainData *dd)
   ierr    = PetscOptionsGetScalar (NULL,NULL,"-lx",&dd->lx,NULL);CHKERRQ(ierr);
   dd->hx  = dd->lx/dd->nex;
   dd->hy  = dd->ly/dd->ney;
-  dd->boundary = -5.0;
+  dd->boundary = -0.0;
   dd->source   = -2.0;
   ierr = PetscOptionsGetScalar (NULL,NULL,"-boundary",&dd->boundary,NULL);CHKERRQ(ierr);
   ierr = PetscOptionsGetScalar (NULL,NULL,"-source",&dd->source,NULL);CHKERRQ(ierr);
@@ -293,6 +293,7 @@ int main(int argc,char **args)
   ISLocalToGlobalMapping   mapping=0;
   FETI                     feti;
   KSP                      ksp_interface;
+  PetscReal  dp;
   
   /* Init EINS */
   EinsInitialize(&argc,&args,(char*)0,help);
@@ -302,6 +303,9 @@ int main(int argc,char **args)
   ierr = DomainDecomposition(&dd);CHKERRQ(ierr);
   /* assemble global matrix */
   ierr = ComputeMatrixAndRHS(dd,&localA,&localRHS);CHKERRQ(ierr);
+  ierr = VecNorm(localRHS,NORM_2,&dp);
+
+    PetscPrintf(PETSC_COMM_SELF,"ceci: %g",dp);
   /* Compute global mapping of local dofs */
   ierr = ComputeMapping(dd,&mapping);CHKERRQ(ierr);
   

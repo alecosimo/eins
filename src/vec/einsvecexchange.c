@@ -208,6 +208,7 @@ PETSC_EXTERN PetscErrorCode VecExchangeBegin(VecExchange ve,Vec xin,InsertMode i
   ierr = PetscObjectTypeCompare((PetscObject)xin,VECMPIUNASM,&flg);CHKERRQ(ierr);
   if(!flg) SETERRQ(PetscObjectComm((PetscObject)xin),PETSC_ERR_SUP,"Cannot use VecExchange with a non globally unassembled vector");
 
+  ierr = PetscObjectStateIncrease((PetscObject)xin);CHKERRQ(ierr);
   if (ve->ops->begin) {
     ierr = (*ve->ops->begin)(ve,xin,imode);CHKERRQ(ierr);
     PetscFunctionReturn(0);

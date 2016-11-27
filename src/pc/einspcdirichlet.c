@@ -103,17 +103,36 @@ static PetscErrorCode PCApply_DIRICHLET(PC pc,Vec x,Vec y)
   FETI             ft   = pcd->ft;
   Subdomain        sd   = ft->subdomain;
   Vec              lambda_local,y_local;
-  //  Vec x_aux,y_aux;
-  //  PetscMPIInt       rank;
+  PetscReal     dp;
+  Vec x_aux,y_aux;
+  PetscMPIInt       rank;
   
   PetscFunctionBegin;
-  //ierr = MPI_Comm_rank(PETSC_COMM_WORLD,&rank);CHKERRQ(ierr);
+  ierr = MPI_Comm_rank(PETSC_COMM_WORLD,&rank);CHKERRQ(ierr);
   ierr = VecUnAsmGetLocalVectorRead(x,&lambda_local);CHKERRQ(ierr);
   ierr = VecUnAsmGetLocalVector(y,&y_local);CHKERRQ(ierr);
   /* Application of B_Ddelta^T */
   ierr = MatMultTranspose(ft->B_Ddelta,lambda_local,sd->vec1_B);CHKERRQ(ierr);
   /* Application of local Schur complement */
   ierr = MatMult(pcd->Sj,sd->vec1_B,sd->vec2_B);CHKERRQ(ierr);
+
+  //------------------------------------------------------------
+  ierr = VecSet(sd->vec1_global,0.0);CHKERRQ(ierr);
+
+  /* if(rank==1) { */
+  /*   PetscPrintf(PETSC_COMM_SELF,"wscaling result: rank %d\n",rank); */
+  /*   VecView(ft->Wscaling, PETSC_VIEWER_STDOUT_SELF); */
+  /* } */
+  
+  ierr = VecScatterUABegin(sd->N_to_B,sd->vec2_B,sd->vec1_global,INSERT_VALUES,SCATTER_REVERSE);CHKERRQ(ierr);
+  ierr = VecScatterUAEnd(sd->N_to_B,sd->vec2_B,sd->vec1_global,INSERT_VALUES,SCATTER_REVERSE);CHKERRQ(ierr);
+  ierr = VecExchangeBegin(sd->exchange_vec1global,sd->vec1_global,ADD_VALUES);CHKERRQ(ierr);
+  ierr = VecExchangeEnd(sd->exchange_vec1global,sd->vec1_global,ADD_VALUES);CHKERRQ(ierr);
+
+  ierr = VecNorm(sd->vec1_global,NORM_2,&dp);CHKERRQ(ierr);
+  PetscPrintf(PETSC_COMM_WORLD,"New norm global: %g",(double)dp);
+  //------------------------------------------------------------
+  
   /* Application of B_Ddelta */
   ierr = MatMult(ft->B_Ddelta,sd->vec2_B,y_local);CHKERRQ(ierr);
   ierr = VecExchangeBegin(ft->exchange_lambda,y,ADD_VALUES);CHKERRQ(ierr);

@@ -1482,16 +1482,16 @@ PetscErrorCode FETIBuildLambdaAndB(FETI ft)
   ierr = MatAssemblyBegin(ft->B_Ddelta,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
   ierr = MatAssemblyEnd  (ft->B_Ddelta,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
 
-  if(rank==1) {
-    MatView(ft->B_Ddelta, PETSC_VIEWER_STDOUT_SELF );
+  /* if(rank==1) { */
+  /*   MatView(ft->B_Ddelta, PETSC_VIEWER_STDOUT_SELF ); */
 
-    /* PetscPrintf(PETSC_COMM_SELF,"\n"); */
-    /* for(i=0;i<n_lambda_local;i++) */
-    /*   PetscPrintf(PETSC_COMM_SELF,"%d, ",l2g_indices[i]); */
-    /* PetscPrintf(PETSC_COMM_SELF,"\n"); */
-    /* VecView(ft->Wscaling, PETSC_VIEWER_STDOUT_SELF ); */
-    /* PetscPrintf(PETSC_COMM_SELF,"number: %d",sd->n_B); */
-  }
+  /*   /\* PetscPrintf(PETSC_COMM_SELF,"\n"); *\/ */
+  /*   /\* for(i=0;i<n_lambda_local;i++) *\/ */
+  /*   /\*   PetscPrintf(PETSC_COMM_SELF,"%d, ",l2g_indices[i]); *\/ */
+  /*   /\* PetscPrintf(PETSC_COMM_SELF,"\n"); *\/ */
+  /*   /\* VecView(ft->Wscaling, PETSC_VIEWER_STDOUT_SELF ); *\/ */
+  /*   /\* PetscPrintf(PETSC_COMM_SELF,"number: %d",sd->n_B); *\/ */
+  /* } */
   
   ierr = PetscFree(vals_B_delta);CHKERRQ(ierr);
   ierr = PetscFree(vals_B_Ddelta);CHKERRQ(ierr);

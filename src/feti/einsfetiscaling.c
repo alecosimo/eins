@@ -35,10 +35,10 @@ PetscErrorCode FETIScalingSetUp_multiplicity(FETI ft)
   for ( i=0;i<sd->n_B;i++ ) { array[i]=ft->scaling_factor/(sd->count[i]+1);}
   ierr = VecRestoreArray(ft->Wscaling,&array);CHKERRQ(ierr);
 
-  if(rank==0) {
-    PetscPrintf(PETSC_COMM_SELF,"wscaling result:\n");
-    VecView(ft->Wscaling, PETSC_VIEWER_STDOUT_SELF);
-  }
+  /* if(rank==0) { */
+  /*   PetscPrintf(PETSC_COMM_SELF,"wscaling result:\n"); */
+  /*   VecView(ft->Wscaling, PETSC_VIEWER_STDOUT_SELF); */
+  /* } */
 
   PetscFunctionReturn(0);
 }
