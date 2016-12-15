@@ -154,8 +154,8 @@ static PetscErrorCode ComputeMatrixAndRHS(DomainData dd,Mat* localA,Vec* localRH
   PetscFunctionBeginUser;
   localsize = dd.xm_l*dd.ym_l;
   MPI_Comm_rank(dd.gcomm,&rank);
-  if(rank==1)
-    k=1e3;
+  if(rank==0)
+    k=1;
   else
     k=1;
   ierr      = VecCreateSeq(PETSC_COMM_SELF,localsize,&tempRHS);CHKERRQ(ierr);

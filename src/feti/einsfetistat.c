@@ -31,8 +31,8 @@ static PetscErrorCode FETISetUp_FETISTAT(FETI ft)
   
   PetscFunctionBegin;
   if (ft->state==FETI_STATE_INITIAL) {
-    ierr = FETIScalingSetUp(ft);CHKERRQ(ierr);
     ierr = FETIBuildLambdaAndB(ft);CHKERRQ(ierr);
+    ierr = FETIScalingSetUp(ft);CHKERRQ(ierr);
     ierr = FETISetUpNeumannSolverAndPerformFactorization(ft,PETSC_TRUE);CHKERRQ(ierr);
     ierr = FETIBuildInterfaceProblem(ft);CHKERRQ(ierr);
     ierr = FETIBuildInterfaceKSP(ft);CHKERRQ(ierr);

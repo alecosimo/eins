@@ -1305,11 +1305,9 @@ PetscErrorCode FETIBuildLambdaAndB(FETI ft)
   PetscInt          *aux_local_numbering_2;
   PetscScalar       scalar_value;
   Subdomain         sd = ft->subdomain;
-  const PetscScalar *Warray;
   
   PetscFunctionBegin;
   ierr = PetscObjectGetComm((PetscObject)ft,&comm);CHKERRQ(ierr);
-  if(!ft->Wscaling) SETERRQ(comm,PETSC_ERR_ARG_WRONGSTATE,"Error: FETIScalingSetUp must be first called");
   ierr = MPI_Comm_rank(comm,&rank);CHKERRQ(ierr);
 
   /* Default type of lagrange multipliers is non-redundant */
@@ -1377,7 +1375,6 @@ PetscErrorCode FETIBuildLambdaAndB(FETI ft)
   ierr = PetscMalloc1(n_lambda_local,&vals_B_Ddelta);CHKERRQ(ierr);
   ierr = PetscMalloc1(n_lambda_local,&cols_B_delta);CHKERRQ(ierr);
   ierr = ISGetIndices(subset_n,&aux_global_numbering);CHKERRQ(ierr);
-  ierr = VecGetArrayRead(ft->Wscaling,&Warray);CHKERRQ(ierr);
   n_global_lambda=0;
   partial_sum=0;
   cum = 0;
@@ -1401,14 +1398,14 @@ PetscErrorCode FETIBuildLambdaAndB(FETI ft)
         l2g_indices    [partial_sum+s]=aux_sums[s]+n_neg_values-s-1+n_global_lambda;
         cols_B_delta   [partial_sum+s]=up;
         vals_B_delta   [partial_sum+s]=-1.0;
-	vals_B_Ddelta  [partial_sum+s]=-Warray[up];
+	vals_B_Ddelta  [partial_sum+s]=1.0;
       }
       for (s=0;s<n_pos_values;s++) {
 	up = dual_dofs_boundary_indices[i];
         l2g_indices    [partial_sum+s+n_neg_values]=aux_sums[n_neg_values]+s+n_global_lambda;
         cols_B_delta   [partial_sum+s+n_neg_values]=up;
         vals_B_delta   [partial_sum+s+n_neg_values]=1.0;
-	vals_B_Ddelta  [partial_sum+s+n_neg_values]=Warray[up];	
+	vals_B_Ddelta  [partial_sum+s+n_neg_values]=1.0;	
       }
       partial_sum += j;
     } else {
@@ -1423,17 +1420,16 @@ PetscErrorCode FETIBuildLambdaAndB(FETI ft)
       /* B_delta */
       if ( n_neg_values > 0 ) { /* there's a rank next to me to the left */
         vals_B_delta   [partial_sum+n_neg_values-1]=-1.0;
-	vals_B_Ddelta  [partial_sum+n_neg_values-1]=-Warray[up];	
+	vals_B_Ddelta  [partial_sum+n_neg_values-1]=1.0;	
       }
       if ( n_neg_values < j ) { /* there's a rank next to me to the right */
         vals_B_delta   [partial_sum+n_neg_values]=1.0;
-	vals_B_Ddelta  [partial_sum+n_neg_values]=Warray[up];
+	vals_B_Ddelta  [partial_sum+n_neg_values]=1.0;
       }
       partial_sum += j;
     }
     cum += aux_local_numbering_2[i];
   }
-  ierr = VecRestoreArrayRead(ft->Wscaling,&Warray);CHKERRQ(ierr);
   ierr = ISRestoreIndices(subset_n,&aux_global_numbering);CHKERRQ(ierr);
   ierr = ISDestroy(&subset_mult);CHKERRQ(ierr);
   ierr = ISDestroy(&subset_n);CHKERRQ(ierr);
@@ -1481,17 +1477,6 @@ PetscErrorCode FETIBuildLambdaAndB(FETI ft)
   ierr = MatAssemblyEnd  (ft->B_delta,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
   ierr = MatAssemblyBegin(ft->B_Ddelta,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
   ierr = MatAssemblyEnd  (ft->B_Ddelta,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
-
-  /* if(rank==1) { */
-  /*   MatView(ft->B_Ddelta, PETSC_VIEWER_STDOUT_SELF ); */
-
-  /*   /\* PetscPrintf(PETSC_COMM_SELF,"\n"); *\/ */
-  /*   /\* for(i=0;i<n_lambda_local;i++) *\/ */
-  /*   /\*   PetscPrintf(PETSC_COMM_SELF,"%d, ",l2g_indices[i]); *\/ */
-  /*   /\* PetscPrintf(PETSC_COMM_SELF,"\n"); *\/ */
-  /*   /\* VecView(ft->Wscaling, PETSC_VIEWER_STDOUT_SELF ); *\/ */
-  /*   /\* PetscPrintf(PETSC_COMM_SELF,"number: %d",sd->n_B); *\/ */
-  /* } */
   
   ierr = PetscFree(vals_B_delta);CHKERRQ(ierr);
   ierr = PetscFree(vals_B_Ddelta);CHKERRQ(ierr);
@@ -1517,7 +1502,6 @@ PetscErrorCode FETIBuildLambdaAndB(FETI ft)
 .  -feti_type <type> - Sets the FETI type
 .  -feti_interface_<ksp_option> - options for the KSP for the interface problem
 .  -feti_scaling_type - Sets the scaling type
-.  -feti_scaling_factor - Sets a scaling factor different from one
 
    Level: developer
 
@@ -1572,8 +1556,6 @@ PetscErrorCode  FETICreate(MPI_Comm comm,FETI *newfeti)
   feti->ftpj                 = 0;
   feti->ftpj_type            = PJ_NONE;
   /* scaling variables initialization*/
-  feti->Wscaling             = 0;
-  feti->scaling_factor       = 1.;
   feti->scaling_type         = SCUNK;
 
   ierr = PetscObjectGetNewTag((PetscObject)feti,&feti->tag);CHKERRQ(ierr);

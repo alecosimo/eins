@@ -173,7 +173,6 @@ PETSC_EXTERN PetscErrorCode FETISTATSetDefaultOptions(int*,char***,const char[])
 PETSC_EXTERN PetscErrorCode FETIDYNSetDefaultOptions(int*,char***,const char[]);
 /* scaling */
 PETSC_EXTERN PetscErrorCode FETIScalingSetUp(FETI);
-PETSC_EXTERN PetscErrorCode FETIScalingSetScalingFactor(FETI,PetscScalar);
 PETSC_EXTERN PetscErrorCode FETIScalingSetType(FETI,FETIScalingType);
 
 #endif/* FETI_H*/

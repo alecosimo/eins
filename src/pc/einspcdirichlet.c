@@ -104,7 +104,7 @@ static PetscErrorCode PCApply_DIRICHLET(PC pc,Vec x,Vec y)
   Subdomain        sd   = ft->subdomain;
   Vec              lambda_local,y_local;
   PetscReal     dp;
-  Vec x_aux,y_aux;
+  Vec x_aux,y_aux,x_local;
   PetscMPIInt       rank;
   
   PetscFunctionBegin;
@@ -131,7 +131,6 @@ static PetscErrorCode PCApply_DIRICHLET(PC pc,Vec x,Vec y)
 
   ierr = VecNorm(sd->vec1_global,NORM_2,&dp);CHKERRQ(ierr);
   PetscPrintf(PETSC_COMM_WORLD,"New norm global: %g",(double)dp);
-  //------------------------------------------------------------
   
   /* Application of B_Ddelta */
   ierr = MatMult(ft->B_Ddelta,sd->vec2_B,y_local);CHKERRQ(ierr);
@@ -140,23 +139,81 @@ static PetscErrorCode PCApply_DIRICHLET(PC pc,Vec x,Vec y)
   ierr = VecUnAsmRestoreLocalVectorRead(x,lambda_local);CHKERRQ(ierr);
   ierr = VecUnAsmRestoreLocalVector(y,y_local);CHKERRQ(ierr);
 
-  /* VecDuplicate(x,&x_aux); */
+
+  // test proposed by daniel ----------------------------------
   /* VecDuplicate(y,&y_aux); */
-  /* VecSet(x_aux,1.0); */
+  /* VecDuplicate(x,&x_aux); */
+  /* VecCopy(x,x_aux); */
+  
   /* ierr = VecUnAsmGetLocalVectorRead(x_aux,&lambda_local);CHKERRQ(ierr); */
   /* ierr = VecUnAsmGetLocalVector(y_aux,&y_local);CHKERRQ(ierr); */
-  /* ierr = MatMultTranspose(ft->B_Ddelta,lambda_local,y_local);CHKERRQ(ierr); */
+  /* /\* Application of B_Ddelta^T *\/ */
+  /* ierr = MatMultTranspose(ft->B_Ddelta,lambda_local,sd->vec1_B);CHKERRQ(ierr);   */
+  /* /\* Application of B_Ddelta *\/ */
+  /* ierr = MatMult(ft->B_delta,sd->vec1_B,y_local);CHKERRQ(ierr); */
 
-  /* //  ierr = MatMult(ft->B_Ddelta,sd->vec2_B,y_local);CHKERRQ(ierr); */
+  /* PetscPrintf(PETSC_COMM_WORLD,"\nyyyyyyyyyyyyyyyyyyyyyyyy00000000000 before\n"); */
+  
+  /* if(rank==1) { */
+  /*   VecView(y_local, PETSC_VIEWER_STDOUT_SELF ); */
+  /* } */
+
   /* ierr = VecExchangeBegin(ft->exchange_lambda,y_aux,ADD_VALUES);CHKERRQ(ierr); */
   /* ierr = VecExchangeEnd(ft->exchange_lambda,y_aux,ADD_VALUES);CHKERRQ(ierr); */
-  /* ierr = VecUnAsmRestoreLocalVectorRead(x,lambda_local);CHKERRQ(ierr); */
-  /* ierr = VecUnAsmRestoreLocalVector(y,y_local);CHKERRQ(ierr); */
+
+  /* PetscPrintf(PETSC_COMM_WORLD,"\nyyyyyyyyyyyyyyyyyyyyyyyy00000000000 after\n"); */
+  /* if(rank==0) { */
+  /*   VecView(y_local, PETSC_VIEWER_STDOUT_SELF ); */
+  /* } */
+
+  
+  /* ierr = VecUnAsmRestoreLocalVectorRead(x_aux,lambda_local);CHKERRQ(ierr); */
+  /* ierr = VecUnAsmRestoreLocalVector(y_aux,y_local);CHKERRQ(ierr); */
+
+  /* PetscPrintf(PETSC_COMM_WORLD,"\nyyyyyyyyyyyyyyyyyyyyyyyy\n"); */
+  /* VecView(y_aux, PETSC_VIEWER_STDOUT_WORLD ); */
+  /* VecAXPY(y_aux,-1,x_aux); */
+  /*  PetscPrintf(PETSC_COMM_WORLD,"\nxxxxxxxxxxxxxxxxxxxxxxxx\n"); */
+  /* VecView(x, PETSC_VIEWER_STDOUT_WORLD ); */
+  /* PetscPrintf(PETSC_COMM_WORLD,"\n-----------------------\n"); */
+  /* VecView(y_aux, PETSC_VIEWER_STDOUT_WORLD ); */
+
+  /* if(rank==0) { */
+  /*   MatView(ft->B_Ddelta, PETSC_VIEWER_STDOUT_SELF ); */
+  /* } */
+  
+  //----- end test proposed by daniel
+
+  
+  //-----------------------------------------------------
+  /* VecDuplicate(sd->vec1_global,&x_aux); */
+  /* VecDuplicate(y,&y_aux); */
+
+  /* VecSet(x_aux,1.0); */
+  /* ierr = VecUnAsmGetLocalVector(x_aux,&x_local);CHKERRQ(ierr); */
+  /* ierr = VecUnAsmGetLocalVector(y_aux,&y_local);CHKERRQ(ierr); */
+  
+  /* ierr = VecScatterUABegin(sd->N_to_B,x_aux,sd->vec2_B,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr); */
+  /* ierr = VecScatterUAEnd(sd->N_to_B,x_aux,sd->vec2_B,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr); */
+  
+  /* ierr = MatMult(ft->B_Ddelta,sd->vec2_B,y_local);CHKERRQ(ierr); */
+  /* VecSet(x_aux,0.0); */
+  /* ierr = MatMultTranspose(ft->B_Ddelta,y_local,sd->vec2_B);CHKERRQ(ierr); */
+
+  /* ierr = VecScatterUABegin(sd->N_to_B,sd->vec2_B,x_aux,INSERT_VALUES,SCATTER_REVERSE);CHKERRQ(ierr); */
+  /* ierr = VecScatterUAEnd(sd->N_to_B,sd->vec2_B,x_aux,INSERT_VALUES,SCATTER_REVERSE);CHKERRQ(ierr); */
+
+  /* ierr = VecExchangeBegin(sd->exchange_vec1global,x_aux,ADD_VALUES);CHKERRQ(ierr); */
+  /* ierr = VecExchangeEnd(sd->exchange_vec1global,x_aux,ADD_VALUES);CHKERRQ(ierr); */
+  
+  /* ierr = VecUnAsmRestoreLocalVector(x_aux,x_local);CHKERRQ(ierr); */
+  /* ierr = VecUnAsmRestoreLocalVector(y_aux,y_local);CHKERRQ(ierr); */
 
   /* //if(rank==3) { */
-  /*   VecView(y_aux, PETSC_VIEWER_STDOUT_WORLD ); */
-  /*   //} */
-  
+  /*   VecView(x_aux, PETSC_VIEWER_STDOUT_WORLD ); */
+    //}
+  //-----------------------------------------------------
+    
   PetscFunctionReturn(0);
 }
 

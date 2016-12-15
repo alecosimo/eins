@@ -1,5 +1,9 @@
 set(path "${PROJECT_SOURCE_DIR}/test")
 
+# mpiexec -n 2 ./poissonFD -npx 2 -npy 1 -nex 4 -ney 2 -feti_interface_ksp_monitor_short -feti_interface_pc_type pcfeti_dirichlet -feti_scaling_type scmultiplicity
+
+# mpiexec -n 4 ./poissonFD -npx 2 -npy 2 -nex 4 -ney 4 -feti_interface_ksp_monitor_short -feti_interface_pc_type pcfeti_dirichlet -feti_scaling_type scmultiplicity
+
 M_ADD_BINARY_TEST("${path}/poissonFDkspfetiTimes.c" "${EinsTests_libraries}")
 M_ADD_BINARY_TEST("${path}/poissonFD.c" "${EinsTests_libraries}")
 M_ADD_COMMAND_TEST_CMP("${path}/poissonFD.c" "1" "mpiexec -n 4 ./poissonFD -npx 2 -npy 2 -nex 4 -ney 4 -feti_interface_ksp_monitor_short -log_destruction" "res_poissonFD1.txt")
