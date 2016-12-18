@@ -215,7 +215,7 @@ static PetscErrorCode ComputeMatrixAndRHS(DomainData dd,Mat* localA,Vec* localRH
 
   /* Compute RHS */
   ComputeDirichletLocalRows(dd,&dirichlet,&n_dirichlet);
-  //MatSeqViewSynchronized(dd.gcomm,*localA);
+
   if (n_dirichlet) {
     ierr      = MatSetOption(*localA,MAT_SYMMETRIC,PETSC_TRUE);CHKERRQ(ierr);
     ierr      = MatSetOption(*localA,MAT_SPD,PETSC_TRUE);CHKERRQ(ierr);
@@ -270,7 +270,7 @@ static PetscErrorCode InitializeDomainData(DomainData *dd)
   ierr    = PetscOptionsGetScalar (NULL,NULL,"-lx",&dd->lx,NULL);CHKERRQ(ierr);
   dd->hx  = dd->lx/dd->nex;
   dd->hy  = dd->ly/dd->ney;
-  dd->boundary = -0.0;
+  dd->boundary = -5.0;
   dd->source   = -2.0;
   ierr = PetscOptionsGetScalar (NULL,NULL,"-boundary",&dd->boundary,NULL);CHKERRQ(ierr);
   ierr = PetscOptionsGetScalar (NULL,NULL,"-source",&dd->source,NULL);CHKERRQ(ierr);
@@ -305,7 +305,6 @@ int main(int argc,char **args)
   ierr = ComputeMatrixAndRHS(dd,&localA,&localRHS);CHKERRQ(ierr);
   ierr = VecNorm(localRHS,NORM_2,&dp);
 
-    PetscPrintf(PETSC_COMM_SELF,"ceci: %g",dp);
   /* Compute global mapping of local dofs */
   ierr = ComputeMapping(dd,&mapping);CHKERRQ(ierr);
   
@@ -326,14 +325,14 @@ int main(int argc,char **args)
   ierr = KSPSetTolerances(ksp_interface,1e-10,0,PETSC_DEFAULT,1000);CHKERRQ(ierr);
   ierr = FETISolve(feti,u_local);CHKERRQ(ierr);
 
-/*   if (dd.nex<10) { */
-/* #if PETSC_VERSION_LT(3,7,0) */
-/*     ierr = PetscViewerSetFormat(PETSC_VIEWER_STDOUT_SELF,PETSC_VIEWER_ASCII_MATLAB);CHKERRQ(ierr); */
-/* #else */
-/*     ierr = PetscViewerPushFormat(PETSC_VIEWER_STDOUT_SELF,PETSC_VIEWER_ASCII_MATLAB);CHKERRQ(ierr); */
-/* #endif */
-/*     ierr = VecSeqViewSynchronized(dd.gcomm,u_local);CHKERRQ(ierr); */
-/*   } */
+  if (dd.nex<10) {
+#if PETSC_VERSION_LT(3,7,0)
+    ierr = PetscViewerSetFormat(PETSC_VIEWER_STDOUT_SELF,PETSC_VIEWER_ASCII_MATLAB);CHKERRQ(ierr);
+#else
+    ierr = PetscViewerPushFormat(PETSC_VIEWER_STDOUT_SELF,PETSC_VIEWER_ASCII_MATLAB);CHKERRQ(ierr);
+#endif
+    ierr = VecSeqViewSynchronized(dd.gcomm,u_local);CHKERRQ(ierr);
+  }
 
   ierr = FETIDestroy(&feti);CHKERRQ(ierr);
   ierr = MatDestroy(&localA);CHKERRQ(ierr);

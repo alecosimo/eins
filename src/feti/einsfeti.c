@@ -1,6 +1,8 @@
+#include <einspc.h>
 #include <private/einsfetiimpl.h>
 #include <private/einsmatimpl.h>
 #include <petsc/private/matimpl.h>
+#include <petsc/private/kspimpl.h>
 #include <private/einsvecimpl.h>
 #include <einssys.h>
 
@@ -573,7 +575,8 @@ PetscErrorCode FETIBuildInterfaceKSP(FETI ft)
   PetscErrorCode   ierr;
   MPI_Comm         comm;
   PC               pc;
-  
+  KSPNormType      normtype;
+    
   PetscFunctionBegin;
   PetscValidHeaderSpecific(ft,FETI_CLASSID,1);
   ierr  = PetscObjectGetComm((PetscObject)ft,&comm);CHKERRQ(ierr);
@@ -587,9 +590,15 @@ PetscErrorCode FETIBuildInterfaceKSP(FETI ft)
   ierr = PCSetType(pc,ft->pc_type_interface);CHKERRQ(ierr);
   ierr = KSPSetOperators(ft->ksp_interface,ft->F,ft->F);CHKERRQ(ierr);
   ierr = KSPSetInitialGuessNonzero(ft->ksp_interface,PETSC_TRUE);CHKERRQ(ierr);
-  ierr = KSPSetNormType(ft->ksp_interface, KSP_NORM_UNPRECONDITIONED);CHKERRQ(ierr);
   ierr = KSPSetOptionsPrefix(ft->ksp_interface,"feti_interface_");CHKERRQ(ierr);
   ierr = KSPSetFromOptions(ft->ksp_interface);CHKERRQ(ierr);
+  ierr = KSPGetNormType(ft->ksp_interface,&normtype);CHKERRQ(ierr);
+  if (normtype==KSP_NORM_NATURAL) {
+    void  *ctx;
+    ierr  = KSPConvergedFETIDefaultCreate(ft,&ctx);CHKERRQ(ierr);
+    ierr  = KSPSetConvergenceTest(ft->ksp_interface,KSPConvergedFETIDefault,ctx,KSPConvergedFETIDefaultDestroy);CHKERRQ(ierr);
+    ierr  = PCFETISetComputePrimalResidual(pc,PETSC_TRUE);CHKERRQ(ierr);
+  }
   ierr = KSPSetUp(ft->ksp_interface);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
@@ -674,8 +683,7 @@ PetscErrorCode  FETISetFromOptions(FETI feti)
     ierr = FETISetType(feti,def);CHKERRQ(ierr);
   }
 
-  ierr = PetscOptionsBool("-feti_resetup_pc_interface","If set, PCSetUp of the PC for interface problem is called everytime that the local problem is factorized",
-			  "none",feti->resetup_pc_interface,&feti->resetup_pc_interface,NULL);CHKERRQ(ierr);
+  ierr = PetscOptionsBool("-feti_resetup_pc_interface","If set, PCSetUp of the PC for interface problem is called everytime that the local problem is factorized","none",feti->resetup_pc_interface,&feti->resetup_pc_interface,NULL);CHKERRQ(ierr);
   
   if (feti->ops->setfromoptions) {
     ierr = (*feti->ops->setfromoptions)(PetscOptionsObject,feti);CHKERRQ(ierr);
@@ -1567,3 +1575,204 @@ PetscErrorCode  FETICreate(MPI_Comm comm,FETI *newfeti)
   PetscFunctionReturn(0);
 
 }
+
+
+#undef __FUNCT__
+#define __FUNCT__ "KSPConvergedFETIDefaultCreate"
+/*@C
+   KSPConvergedFETIDefaultCreate - Creates and initializes the space used by the KSPConvergedFETIDefault() function context
+
+   Collective on KSP
+
+   Output Parameter:
++  feti - the feti context
+-  ctx  - convergence context
+
+   Level: intermediate
+
+.keywords: KSP, default, convergence, residual
+
+.seealso: KSPConvergedFETIDefault(), KSPConvergedFETIDefaultDestroy(), KSPSetConvergenceTest(), KSPSetTolerances(),
+          KSPConvergedSkip(), KSPConvergedReason, KSPGetConvergedReason()
+@*/
+PetscErrorCode  KSPConvergedFETIDefaultCreate(FETI feti,void **ctx)
+{
+  PetscErrorCode      ierr;
+  KSPConvergedFETICtx *cctx;
+
+  PetscFunctionBegin;
+  ierr = PetscNew(&cctx);CHKERRQ(ierr);
+  cctx->feti = feti;
+  *ctx = cctx;
+  PetscFunctionReturn(0);
+}
+
+
+#undef __FUNCT__
+#define __FUNCT__ "KSPConvergedFETIDefault"
+/*@C
+   KSPConvergedFETIDefault - Determines convergence of the linear iterative solvers used for the FETI interface problem
+
+   Collective on KSP
+
+   Input Parameters:
++  ksp   - iterative context
+.  n     - iteration number
+.  rnorm - residual norm (may be estimated, depending on the method may be the preconditioned residual norm)
+-  ctx - convergence context which must be created by KSPConvergedFETIDefaultCreate()
+
+   Output Parameter:
++   positive - if the iteration has converged;
+.   negative - if residual norm exceeds divergence threshold;
+-   0 - otherwise.
+
+   Notes:
+   KSPConvergedFETIDefault() reaches convergence when   r_prim_norm < MAX (rtol * norm_rhs, abstol);
+   Divergence is detected if  r_prim_norm > dtol * norm_rhs,
+
+   where:
++     rtol = relative tolerance,
+.     abstol = absolute tolerance.
+.     dtol = divergence tolerance,
+-     norm_rhs is the two norm of the right hand side and r_prim_norm is an estimation of the primal residual. 
+
+   Use KSPSetTolerances() to alter the defaults for rtol, abstol, dtol.
+
+   Use KSPSetNormType() (or -ksp_norm_type <none,preconditioned,unpreconditioned,natural>) to change the norm used for computing rnorm
+
+   The precise values of reason are macros such as KSP_CONVERGED_RTOL, which are defined in petscksp.h.
+
+   Level: intermediate
+
+.keywords: KSP, default, convergence, residual
+
+.seealso: KSPSetConvergenceTest(), KSPSetTolerances(), KSPConvergedSkip(), KSPConvergedReason, KSPGetConvergedReason(),
+          KSPConvergedFETIDefaultCreate(), KSPConvergedFETIDefaultDestroy()
+@*/
+PetscErrorCode  KSPConvergedFETIDefault(KSP ksp,PetscInt n,PetscReal rnorm,KSPConvergedReason *reason,void *ctx)
+{
+  PetscErrorCode      ierr;
+  KSPConvergedFETICtx *cctx = (KSPConvergedFETICtx*) ctx;
+  KSPNormType         normtype;
+  
+  PetscFunctionBegin;
+  PetscValidHeaderSpecific(ksp,KSP_CLASSID,1);
+  PetscValidPointer(reason,4);
+  *reason = KSP_CONVERGED_ITERATING;
+
+  ierr = KSPGetNormType(ksp,&normtype);CHKERRQ(ierr);
+  if (!cctx) SETERRQ(PetscObjectComm((PetscObject)ksp),PETSC_ERR_ARG_NULL,"Convergence context must have been created with KSPConvergedFETIDefaultCreate()");
+  if (normtype != KSP_NORM_NATURAL) SETERRQ(PetscObjectComm((PetscObject)ksp),PETSC_ERR_ARG_WRONGSTATE,"KSPConvergedFETIDefault() can be used only with norm type KSP_NORM_PRIMAL");
+  
+  if (!n) {
+    PetscReal snorm = 0.0;
+    FETI      feti  = cctx->feti;
+    Subdomain sd    = feti->subdomain;
+    Vec       local_vec;
+
+    ierr = VecUnAsmGetLocalVector(sd->vec1_global,&local_vec);CHKERRQ(ierr);
+    ierr = VecCopy(sd->localRHS,local_vec);CHKERRQ(ierr);
+    ierr = VecExchangeBegin(sd->exchange_vec1global,sd->vec1_global,ADD_VALUES);CHKERRQ(ierr);
+    ierr = VecExchangeEnd(sd->exchange_vec1global,sd->vec1_global,ADD_VALUES);CHKERRQ(ierr);
+    ierr = VecUnAsmRestoreLocalVector(sd->vec1_global,local_vec);CHKERRQ(ierr);
+    ierr = VecNorm(sd->vec1_global,NORM_2,&snorm);CHKERRQ(ierr);
+
+    /* handle special case of zero RHS and nonzero guess */
+    if (!snorm) {
+      ierr  = PetscInfo(ksp,"Special case, user has provided zero RHS\n");CHKERRQ(ierr);
+      snorm = rnorm;
+    }
+    ksp->rnorm0 = snorm;
+    ksp->ttol = PetscMax(ksp->rtol*ksp->rnorm0,ksp->abstol);
+  }
+
+  if (n <= ksp->chknorm) PetscFunctionReturn(0);
+
+  if (PetscIsInfOrNanReal(rnorm)) {
+    PCFailedReason pcreason;
+    PetscInt       sendbuf,pcreason_max;
+    ierr = PCGetSetUpFailedReason(ksp->pc,&pcreason);CHKERRQ(ierr);
+    sendbuf = (PetscInt)pcreason;
+    ierr = MPI_Allreduce(&sendbuf,&pcreason_max,1,MPIU_INT,MPIU_MAX,PetscObjectComm((PetscObject)ksp));CHKERRQ(ierr);
+    if (pcreason_max) {
+      *reason = KSP_DIVERGED_PCSETUP_FAILED;
+      ierr    = VecSetInf(ksp->vec_sol);CHKERRQ(ierr);
+      ierr    = PetscInfo(ksp,"Linear solver pcsetup fails, declaring divergence \n");CHKERRQ(ierr);
+    } else {
+      *reason = KSP_DIVERGED_NANORINF;
+      ierr    = PetscInfo(ksp,"Linear solver has created a not a number (NaN) as the primal residual norm, declaring divergence \n");CHKERRQ(ierr);
+    }
+  } else if (rnorm <= ksp->ttol) {
+    if (rnorm < ksp->abstol) {
+      ierr    = PetscInfo3(ksp,"Linear solver has converged. Primal residual norm %14.12e is less than absolute tolerance %14.12e at iteration %D\n",(double)rnorm,(double)ksp->abstol,n);CHKERRQ(ierr);
+      *reason = KSP_CONVERGED_ATOL;
+    } else {
+      ierr = PetscInfo4(ksp,"Linear solver has converged. Primal residual norm %14.12e is less than relative tolerance %14.12e times primal right hand side norm %14.12e at iteration %D\n",(double)rnorm,(double)ksp->rtol,(double)ksp->rnorm0,n);CHKERRQ(ierr);
+      *reason = KSP_CONVERGED_RTOL;
+    }
+  } else if (rnorm >= ksp->divtol*ksp->rnorm0) {
+    ierr    = PetscInfo3(ksp,"Linear solver is diverging. Initial right hand size norm %14.12e, current residual norm %14.12e at iteration %D\n",(double)ksp->rnorm0,(double)rnorm,n);CHKERRQ(ierr);
+    *reason = KSP_DIVERGED_DTOL;
+  }
+  PetscFunctionReturn(0);
+}
+
+
+#undef __FUNCT__
+#define __FUNCT__ "KSPConvergedFETIDefaultDestroy"
+/*@C
+   KSPConvergedFETIDefaultDestroy - Frees the space used by the KSPConvergedFETIDefault() function context
+
+   Collective on KSP
+
+   Input Parameters:
+.  ctx - convergence context
+
+   Level: intermediate
+
+.keywords: KSP, default, convergence, residual
+
+.seealso: KSPConvergedFETIDefault(), KSPConvergedFETIDefaultCreate(), KSPSetConvergenceTest(), KSPSetTolerances(), KSPConvergedSkip(),
+          KSPConvergedReason, KSPGetConvergedReason(), KSPConvergedDefaultSetUIRNorm(), KSPConvergedDefaultSetUMIRNorm()
+@*/
+PetscErrorCode  KSPConvergedFETIDefaultDestroy(void *ctx)
+{
+  PetscErrorCode  ierr;
+
+  PetscFunctionBegin;
+  ierr = PetscFree(ctx);CHKERRQ(ierr);
+  PetscFunctionReturn(0);
+}
+
+
+/* #undef __FUNCT__ */
+/* #define __FUNCT__ "KSPMonitorFETIDefaultShort" */
+/* /\* */
+/*   Default (short) KSP Monitor for FETI. This is because the later digits are meaningless and are often */
+/*   different on different machines; by using this routine different */
+/*   machines will usually generate the same output. */
+/* *\/ */
+/* PetscErrorCode  KSPMonitorFETIDefaultShort(KSP ksp,PetscInt its,PetscReal fnorm,PetscViewerAndFormat *dummy) */
+/* { */
+/*   PetscErrorCode ierr; */
+/*   PetscViewer    viewer = dummy->viewer; */
+
+/*   PetscFunctionBegin; */
+/*   PetscValidHeaderSpecific(viewer,PETSC_VIEWER_CLASSID,4); */
+/*   ierr = PetscViewerPushFormat(viewer,dummy->format);CHKERRQ(ierr); */
+/*   ierr = PetscViewerASCIIAddTab(viewer,((PetscObject)ksp)->tablevel);CHKERRQ(ierr); */
+/*   if (its == 0 && ((PetscObject)ksp)->prefix) { */
+/*     ierr = PetscViewerASCIIPrintf(viewer,"  Residual norms for %s solve.\n",((PetscObject)ksp)->prefix);CHKERRQ(ierr); */
+/*   } */
+
+/*   if (fnorm > 1.e-9) { */
+/*     ierr = PetscViewerASCIIPrintf(viewer,"%3D KSP Residual norm %g \n",its,(double)fnorm);CHKERRQ(ierr); */
+/*   } else if (fnorm > 1.e-11) { */
+/*     ierr = PetscViewerASCIIPrintf(viewer,"%3D KSP Residual norm %5.3e \n",its,(double)fnorm);CHKERRQ(ierr); */
+/*   } else { */
+/*     ierr = PetscViewerASCIIPrintf(viewer,"%3D KSP Residual norm < 1.e-11\n",its);CHKERRQ(ierr); */
+/*   } */
+/*   ierr = PetscViewerASCIISubtractTab(viewer,((PetscObject)ksp)->tablevel);CHKERRQ(ierr); */
+/*   ierr = PetscViewerPopFormat(viewer);CHKERRQ(ierr); */
+/*   PetscFunctionReturn(0); */
+/* } */

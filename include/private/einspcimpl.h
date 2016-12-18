@@ -7,7 +7,8 @@
 
 #define PCFETIHEADER                 \
   FETI ft;                           \
-  /* MPI communications */           \
+  PetscBool compute_pres;            \
+/* MPI communications */	     \
   PetscInt        n_reqs;            \
   MPI_Request     *s_reqs,*r_reqs;   \
   PetscScalar     **work_vecs;       \

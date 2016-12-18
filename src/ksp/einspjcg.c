@@ -163,8 +163,18 @@ static PetscErrorCode KSPSolve_PJCG(KSP ksp)
   } else {
     ierr = VecCopy(B,R);CHKERRQ(ierr);                         /*   r <- b (x is 0) */
   }
-  if(pj->project) {ierr = (*pj->project)(pj->ctxProj,R,W);CHKERRQ(ierr);} /* W = P^T*R (project residual) */
-  ierr = VecNorm(W,NORM_2,&dp);CHKERRQ(ierr);
+  
+  if (pj->project) {ierr = (*pj->project)(pj->ctxProj,R,W);CHKERRQ(ierr);} /* W = P^T*R (project residual) */
+
+  if (ksp->normtype != KSP_NORM_NATURAL) {
+    ierr = VecNorm(W,NORM_2,&dp);CHKERRQ(ierr);
+  } else {
+    /* Applying preconditioner and computing norm of primal residual */
+    Vec  primal_res;
+    ierr = KSP_PCApply(ksp,W,Zp);CHKERRQ(ierr);                   /*   Zp <- B*W               */
+    ierr = PetscObjectQuery((PetscObject) ksp->pc,"primal_res",(PetscObject*)&primal_res);CHKERRQ(ierr);
+    ierr = VecNorm(primal_res,NORM_2,&dp);CHKERRQ(ierr);
+  }
 
   /* Initial Convergence Check */
   ierr       = KSPLogResidualHistory(ksp,dp);CHKERRQ(ierr);
@@ -173,8 +183,10 @@ static PetscErrorCode KSPSolve_PJCG(KSP ksp)
   ierr       = (*ksp->converged)(ksp,0,dp,&ksp->reason,ksp->cnvP);CHKERRQ(ierr);
   if (ksp->reason) PetscFunctionReturn(0);
 
-  /* Continue by applying preconditioner */
-  ierr = KSP_PCApply(ksp,W,Zp);CHKERRQ(ierr);                   /*   Zp <- B*W               */
+  /* Applying preconditioner in case of NOT using the primal residual */
+  if (ksp->normtype != KSP_NORM_NATURAL) {
+    ierr = KSP_PCApply(ksp,W,Zp);CHKERRQ(ierr);                   /*   Zp <- B*W               */
+  }
   /* Reproject */
   if(pj->reproject) {
     ierr = (*pj->reproject)(pj->ctxReProj,Zp,Y);CHKERRQ(ierr);  /*   Y <- P*Zp  (reproject)  */
@@ -252,7 +264,15 @@ static PetscErrorCode KSPSolve_PJCG(KSP ksp)
 
     /* Project new residual W = P^T*R */
     if(pj->project) {ierr = (*pj->project)(pj->ctxProj,R,W);CHKERRQ(ierr);}
-    ierr = VecNorm(W,NORM_2,&dp);CHKERRQ(ierr);
+    if (ksp->normtype != KSP_NORM_NATURAL) {
+      ierr = VecNorm(W,NORM_2,&dp);CHKERRQ(ierr);
+    } else {
+      /* Applying preconditioner and computing norm of primal residual */
+      Vec  primal_res;
+      ierr = KSP_PCApply(ksp,W,Zp);CHKERRQ(ierr);                   /*   Zp <- B*W               */
+      ierr = PetscObjectQuery((PetscObject) ksp->pc,"primal_res",(PetscObject*)&primal_res);CHKERRQ(ierr);
+      ierr = VecNorm(primal_res,NORM_2,&dp);CHKERRQ(ierr);
+    }
    
     /* Check for convergence */
     ksp->rnorm = dp;
@@ -261,8 +281,11 @@ static PetscErrorCode KSPSolve_PJCG(KSP ksp)
     ierr = (*ksp->converged)(ksp,i+1,dp,&ksp->reason,ksp->cnvP);CHKERRQ(ierr);
     if (ksp->reason) break;
 
-    /* Apply preconditioner */
-    ierr = KSP_PCApply(ksp,W,Zp);CHKERRQ(ierr);                   /*   Zp <- B*W               */
+    /* Applying preconditioner in case of NOT using the primal residual */
+    if (ksp->normtype != KSP_NORM_NATURAL) {
+      ierr = KSP_PCApply(ksp,W,Zp);CHKERRQ(ierr);                   /*   Zp <- B*W               */
+    }
+
     if(pj->reproject) {
       ierr = (*pj->reproject)(pj->ctxReProj,Zp,Y);CHKERRQ(ierr);  /*   Y <- P*Zp  (reproject)  */
     } else {
@@ -570,8 +593,13 @@ static PetscErrorCode KSPSetFromOptions_PJCG(PetscOptionItems *PetscOptionsObjec
   PetscFunctionReturn(0);
 }
 
-/*MC
-      KSPPJCG - Implements the Flexible Conjugate Gradient method with the support for Project-Precondition-Re-Project steps (PJCG)
+/*MC 
+
+  KSPPJCG - Implements the Flexible Conjugate Gradient method with
+the support for Project-Precondition-Re-Project steps
+(PJCG). Supported norm types: KSP_NORM_UNPRECONDITIONED (default) and
+KSP_NORM_NATURAL which actually uses the residual computed internally
+by the preconditioner (it is not the usual NATURAL norm!).
 
   Options Database Keys:
 +   -ksp_cg_mmax <N>: maximum number of search directions to keep
@@ -625,7 +653,9 @@ PETSC_EXTERN PetscErrorCode KSPCreate_PJCG(KSP ksp)
   cg->truncstrat = KSPPJCG_DEFAULT_TRUNCSTRAT;
 
   ierr = KSPSetSupportedNorm(ksp,KSP_NORM_UNPRECONDITIONED,PC_LEFT,1);CHKERRQ(ierr);
+  ierr = KSPSetSupportedNorm(ksp,KSP_NORM_NATURAL,PC_LEFT,1);CHKERRQ(ierr);
   ierr = KSPSetNormType(ksp,KSP_NORM_UNPRECONDITIONED);CHKERRQ(ierr);
+  
   ierr = PetscObjectComposeFunction((PetscObject)ksp,"KSPGetProjecion_C",KSPGetProjection_PJCG);CHKERRQ(ierr);
   ierr = PetscObjectComposeFunction((PetscObject)ksp,"KSPGetResidual_C",KSPGetResidual_PJCG);CHKERRQ(ierr);
   

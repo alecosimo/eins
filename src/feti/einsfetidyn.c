@@ -13,8 +13,8 @@ static PetscErrorCode FETISetUp_FETIDYN(FETI ft)
   
   PetscFunctionBegin;
   if (ft->state==FETI_STATE_INITIAL) {
-    ierr = FETIScalingSetUp(ft);CHKERRQ(ierr);
     ierr = FETIBuildLambdaAndB(ft);CHKERRQ(ierr);
+    ierr = FETIScalingSetUp(ft);CHKERRQ(ierr);
     ierr = FETISetUpNeumannSolverAndPerformFactorization(ft,PETSC_FALSE);CHKERRQ(ierr);
     ierr = FETIBuildInterfaceProblem(ft);CHKERRQ(ierr);
     ierr = FETIBuildInterfaceKSP(ft);CHKERRQ(ierr); /* the PC for the interface problem is setup here */
@@ -133,7 +133,6 @@ EXTERN_C_BEGIN
 .  -feti_pc_dirichilet_<ksp or pc option>: options for the KSP or PC to use for solving the Dirichlet problem
    associated to the Dirichlet preconditioner
 .  -feti_scaling_type - Sets the scaling type
-.  -feti_scaling_factor - Sets a scaling factor different from one
 .  -feti_pj2level_pc_coarse_<ksp or pc option>: options for the KSP for the coarse problem
 .  -fetics_geneo_<option>: options for FETIDYN using GENEO modes (e.g.:-fetics_geneo_eps_nev sets the number of eigenvalues)
 

@@ -42,6 +42,10 @@ static PetscErrorCode PCSetUp_LUMPED(PC pc)
     pcl->A_BB = sd->A_BB;
     ierr      = PetscObjectReference((PetscObject)sd->A_BB);CHKERRQ(ierr);
   }
+  if (pcl->compute_pres) {
+    ierr = PetscObjectCompose((PetscObject)pc,"primal_res",(PetscObject)sd->vec1_global);CHKERRQ(ierr);
+  }
+
   PetscFunctionReturn(0);
 }
 
@@ -63,10 +67,16 @@ static PetscErrorCode PCReset_LUMPED(PC pc)
 #define __FUNCT__ "PCDestroy_LUMPED"
 static PetscErrorCode PCDestroy_LUMPED(PC pc)
 {
-  PetscErrorCode ierr;
+  PetscErrorCode      ierr;
+  PCFT_LUMPED         *pcl = (PCFT_LUMPED*)pc->data;
+
   PetscFunctionBegin;
   ierr = PetscObjectComposeFunction((PetscObject)pc,"PCApplyLocal_C",NULL);CHKERRQ(ierr);
   ierr = PetscObjectComposeFunction((PetscObject)pc,"PCApplyLocalWithPolling_C",NULL);CHKERRQ(ierr);
+  if (pcl->compute_pres) {
+    Subdomain sd = (pcl->ft)->subdomain;
+    ierr = VecDestroy(&sd->vec1_global);CHKERRQ(ierr);
+  }
   ierr = PCReset_LUMPED(pc);CHKERRQ(ierr);
   ierr = PetscFree(pc->data);CHKERRQ(ierr);
   PetscFunctionReturn(0);
@@ -260,8 +270,18 @@ static PetscErrorCode PCApply_LUMPED(PC pc,Vec x,Vec y)
   ierr = VecUnAsmGetLocalVector(y,&y_local);CHKERRQ(ierr);
   /* Application of B_Ddelta^T */
   ierr = MatMultTranspose(ft->B_Ddelta,lambda_local,sd->vec1_B);CHKERRQ(ierr);
-  /* Application of local Schur complement */
+  /* Application of aproximation to local Schur complement */
   ierr = MatMult(pcl->A_BB,sd->vec1_B,sd->vec2_B);CHKERRQ(ierr);
+
+  if (pcl->compute_pres) {
+    /* compute primal residual if asked */
+    ierr = VecSet(sd->vec1_global,0.0);CHKERRQ(ierr);
+    ierr = VecScatterUABegin(sd->N_to_B,sd->vec2_B,sd->vec1_global,INSERT_VALUES,SCATTER_REVERSE);CHKERRQ(ierr);
+    ierr = VecScatterUAEnd(sd->N_to_B,sd->vec2_B,sd->vec1_global,INSERT_VALUES,SCATTER_REVERSE);CHKERRQ(ierr);
+    ierr = VecExchangeBegin(sd->exchange_vec1global,sd->vec1_global,ADD_VALUES);CHKERRQ(ierr);
+    ierr = VecExchangeEnd(sd->exchange_vec1global,sd->vec1_global,ADD_VALUES);CHKERRQ(ierr);
+  }
+
   /* Application of B_Ddelta */
   ierr = MatMult(ft->B_Ddelta,sd->vec2_B,y_local);CHKERRQ(ierr);
   ierr = VecExchangeBegin(ft->exchange_lambda,y,ADD_VALUES);CHKERRQ(ierr);
@@ -290,7 +310,8 @@ PetscErrorCode PCCreate_LUMPED(PC pc)
   PetscFunctionBegin;
   ierr     = PetscNewLog(pc,&pcl);CHKERRQ(ierr);
   pc->data = (void*)pcl;
-  
+
+  pcl->compute_pres            = 0;
   pcl->ft                      = 0;
   pcl->A_BB                    = 0;
   pcl->work_vecs               = 0;

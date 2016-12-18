@@ -69,7 +69,7 @@ Reports information only for process 0.
 --- Event Stage 0: Main Stage
 
      Vector Exchange     2              2
-              Vector   133            133
+              Vector   132            132
       Vector Scatter    11             11
               Matrix    16             16
     Distributed Mesh     1              1

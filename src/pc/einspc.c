@@ -146,3 +146,27 @@ PetscErrorCode PCAllocateCommunication_Private(PC pc,PetscInt *n2c)
   ierr = MPI_Allreduce(MPI_IN_PLACE,n2c,1,MPIU_INT,MPI_SUM,pch->comm);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
+
+
+#undef __FUNCT__
+#define __FUNCT__ "PCFETISetComputePrimalResidual"
+/*@
+   PCFETISetComputePrimalResidual - Sets if the preconditioner must compute the an estimation of the primal residual.
+
+   Input Parameters:
++  PC - the pc context
+-  compute_pres - the Boolean value
+
+   Level: intermedite
+
+@*/
+PETSC_EXTERN PetscErrorCode PCFETISetComputePrimalResidual(PC pc,PetscBool compute_pres)
+{
+  PCFT_BASE      *pch;
+  
+  PetscFunctionBegin;
+  PetscValidHeaderSpecific(pc,PC_CLASSID,1);
+  pch = (PCFT_BASE*)pc->data;
+  pch->compute_pres = compute_pres;
+  PetscFunctionReturn(0);
+}

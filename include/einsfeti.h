@@ -167,6 +167,9 @@ PETSC_EXTERN PetscErrorCode FETISetFactorizeLocalProblem(FETI,PetscBool);
 PETSC_EXTERN PetscErrorCode FETISetReSetupPCInterface(FETI,PetscBool);
 PETSC_EXTERN PetscErrorCode FETIComputeForceNorm(FETI,Vec,NormType,PetscReal*);
 PETSC_EXTERN PetscErrorCode FETIComputeForceNormLocal(FETI,Vec,NormType,PetscReal*);
+PETSC_EXTERN PetscErrorCode KSPConvergedFETIDefaultDestroy(void*);
+PETSC_EXTERN PetscErrorCode KSPConvergedFETIDefault(KSP,PetscInt,PetscReal,KSPConvergedReason*,void*);
+PETSC_EXTERN PetscErrorCode KSPConvergedFETIDefaultCreate(FETI,void**);
 /* FETISTAT stuff */
 PETSC_EXTERN PetscErrorCode FETISTATSetDefaultOptions(int*,char***,const char[]);
 /* FETIDYN stuff */
