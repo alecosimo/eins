@@ -4,22 +4,33 @@ EINS: Efficient Integrators and Non-linear Solvers
 Overview
 --------
 
-EINS is a library for experimenting with FETI (Finite Element Tearing
-and Interconnect) solvers. These solvers could be involved in the
-numerical simulation of static and dynamic problems, which at the same
-time could be linear or non-linear. I decided based the implement as
-extensions of the PETSc library (version 3.7). Some comments on the
-design of the code can be found [here](https://cimec.org.ar/ojs/index.php/mc/article/view/5046). 
+EINS is a library for experimenting with FETI-based solvers. The FETI
+(Finite Element Tearing and Interconnect) method is a well-established
+domain decomposition technique for solving large systems of equations
+which usually result from the discretisation of partial differential
+equations. Among the various versions of the FETI method, the
+one-level FETI (FETI-1), the second-level FETI (FETI-2) and the
+Dual-Primal FETI (FETI-DP) are the main versions from which further
+improvements have been proposed. This library only considers the
+family of the FETI-1 and FETI-2 methodologies which are characterised
+by enforcing the continuity of the solution between subdomains using
+Lagrange multipliers. Some comments on the design of the code can be
+found [here](https://cimec.org.ar/ojs/index.php/mc/article/view/5046)
+
+The different FETI methods are implemented as extensions to the [PETSc
+library,](https://www.mcs.anl.gov/petsc/) therefore inheriting many of
+the powerful features that this library for scientific computing has.
+
+The implementation of the FETI solvers is I decided based the implement as extensions of the 
 
 This is an experimental code which I have some time without working on
-it. Therefore, if you find it interesting for your personal usage and
-have some question or want to discuss about the philosophy behind the design
-of the code, do not hesitate to contact me. I have some ideas that I
-didn't implement and would help to improve the quality of the
-code.
+it. Therefore, if you find it interesting and have some question or
+want to discuss about the philosophy behind the design of the code, do
+not hesitate to contact me. I have some ideas that would help to
+improve the quality of the code, but which I didn't implement.
 
 CMake is used to control the software compilation and testing. In
-order to be able to successfully compile the library, you additionally
-need to have installed the SLEPc library (version 3.6.3). Once you
-compiled the library, you can issue -make check- in order to run the
-tests. 
+order to be able to successfully compile the library, in addition to
+the PETSc library (version 3.7), you need to have installed the [SLEPc
+library] (http://slepc.upv.es/) (version 3.6.3). Once you compile the
+library, the tests can be run with the command -make check- 
