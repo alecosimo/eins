@@ -1,9 +1,6 @@
 EINS: Efficient Integrators and Non-linear Solvers
 ==================================================
 
-Overview
---------
-
 EINS is a library for experimenting with FETI-based solvers. The FETI
 (Finite Element Tearing and Interconnect) method is a well-established
 domain decomposition technique for solving large systems of equations
@@ -32,5 +29,5 @@ improve the quality of the code, but which I didn't implement.
 CMake is used to control the software compilation and testing. In
 order to be able to successfully compile the library, in addition to
 the PETSc library (version 3.7), you need to have installed the [SLEPc
-library] (http://slepc.upv.es/) (version 3.6.3). Once you compile the
+library](http://slepc.upv.es/) (version 3.6.3). Once you compile the
 library, the tests can be run with the command -make check- 
